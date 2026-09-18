@@ -40,6 +40,8 @@ export default function App() {
     }
   });
 
+  const isAdmin = Boolean(adminUser);
+
   const goToRegister = () => {
     setCurrentView('register');
     window.location.hash = 'register';
