@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, AlertCircle, LogIn } from 'lucide-react';
+import { ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
 
 const COUNTRY_CODES = [
   { code: '+91', label: 'IN (+91)' },
@@ -53,18 +53,6 @@ export default function StepContact({
               {duplicateWarning}
             </div>
           </div>
-          {onGoToLogin && (
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={onGoToLogin}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-200/80 hover:bg-amber-300/80 text-amber-950 font-semibold text-xs transition-colors"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Go to Student Login</span>
-              </button>
-            </div>
-          )}
         </div>
       )}
 

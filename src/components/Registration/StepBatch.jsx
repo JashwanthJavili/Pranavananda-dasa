@@ -10,7 +10,7 @@ import {
   ChevronLeft, 
   ChevronRight 
 } from 'lucide-react';
-import { fetchBatchesFromFirestore, DEFAULT_BATCHES } from '../../firebase';
+import { fetchBatchesFromFirestore } from '../../firebase';
 
 const REFERRAL_OPTIONS = [
   'Friend / Family',
@@ -22,22 +22,49 @@ const REFERRAL_OPTIONS = [
 ];
 
 export default function StepBatch({ data, onChange, onNext, onBack, errors }) {
-  const [batches, setBatches] = useState(DEFAULT_BATCHES);
+  const [batches, setBatches] = useState(() => {
+    try {
+      const cached = localStorage.getItem('gita_amrita_cached_batches');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return [];
+  });
   const scrollRef = useRef(null);
 
   useEffect(() => {
     async function loadBatches() {
       try {
         const remoteBatches = await fetchBatchesFromFirestore();
-        if (remoteBatches && remoteBatches.length > 0) {
+        if (remoteBatches) {
           setBatches(remoteBatches);
+          try {
+            localStorage.setItem('gita_amrita_cached_batches', JSON.stringify(remoteBatches));
+          } catch (e) {}
         }
       } catch (err) {
-        console.warn('Using default batches fallback', err);
+        console.warn('Could not fetch batches from Firestore:', err);
       }
     }
     loadBatches();
   }, []);
+
+  // Filter out any duplicate batches by ID and content signature
+  const uniqueBatches = React.useMemo(() => {
+    const seen = new Set();
+    const unique = [];
+    for (const b of batches) {
+      if (!b) continue;
+      const key = b.id || '';
+      const contentKey = `${(b.title || '').trim().toLowerCase()}_${(b.schedule || '').trim().toLowerCase()}_${(b.mode || '').toLowerCase()}_${b.startDate || ''}_${b.endDate || ''}`;
+      if ((key && seen.has(key)) || seen.has(contentKey)) {
+        continue;
+      }
+      if (key) seen.add(key);
+      seen.add(contentKey);
+      unique.push(b);
+    }
+    return unique;
+  }, [batches]);
 
   const scrollBatches = (direction) => {
     if (scrollRef.current) {
@@ -70,7 +97,7 @@ export default function StepBatch({ data, onChange, onNext, onBack, errors }) {
             Available Batches <span className="text-saffron-600">*</span>
           </label>
           
-          {batches.length > 1 && (
+          {uniqueBatches.length > 1 && (
             <div className="flex items-center space-x-1">
               <button
                 type="button"
@@ -92,83 +119,96 @@ export default function StepBatch({ data, onChange, onNext, onBack, errors }) {
           )}
         </div>
 
-        {/* Sliding Batches Strip */}
-        <div
-          ref={scrollRef}
-          className="flex gap-3 overflow-x-auto pb-2 pt-1 px-1 scroll-smooth snap-x scrollbar-thin"
-        >
-          {batches.map((batch) => {
-            const isSelected = data.batchId === batch.id;
-            const isOffline = batch.mode?.toLowerCase() === 'offline';
+        {/* Sliding Batches Strip or Empty Notice */}
+        {uniqueBatches.length === 0 ? (
+          <div className="p-6 text-center bg-cream-50 rounded-2xl border border-cream-300/80 space-y-2">
+            <p className="text-sm font-semibold text-temple-800">No batches currently published</p>
+            <p className="text-xs text-temple-600">
+              Coordinators are preparing upcoming class schedules. Please contact ISKCON Adilabad or check back shortly.
+            </p>
+          </div>
+        ) : (
+          <div
+            ref={scrollRef}
+            className="flex gap-3 overflow-x-auto pb-2 pt-1 px-1 scroll-smooth snap-x scrollbar-thin"
+          >
+            {uniqueBatches.map((batch) => {
+              const isSelected = data.batchId === batch.id;
+              const isOffline = batch.mode?.toLowerCase() === 'offline';
 
-            return (
-              <div
-                key={batch.id}
-                onClick={() => {
-                  onChange('batchId', batch.id);
-                  onChange('batchTitle', batch.title);
-                  onChange('batchSchedule', batch.schedule);
-                  onChange('batchMode', batch.mode);
-                }}
-                className={`min-w-[240px] sm:min-w-[270px] snap-center rounded-2xl p-4 border cursor-pointer transition-all duration-200 text-left flex flex-col justify-between flex-shrink-0 ${
-                  isSelected
-                    ? 'border-saffron-500 bg-saffron-50/80 shadow-soft ring-2 ring-saffron-500/25'
-                    : 'border-cream-300 bg-cream-50 hover:bg-cream-100 hover:border-cream-400'
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm sm:text-base font-bold text-temple-900 tracking-tight">
-                      {batch.title}
-                    </h3>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${
-                        isOffline
-                          ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                          : 'bg-saffron-100 text-saffron-800 border border-saffron-200'
+              return (
+                <div
+                  key={batch.id}
+                  onClick={() => {
+                    onChange('batchId', batch.id);
+                    onChange('batchTitle', batch.title);
+                    onChange('batchSchedule', batch.schedule);
+                    onChange('batchMode', batch.mode);
+                    onChange('batchStartDate', batch.startDate || '');
+                    onChange('batchEndDate', batch.endDate || '');
+                  }}
+                  className={`min-w-[240px] sm:min-w-[270px] snap-center rounded-2xl p-4 border cursor-pointer transition-all duration-200 text-left flex flex-col justify-between flex-shrink-0 ${
+                    isSelected
+                      ? 'border-saffron-500 bg-saffron-50/80 shadow-soft ring-2 ring-saffron-500/25'
+                      : 'border-cream-300 bg-cream-50 hover:bg-cream-100 hover:border-cream-400'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm sm:text-base font-bold text-temple-900 tracking-tight">
+                        {batch.title}
+                      </h3>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${
+                          isOffline
+                            ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                            : 'bg-saffron-100 text-saffron-800 border border-saffron-200'
+                        }`}
+                      >
+                        {isOffline ? <MapPin className="w-2.5 h-2.5" /> : <Monitor className="w-2.5 h-2.5" />}
+                        <span>{batch.mode}</span>
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-temple-600 font-medium">
+                      {batch.startDate && (
+                        <div className="flex items-center gap-1.5 text-saffron-800 font-semibold">
+                          <Calendar className="w-3.5 h-3.5 text-saffron-600 flex-shrink-0" />
+                          <span>{batch.startDate} {batch.endDate ? `to ${batch.endDate}` : ''}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-saffron-600 flex-shrink-0" />
+                        <span>{batch.schedule}</span>
+                      </div>
+                    </div>
+
+                    {batch.location && (
+                      <p className="text-[11px] text-temple-500 italic pt-0.5 truncate">
+                        {batch.location}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-3 mt-2 border-t border-cream-200/80 flex items-center justify-between">
+                    <span className={`text-xs font-semibold ${isSelected ? 'text-saffron-700' : 'text-temple-500'}`}>
+                      {isSelected ? 'Selected' : 'Tap to Select'}
+                    </span>
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-saffron-500 text-white shadow-soft'
+                          : 'border border-cream-300 bg-white text-transparent'
                       }`}
                     >
-                      {isOffline ? <MapPin className="w-2.5 h-2.5" /> : <Monitor className="w-2.5 h-2.5" />}
-                      <span>{batch.mode}</span>
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-temple-600 font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-saffron-600" />
-                      <span>{batch.duration}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-saffron-600" />
-                      <span>{batch.schedule}</span>
+                      <Check className="w-3 h-3 stroke-[3]" />
                     </div>
                   </div>
-
-                  {batch.location && (
-                    <p className="text-[11px] text-temple-500 italic pt-0.5 truncate">
-                      {batch.location}
-                    </p>
-                  )}
                 </div>
-
-                <div className="pt-3 mt-2 border-t border-cream-200/80 flex items-center justify-between">
-                  <span className={`text-xs font-semibold ${isSelected ? 'text-saffron-700' : 'text-temple-500'}`}>
-                    {isSelected ? 'Selected' : 'Tap to Select'}
-                  </span>
-                  <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
-                      isSelected
-                        ? 'bg-saffron-500 text-white shadow-soft'
-                        : 'border border-cream-300 bg-white text-transparent'
-                    }`}
-                  >
-                    <Check className="w-3 h-3 stroke-[3]" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {errors.batchId && (
           <p className="text-xs text-red-600 font-medium pt-0.5">{errors.batchId}</p>

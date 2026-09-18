@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bell, MessageCircle } from 'lucide-react';
 import StepIndicator from './StepIndicator';
 import StepPersonal from './StepPersonal';
 import StepContact from './StepContact';
@@ -7,7 +7,7 @@ import StepBackground from './StepBackground';
 import StepBatch from './StepBatch';
 import StepReview from './StepReview';
 import StepSuccess from './StepSuccess';
-import { saveRegistration, generateRegistrationId, checkDuplicateRegistration } from '../../firebase';
+import { saveRegistration, generateRegistrationId, checkDuplicateRegistration, fetchProgramSettings, subscribeToProgramSettings } from '../../firebase';
 
 const STEPS = [
   { id: 1, title: 'Personal Details', shortTitle: 'Profile' },
@@ -28,10 +28,12 @@ const INITIAL_FORM_DATA = {
   area: '',
   occupation: 'Student',
   gitaExperience: 'Beginner / First time',
-  batchId: 'bg-18-offline-7pm',
-  batchTitle: 'Bhagavad Gita',
-  batchSchedule: 'Daily • 7:00 PM',
+  batchId: '',
+  batchTitle: '',
+  batchSchedule: '',
   batchMode: 'Offline',
+  batchStartDate: '',
+  batchEndDate: '',
   referralSource: 'WhatsApp',
 };
 
@@ -83,9 +85,26 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
     return '';
   });
 
+  const [settings, setSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('gita_amrita_cached_settings');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return { isRegistrationOpen: true, closedNotice: '' };
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    const unsubscribe = subscribeToProgramSettings((latestSettings) => {
+      if (latestSettings) {
+        setSettings(latestSettings);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Auto-save form draft and step to localStorage on change
   useEffect(() => {
@@ -210,6 +229,11 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   };
 
   const handleConfirmRegistration = async () => {
+    if (!settings.isRegistrationOpen) {
+      setDuplicateWarning('Registrations are currently closed. Please contact program coordinators.');
+      return;
+    }
+
     // Final duplicate check
     try {
       const checkResult = await checkDuplicateRegistration(formData.mobile, formData.email);
@@ -306,7 +330,46 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
       <main className="flex-1 py-6 sm:py-10 px-3 sm:px-6 flex items-center justify-center">
         <div className="w-full max-w-lg lg:max-w-4xl mx-auto">
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {!settings.isRegistrationOpen && currentStep !== 6 ? (
+            /* Registration Closed State */
+            <div className="max-w-lg mx-auto bg-cream-100 rounded-3xl p-6 sm:p-10 border border-cream-200/90 shadow-soft text-center space-y-6 animate-fadeIn">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+                <Bell size={28} />
+              </div>
+              <div className="space-y-3">
+                <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-amber-100 text-amber-800">
+                  Admissions Paused
+                </span>
+                <h2 className="text-2xl font-bold text-temple-900 font-serif">
+                  Registrations are Temporarily Closed
+                </h2>
+                <p className="text-sm text-temple-600 leading-relaxed font-normal">
+                  {settings.closedNotice ||
+                    'New registrations for the current Bhagavad Gita batches are currently closed. Please join our WhatsApp community or contact temple coordinators to receive updates when the next batch opens.'}
+                </p>
+              </div>
+
+              <div className="pt-2 space-y-3">
+                <a
+                  href="https://chat.whatsapp.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+                >
+                  <MessageCircle size={18} />
+                  Join WhatsApp Group for Next Batch
+                </a>
+                <button
+                  type="button"
+                  onClick={onBackToHome}
+                  className="w-full py-2.5 px-4 rounded-xl border border-cream-300 text-temple-700 hover:bg-cream-200 text-sm font-medium transition-all"
+                >
+                  Return to Home
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column (Desktop Spiritual Companion) */}
             {currentStep < 6 && (
@@ -407,6 +470,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
             </div>
 
           </div>
+          )}
 
         </div>
       </main>

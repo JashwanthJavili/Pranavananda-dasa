@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 
-export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdmin, studentUser }) {
+export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdmin, studentUser, isRegistrationOpen = true }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -91,9 +91,14 @@ export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdm
             </button>
             <button
               onClick={onOpenRegister}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 rounded-lg shadow-sm hover:shadow transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 focus-visible:ring-offset-2"
+              className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg shadow-xs hover:shadow transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 cursor-pointer flex items-center gap-1.5 ${
+                isRegistrationOpen
+                  ? 'text-white bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700'
+                  : 'text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300'
+              }`}
             >
-              Register Now
+              {!isRegistrationOpen && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />}
+              <span>{isRegistrationOpen ? 'Register Now' : 'Admissions Paused'}</span>
             </button>
           </div>
 
@@ -143,9 +148,14 @@ export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdm
                 setMobileMenuOpen(false);
                 onOpenRegister();
               }}
-              className="w-full py-3 text-center text-sm font-semibold text-white bg-saffron-500 hover:bg-saffron-600 rounded-lg shadow-sm transition-colors cursor-pointer"
+              className={`w-full py-2.5 text-center text-xs sm:text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2 ${
+                isRegistrationOpen
+                  ? 'text-white bg-saffron-500 hover:bg-saffron-600'
+                  : 'text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300'
+              }`}
             >
-              Register Now
+              {!isRegistrationOpen && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />}
+              <span>{isRegistrationOpen ? 'Register Now' : 'Admissions Paused'}</span>
             </button>
           </div>
         </div>

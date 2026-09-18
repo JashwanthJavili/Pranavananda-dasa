@@ -9,6 +9,7 @@ import FinalCTASection from './components/FinalCTASection';
 import MoreSection from './components/MoreSection';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
+import { subscribeToProgramSettings } from './firebase';
 
 const RegistrationFlow = React.lazy(() => import('./components/Registration/RegistrationFlow'));
 const AdminDashboard = React.lazy(() => import('./components/Admin/AdminDashboard'));
@@ -41,6 +42,23 @@ export default function App() {
   });
 
   const isAdmin = Boolean(adminUser);
+
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(() => {
+    try {
+      const cached = localStorage.getItem('gita_amrita_cached_settings');
+      if (cached) return JSON.parse(cached).isRegistrationOpen !== false;
+    } catch (e) {}
+    return true;
+  });
+
+  useEffect(() => {
+    const unsub = subscribeToProgramSettings((sett) => {
+      if (sett) {
+        setIsRegistrationOpen(sett.isRegistrationOpen !== false);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const goToRegister = () => {
     setCurrentView('register');
@@ -141,7 +159,13 @@ export default function App() {
         }>
           <RegistrationFlow 
             onBackToHome={goToHome} 
-            onGoToDashboard={openLogin} 
+            onGoToDashboard={(user) => {
+              if (user && user.fullName) {
+                handleStudentLoginSuccess(user);
+              } else {
+                openLogin();
+              }
+            }} 
           />
         </React.Suspense>
         <LoginModal 
@@ -267,6 +291,7 @@ export default function App() {
         onOpenAdmin={goToAdmin}
         isAdmin={isAdmin}
         studentUser={studentUser}
+        isRegistrationOpen={isRegistrationOpen}
       />
 
       {/* Main Content Sections */}

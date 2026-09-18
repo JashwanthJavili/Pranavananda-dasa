@@ -56,10 +56,14 @@ export default function LoginModal({
       const res = await studentLogin(identifier, password);
       if (res.success) {
         const user = res.participant || res.user || { identifier };
-        setLoggedInUser(user);
         try {
           localStorage.setItem('gita_amrita_current_user', JSON.stringify(user));
         } catch (e) {}
+        onClose();
+        if (onStudentLoginSuccess) {
+          onStudentLoginSuccess(user);
+        }
+        return;
       } else {
         setError(res.error || 'Invalid credentials. Please verify your mobile/email and password, or register.');
       }
