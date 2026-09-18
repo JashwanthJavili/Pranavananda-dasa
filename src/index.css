@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    background-color: #FAF7F2;
+    color: #2A2421;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  /* Ensure smooth offset for sticky navbar anchor targets */
+  section {
+    scroll-margin-top: 5rem;
+  }
+}
+
+/* Subtle peaceful animations & transitions */
+.transition-calm {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom scrollbar matching devotional theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF7F2;
+}
+::-webkit-scrollbar-thumb {
+  background: #E4D8CD;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C86314;
+}

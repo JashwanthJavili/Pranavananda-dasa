@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Bhagavad Gita collection and data hierarchy
+    match /BhagavadGita/{document=**} {
+      // Allow public visitors to view batch schedules
+      allow read: if true;
+
+      // Allow visitors to submit new batch registrations
+      allow create: if true;
+
+      // Allow metadata updates (like counters)
+      allow update: if true;
+    }
+
+    // Default rule for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
