@@ -39,7 +39,8 @@ import {
   Clock,
   Lock,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Info
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -180,6 +181,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const [adminDeleteConfirm, setAdminDeleteConfirm] = useState(null);
   const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
   const [changingRoleId, setChangingRoleId] = useState(null);
+  const [openInfoEmail, setOpenInfoEmail] = useState(null);
 
   // Change Password State
   const [currentPasswordInput, setCurrentPasswordInput] = useState('');
@@ -954,7 +956,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                     <select
                       value={pageSize}
                       onChange={(e) => setPageSize(e.target.value)}
-                      className="appearance-none pl-3 pr-7 py-1.5 rounded-xl border border-cream-300 bg-white text-xs text-temple-800 focus:outline-none cursor-pointer font-medium shadow-2xs hover:border-cream-400 transition-colors"
+                      className="appearance-none pl-3 pr-8 py-1.5 rounded-xl border border-cream-300 bg-white text-xs text-temple-800 focus:outline-none cursor-pointer font-medium shadow-2xs hover:border-cream-400 transition-colors"
                     >
                       <option value="10">10 rows</option>
                       <option value="20">20 rows</option>
@@ -962,7 +964,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                       <option value="50">50 rows</option>
                       <option value="all">All ({totalItems})</option>
                     </select>
-                    <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 pointer-events-none text-temple-500" />
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-3 pointer-events-none text-temple-500" />
                   </div>
                 </div>
 
@@ -1309,7 +1311,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                     value={closedNoticeDraft}
                     onChange={(e) => setClosedNoticeDraft(e.target.value)}
                     placeholder="e.g. Registrations for Gita Amrita are currently paused. Please contact program coordinators for upcoming schedules."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none leading-relaxed"
                   />
 
                   <div className="flex justify-end">
@@ -1419,14 +1421,17 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         <label className="block text-[11px] font-semibold text-temple-700 uppercase">
                           Role
                         </label>
-                        <select
-                          value={newAdminRole}
-                          onChange={(e) => setNewAdminRole(e.target.value)}
-                          className="w-full px-2.5 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium"
-                        >
-                          <option value="Admin">Admin</option>
-                          <option value="Super Admin">Super Admin</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={newAdminRole}
+                            onChange={(e) => setNewAdminRole(e.target.value)}
+                            className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium"
+                          >
+                            <option value="Admin">Admin</option>
+                            <option value="Super Admin">Super Admin</option>
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-temple-500" />
+                        </div>
                       </div>
                     </div>
 
@@ -1452,109 +1457,126 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   </form>
                 </div>
 
-                {/* List of Authorized Administrators (Sorted Super Admins first) */}
-                <div className="space-y-2.5">
+                {/* List of Authorized Administrators */}
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-temple-800 flex items-center gap-1.5">
-                      <span>Authorized Coordinators ({adminsList.length})</span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-temple-800">
+                      Authorized Coordinators ({adminsList.length})
                     </h3>
-                    <span className="text-[11px] text-temple-500">
-                      Database authorized
-                    </span>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 gap-2.5">
                     {adminsList.map((adm) => {
                       const emailLower = (adm.email || '').toLowerCase();
                       const isSelf = adminUser?.email && emailLower === adminUser.email.toLowerCase();
                       const isAdmSuper = adm.role === 'Super Admin' || adm.role === 'Super Administrator';
+                      const isInfoOpen = openInfoEmail === emailLower;
 
                       return (
                         <div
                           key={adm.email || adm.id}
-                          className="p-3.5 rounded-2xl bg-white border border-cream-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-cream-300 transition-all"
+                          className="p-3.5 sm:p-4 rounded-2xl bg-white border border-cream-200/90 shadow-2xs hover:border-cream-300 transition-all flex flex-col gap-3 text-left"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`w-9 h-9 rounded-2xl font-bold text-xs flex items-center justify-center flex-shrink-0 border uppercase ${
-                              isAdmSuper 
-                                ? 'bg-purple-100 text-purple-800 border-purple-200' 
-                                : 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                            }`}>
-                              {(adm.name || adm.email || 'A').slice(0, 2)}
-                            </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            {/* Left: Avatar & Coordinator Info */}
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-10 h-10 rounded-xl font-bold text-xs flex items-center justify-center flex-shrink-0 border uppercase shadow-2xs ${
+                                isAdmSuper 
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                  : 'bg-saffron-50 text-saffron-700 border-saffron-200'
+                              }`}>
+                                {(adm.name || adm.email || 'A').slice(0, 2)}
+                              </div>
 
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-semibold text-temple-900 truncate">
-                                  {adm.name || 'Coordinator'}
-                                </span>
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-bold text-temple-900 truncate">
+                                    {adm.name || 'Coordinator'}
+                                  </span>
 
-                                <div className="inline-flex items-center gap-1">
-                                  <select
-                                    value={isAdmSuper ? 'Super Admin' : 'Admin'}
-                                    disabled={changingRoleId === emailLower || isSelf}
-                                    onChange={(e) => handleChangeAdminRole(emailLower, e.target.value)}
-                                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md border border-cream-300 bg-cream-50 text-temple-800 focus:outline-none cursor-pointer"
-                                  >
-                                    <option value="Admin">Admin</option>
-                                    <option value="Super Admin">Super Admin</option>
-                                  </select>
-                                  {changingRoleId === emailLower && (
-                                    <Loader2 className="w-3 h-3 animate-spin text-saffron-600" />
-                                  )}
+                                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider ${
+                                    isAdmSuper
+                                      ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  }`}>
+                                    {isAdmSuper ? 'Super Admin' : 'Admin'}
+                                  </span>
                                 </div>
 
-                                {isSelf && (
-                                  <span className="text-[10px] bg-saffron-50 text-saffron-800 border border-saffron-200 px-1.5 py-0.5 rounded font-medium">
-                                    You
-                                  </span>
-                                )}
+                                <div className="text-xs text-temple-500 truncate">
+                                  {adm.email}
+                                </div>
                               </div>
+                            </div>
 
-                              <div className="text-[11px] text-temple-500 truncate pt-0.5">
-                                {adm.email}
-                                {adm.addedBy && (
-                                  <span className="text-temple-400"> &bull; Added by {adm.addedBy}</span>
-                                )}
-                              </div>
+                            {/* Right Actions: Info Icon, Reset Password, Revoke */}
+                            <div className="flex items-center gap-2 justify-end flex-shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-cream-100">
+                              <button
+                                type="button"
+                                onClick={() => setOpenInfoEmail(isInfoOpen ? null : emailLower)}
+                                className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                                  isInfoOpen
+                                    ? 'bg-saffron-100 text-saffron-900 border-saffron-300 shadow-2xs'
+                                    : 'border-cream-200 bg-cream-50 hover:bg-cream-100 text-temple-500 hover:text-temple-800'
+                                }`}
+                                title={isInfoOpen ? "Hide info" : "View added by details"}
+                                aria-label="View added by details"
+                              >
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setResetPasswordTarget(adm);
+                                  setResetNewPassword('');
+                                  setResetConfirmPassword('');
+                                  setShowResetNewPass(false);
+                                  setShowResetConfirmPass(false);
+                                  setResetPasswordError('');
+                                }}
+                                className="px-3 py-1.5 rounded-xl border border-saffron-200 bg-saffron-50/80 hover:bg-saffron-100 text-saffron-800 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                title={`Reset password for ${adm.name || adm.email}`}
+                              >
+                                <KeyRound className="w-3.5 h-3.5 text-saffron-600" />
+                                <span>Reset Password</span>
+                              </button>
+
+                              {!isSelf && (
+                                <button
+                                  type="button"
+                                  onClick={() => setAdminDeleteConfirm(adm)}
+                                  className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                  title="Revoke admin access"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Revoke</span>
+                                </button>
+                              )}
                             </div>
                           </div>
 
-                          {/* Actions: Reset Password & Revoke Buttons */}
-                          <div className="flex items-center gap-2 justify-end flex-shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setResetPasswordTarget(adm);
-                                setResetNewPassword('');
-                                setResetConfirmPassword('');
-                                setShowResetNewPass(false);
-                                setShowResetConfirmPass(false);
-                                setResetPasswordError('');
-                              }}
-                              className="px-2.5 py-1 rounded-xl border border-saffron-200 bg-saffron-50 hover:bg-saffron-100 text-saffron-800 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
-                              title={`Reset password for ${adm.name || adm.email}`}
-                            >
-                              <KeyRound className="w-3 h-3 text-saffron-600" />
-                              <span>Reset Password</span>
-                            </button>
+                          {/* Expandable Info Detail Strip */}
+                          {isInfoOpen && (
+                            <div className="pt-2.5 border-t border-cream-100 flex items-center justify-between text-xs text-temple-700 bg-cream-50/80 rounded-xl px-3 py-2 border border-cream-200/60 animate-fadeIn">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-5 h-5 rounded-full bg-saffron-100 flex items-center justify-center text-saffron-700 flex-shrink-0">
+                                  <Info className="w-3 h-3" />
+                                </div>
+                                <span className="truncate">
+                                  Added by <strong className="text-temple-900 font-semibold">{adm.addedBy || 'System / Initial Setup'}</strong>
+                                </span>
+                              </div>
 
-                            {isSelf ? (
-                              <span className="text-[11px] text-temple-400 font-medium px-2">
-                                Active Session
-                              </span>
-                            ) : (
                               <button
                                 type="button"
-                                onClick={() => setAdminDeleteConfirm(adm)}
-                                className="px-2.5 py-1 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100 text-red-700 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
-                                title="Revoke admin access"
+                                onClick={() => setOpenInfoEmail(null)}
+                                className="text-[11px] text-temple-400 hover:text-temple-700 font-medium px-1.5 py-0.5 rounded hover:bg-cream-200/60 transition-colors cursor-pointer flex-shrink-0"
                               >
-                                <Trash2 className="w-3 h-3" />
-                                <span>Revoke</span>
+                                Close
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

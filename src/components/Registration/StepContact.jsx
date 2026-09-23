@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { ArrowRight, ArrowLeft, AlertCircle, Eye, EyeOff, Lock, ChevronDown } from 'lucide-react';
 
 const COUNTRY_CODES = [
-  { code: '+91', label: 'IN (+91)', width: 'w-24 sm:w-28' },
-  { code: '+1', label: 'US/CA (+1)', width: 'w-28 sm:w-32' },
-  { code: '+971', label: 'UAE (+971)', width: 'w-28 sm:w-32' },
-  { code: '+44', label: 'UK (+44)', width: 'w-24 sm:w-28' },
-  { code: '+65', label: 'SG (+65)', width: 'w-24 sm:w-28' },
-  { code: '+61', label: 'AU (+61)', width: 'w-24 sm:w-28' },
+  { code: '+91', label: '+91 (IN)' },
+  { code: '+1', label: '+1 (US)' },
+  { code: '+971', label: '+971 (UAE)' },
+  { code: '+44', label: '+44 (UK)' },
+  { code: '+65', label: '+65 (SG)' },
+  { code: '+61', label: '+61 (AU)' },
 ];
 
 export default function StepContact({ 
@@ -22,10 +22,6 @@ export default function StepContact({
   const [checking, setChecking] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Dynamically adjust country select box width based on selected country label
-  const selectedCountry = COUNTRY_CODES.find(c => c.code === (data.countryCode || '+91')) || COUNTRY_CODES[0];
-  const countryWidthClass = selectedCountry.width;
 
   // Focus handler to smoothly bring active inputs into center view on mobile keyboard pop-up
   const handleInputFocus = (e) => {
@@ -55,10 +51,10 @@ export default function StepContact({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 animate-fadeIn text-left">
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 animate-fadeIn text-left w-full overflow-hidden">
       {/* Step Header */}
       <div className="space-y-1 text-center sm:text-left">
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-temple-900">
+        <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-temple-900">
           Contact &amp; Address
         </h2>
         <p className="text-xs sm:text-sm text-temple-600 font-normal">
@@ -68,7 +64,7 @@ export default function StepContact({
 
       {/* Duplicate Caution Alert */}
       {duplicateWarning && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5 shadow-soft animate-fadeIn">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5 shadow-soft animate-fadeIn">
           <div className="flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
             <div className="text-xs sm:text-sm leading-relaxed">
@@ -82,22 +78,22 @@ export default function StepContact({
       )}
 
       {/* Field: Mobile Number (10 Digits, Ignores 0 as First Digit) */}
-      <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
+      <div className="space-y-1.5 scroll-mt-24 scroll-mb-36 w-full">
         <label 
           htmlFor="mobile"
           className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
         >
           Mobile Number <span className="text-saffron-600">*</span>
         </label>
-        <div className="flex gap-2 items-center">
-          <div className="relative flex-shrink-0">
+        <div className="flex gap-2 items-center w-full">
+          <div className="relative flex-shrink-0 w-24 sm:w-28">
             <select
               value={data.countryCode || '+91'}
               onChange={(e) => {
                 onChange('countryCode', e.target.value);
                 if (onClearDuplicateWarning) onClearDuplicateWarning();
               }}
-              className={`appearance-none ${countryWidthClass} pl-3 pr-8 py-3 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all duration-200 cursor-pointer font-medium`}
+              className="w-full appearance-none pl-2.5 sm:pl-3 pr-7 sm:pr-8 py-2.5 sm:py-3 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all duration-200 cursor-pointer font-medium"
             >
               {COUNTRY_CODES.map((item) => (
                 <option key={item.code} value={item.code}>
@@ -105,7 +101,7 @@ export default function StepContact({
                 </option>
               ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-temple-500">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 sm:pr-3 text-temple-500">
               <ChevronDown className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -113,12 +109,13 @@ export default function StepContact({
           <input
             id="mobile"
             type="tel"
+            inputMode="numeric"
             maxLength={10}
-            placeholder="Enter mobile number"
+            placeholder="10-digit mobile number"
             value={data.mobile || ''}
             onFocus={handleInputFocus}
             onChange={handleMobileChange}
-            className={`flex-1 px-4 py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all ${
+            className={`flex-1 min-w-0 w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-base focus:outline-none focus:ring-2 transition-all ${
               errors.mobile
                 ? 'border-red-400 focus:ring-red-400/40'
                 : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
@@ -189,15 +186,15 @@ export default function StepContact({
         </div>
 
         {/* 2. Their Address (Full Address) */}
-        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36 w-full">
+          <div className="flex flex-col gap-0.5">
             <label 
               htmlFor="fullAddress"
               className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
             >
               Full Address <span className="text-saffron-600">*</span>
             </label>
-            <span className="text-[11px] text-saffron-700 font-medium">
+            <span className="text-[10px] sm:text-[11px] text-saffron-700 font-medium leading-tight">
               (For physical certificate dispatch upon course completion)
             </span>
           </div>

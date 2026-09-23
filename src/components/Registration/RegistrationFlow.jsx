@@ -343,29 +343,29 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   };
 
   return (
-    <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900">
+    <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900 w-full max-w-full overflow-x-hidden">
       
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-cream-100/95 backdrop-blur-md border-b border-cream-200/90 shadow-soft">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between">
           
           {/* Left: ISKCON Logo & Title */}
           <button
             onClick={onBackToHome}
-            className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-xl p-1 cursor-pointer"
+            className="flex items-center gap-2 sm:gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-xl p-0.5 sm:p-1 cursor-pointer min-w-0"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white p-1 border border-cream-300 shadow-soft flex items-center justify-center transition-transform group-hover:scale-105">
+            <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-white p-0.5 sm:p-1 border border-cream-300 shadow-soft flex items-center justify-center transition-transform group-hover:scale-105 flex-shrink-0">
               <img
                 src="/assets/iskcon_logo.webp"
                 alt="ISKCON Logo"
                 className="w-full h-full object-contain"
               />
             </div>
-            <div>
-              <span className="text-base sm:text-lg font-bold text-temple-900 leading-tight block group-hover:text-saffron-600 transition-colors">
+            <div className="min-w-0">
+              <span className="text-sm sm:text-lg font-bold text-temple-900 leading-tight block group-hover:text-saffron-600 transition-colors truncate">
                 Gita Amrita
               </span>
-              <span className="text-[11px] sm:text-xs font-normal text-temple-600 tracking-wide block">
+              <span className="text-[10px] sm:text-xs font-normal text-temple-600 tracking-wide block truncate">
                 ISKCON Adilabad
               </span>
             </div>
@@ -374,25 +374,25 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
           {/* Right: Back to Home Button */}
           <button
             onClick={onBackToHome}
-            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none cursor-pointer"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none cursor-pointer flex-shrink-0"
           >
-            <ArrowLeft className="w-4 h-4 text-saffron-600" />
-            <span>Back to Home</span>
+            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-saffron-600" />
+            <span>Home</span>
           </button>
 
         </div>
       </header>
 
       {/* Main Registration Stage with Generous Mobile Bottom Clearance (pb-44) */}
-      <main className="flex-1 flex flex-col justify-start sm:justify-center py-4 sm:py-8 pb-44 sm:pb-12 px-3 sm:px-6 min-h-[100dvh]">
+      <main className="flex-1 flex flex-col justify-start sm:justify-center py-3 sm:py-8 pb-44 sm:pb-12 px-2.5 sm:px-6 min-h-[100dvh] w-full max-w-full overflow-x-hidden">
         <div className="w-full max-w-lg lg:max-w-4xl mx-auto">
           
           {!settings.isRegistrationOpen && currentStep !== 4 ? (
             /* Registration Closed State */
-            <div className="max-w-md mx-auto bg-cream-50 rounded-3xl p-6 sm:p-8 border border-cream-300/90 shadow-soft-lg text-center space-y-6 animate-fadeIn">
+            <div className="max-w-md mx-auto bg-cream-50 rounded-3xl p-5 sm:p-8 border border-cream-300/90 shadow-soft-lg text-center space-y-5 animate-fadeIn">
               {/* Icon Badge */}
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-saffron-100 border border-saffron-200/80 flex items-center justify-center text-saffron-700 shadow-soft">
-                <Clock className="w-8 h-8 stroke-[2]" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-2xl bg-saffron-100 border border-saffron-200/80 flex items-center justify-center text-saffron-700 shadow-soft">
+                <Clock className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2]" />
               </div>
 
               {/* Text Information */}
@@ -414,7 +414,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
                 <button
                   type="button"
                   onClick={onBackToHome}
-                  className="w-full py-3.5 px-5 rounded-2xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 sm:py-3.5 px-5 rounded-2xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Back to Home</span>
@@ -455,7 +455,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
 
               {/* Right Column: Active Step Card */}
               <div className={`w-full ${currentStep < 4 ? 'lg:col-span-8' : 'lg:col-span-12 max-w-md mx-auto'}`}>
-                <div className="bg-cream-100 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft">
+                <div className="bg-cream-100 rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft w-full overflow-hidden">
                   
                   {/* Step Progress Indicator (Steps 1 to 3) */}
                   {currentStep <= 3 && (
