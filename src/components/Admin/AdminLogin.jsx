@@ -406,7 +406,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
                 id="admin-password"
                 name="ga_admin_key"
                 type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
+                autoComplete="current-password"
                 required
                 placeholder="Enter admin password"
                 value={password}

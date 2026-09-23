@@ -460,7 +460,7 @@ export default function LoginModal({
                 id="user-password"
                 name="ga_usr_key"
                 type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
+                autoComplete="current-password"
                 required
                 placeholder="Enter password"
                 value={password}
