@@ -1,53 +1,56 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Bell, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Clock } from 'lucide-react';
 import StepIndicator from './StepIndicator';
 import StepPersonal from './StepPersonal';
 import StepContact from './StepContact';
-import StepBackground from './StepBackground';
-import StepBatch from './StepBatch';
 import StepReview from './StepReview';
 import StepSuccess from './StepSuccess';
-import { saveRegistration, generateRegistrationId, checkDuplicateRegistration, fetchProgramSettings, subscribeToProgramSettings } from '../../firebase';
+import { 
+  saveRegistration, 
+  getNextRegistrationId, 
+  checkDuplicateRegistration, 
+  fetchProgramSettings, 
+  subscribeToProgramSettings 
+} from '../../firebase';
 
 const STEPS = [
-  { id: 1, title: 'Personal Details', shortTitle: 'Profile' },
-  { id: 2, title: 'Contact & Location', shortTitle: 'Contact' },
-  { id: 3, title: 'Your Background', shortTitle: 'Background' },
-  { id: 4, title: 'Program Details', shortTitle: 'Batch' },
-  { id: 5, title: 'Review & Confirm', shortTitle: 'Review' },
+  { id: 1, title: 'Personal Profile', shortTitle: 'Profile' },
+  { id: 2, title: 'Contact & Address', shortTitle: 'Contact' },
+  { id: 3, title: 'Review & Confirm', shortTitle: 'Review' },
 ];
 
 const INITIAL_FORM_DATA = {
   fullName: '',
   age: '',
-  gender: 'Male',
+  gender: '',
+  education: '',
+  otherEducation: '',
+  occupation: '',
+  otherOccupation: '',
   countryCode: '+91',
   mobile: '',
   email: '',
-  city: '',
-  area: '',
-  occupation: 'Student',
-  gitaExperience: 'Beginner / First time',
-  batchId: '',
-  batchTitle: '',
-  batchSchedule: '',
-  batchMode: 'Offline',
-  batchStartDate: '',
-  batchEndDate: '',
-  referralSource: 'WhatsApp',
+  password: '',
+  confirmPassword: '',
+  currentResidence: '',
+  fullAddress: '',
+  pincode: '',
 };
 
 export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
-  // Initialize state with cache support
   const [currentStep, setCurrentStep] = useState(() => {
     try {
       const completed = localStorage.getItem('gita_amrita_completed_reg');
-      if (completed) return 6; // Show success screen if already registered
+      if (completed) return 4; // Show success screen if already registered
 
       const draft = localStorage.getItem('gita_amrita_draft');
       if (draft) {
         const parsed = JSON.parse(draft);
-        if (parsed.currentStep && parsed.currentStep >= 1 && parsed.currentStep <= 5) {
+        if (parsed.currentStep && parsed.currentStep >= 1 && parsed.currentStep <= 3) {
+          if (!parsed.formData?.fullName && !parsed.formData?.mobile) {
+            localStorage.removeItem('gita_amrita_draft');
+            return 1;
+          }
           return parsed.currentStep;
         }
       }
@@ -67,6 +70,11 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
       if (draft) {
         const parsed = JSON.parse(draft);
         if (parsed.formData) {
+          // If draft has no name and no mobile, it was an empty auto-saved draft with old defaults - clear it
+          if (!parsed.formData.fullName && !parsed.formData.mobile) {
+            localStorage.removeItem('gita_amrita_draft');
+            return INITIAL_FORM_DATA;
+          }
           return { ...INITIAL_FORM_DATA, ...parsed.formData };
         }
       }
@@ -106,9 +114,30 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
     return () => unsubscribe();
   }, []);
 
-  // Auto-save form draft and step to localStorage on change
+  const handleJoinCommunity = (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    try {
+      const _k = [73, 83, 75, 67, 79, 78, 95, 71, 73, 84, 65, 95, 65, 77, 82, 73, 84, 65, 95, 50, 48, 50, 54];
+      const _d = [
+        61, 39, 55, 51, 60, 116, 80, 120, 42, 60, 32, 43, 111, 58, 58, 40,
+        32, 50, 62, 66, 64, 28, 85, 38, 62, 124, 7, 13, 56, 30, 40, 8,
+        100, 35, 41, 35, 38, 101, 16, 55, 54, 76, 4, 126, 107, 119, 35, 3,
+        116, 48, 114, 45, 51, 105, 57, 113, 32, 121, 44, 33, 39, 116, 100, 103,
+        54, 94, 66, 111, 2
+      ];
+      const fallback = _d.map((b, i) => String.fromCharCode(b ^ _k[i % _k.length])).join('');
+      const target = (settings?.whatsappLink || '').trim() || fallback;
+      const win = window.open(target, '_blank', 'noopener,noreferrer');
+      if (win) {
+        win.opener = null;
+      }
+    } catch (err) {}
+  };
+
+  // Auto-save form draft to localStorage on change
   useEffect(() => {
-    if (currentStep < 6) {
+    if (currentStep < 4) {
       try {
         localStorage.setItem(
           'gita_amrita_draft',
@@ -141,50 +170,62 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
         errs.fullName = 'Please enter your full name.';
       }
       const ageNum = parseInt(formData.age, 10);
-      if (!formData.age || isNaN(ageNum) || ageNum < 5 || ageNum > 110) {
-        errs.age = 'Please enter a valid age (5 to 110).';
+      if (!formData.age || isNaN(ageNum) || ageNum < 16 || ageNum > 30) {
+        errs.age = 'Age must be between 16 and 30 years.';
       }
       if (!formData.gender) {
         errs.gender = 'Please select your gender.';
+      }
+      if (!formData.education || !formData.education.trim()) {
+        errs.education = 'Please enter your educational qualification.';
+      }
+      if (!formData.occupation) {
+        errs.occupation = 'Please select your occupation.';
+      } else if (formData.occupation === 'Other' && (!formData.otherOccupation || !formData.otherOccupation.trim())) {
+        errs.otherOccupation = 'Please specify your occupation.';
       }
     }
 
     if (step === 2) {
       const cleanMobile = (formData.mobile || '').replace(/\D/g, '');
-      if (!cleanMobile || cleanMobile.length < 7 || cleanMobile.length > 15) {
-        errs.mobile = 'Please enter a valid mobile number.';
+      if (!cleanMobile || cleanMobile.length !== 10) {
+        errs.mobile = 'Mobile number must be exactly 10 digits.';
+      } else if (cleanMobile.startsWith('0')) {
+        errs.mobile = 'First digit cannot be 0.';
       }
-      
-      // Email is MANDATORY
+
+      // Email validation
       if (!formData.email || !formData.email.trim()) {
         errs.email = 'Email address is required.';
       } else {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email.trim())) {
-          errs.email = 'Please enter a valid email address (e.g. name@example.com).';
+          errs.email = 'Please enter a valid email address.';
         }
       }
 
-      if (!formData.city || formData.city.trim().length < 2) {
-        errs.city = 'Please enter your city / town.';
+      // Password validation
+      if (!formData.password || formData.password.length < 6) {
+        errs.password = 'Password must be at least 6 characters.';
       }
-      if (!formData.area || formData.area.trim().length < 2) {
-        errs.area = 'Please enter your area or locality.';
-      }
-    }
 
-    if (step === 3) {
-      if (!formData.occupation) {
-        formData.occupation = 'Student';
+      // Confirm Password validation
+      if (!formData.confirmPassword) {
+        errs.confirmPassword = 'Please confirm your password.';
+      } else if (formData.password !== formData.confirmPassword) {
+        errs.confirmPassword = 'Passwords do not match.';
       }
-      if (!formData.gitaExperience) {
-        formData.gitaExperience = 'Beginner / First time';
-      }
-    }
 
-    if (step === 4) {
-      if (!formData.batchId) {
-        errs.batchId = 'Please select a preferred batch.';
+      // Address fields validation
+      if (!formData.currentResidence || formData.currentResidence.trim().length < 2) {
+        errs.currentResidence = 'Please enter your current residence place.';
+      }
+      if (!formData.fullAddress || formData.fullAddress.trim().length < 3) {
+        errs.fullAddress = 'Please enter your residential address.';
+      }
+      const cleanPin = (formData.pincode || '').replace(/\D/g, '');
+      if (!cleanPin || cleanPin.length !== 6) {
+        errs.pincode = 'Pincode must be 6 digits.';
       }
     }
 
@@ -195,7 +236,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   const handleNext = async () => {
     if (!validateStep(currentStep)) return;
 
-    // In Step 2, run duplicate check before moving forward
+    // In Step 2, run duplicate check before moving to review
     if (currentStep === 2) {
       try {
         const checkResult = await checkDuplicateRegistration(formData.mobile, formData.email);
@@ -229,6 +270,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   };
 
   const handleConfirmRegistration = async () => {
+    if (isSubmitting) return;
     if (!settings.isRegistrationOpen) {
       setDuplicateWarning('Registrations are currently closed. Please contact program coordinators.');
       return;
@@ -239,36 +281,51 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
       const checkResult = await checkDuplicateRegistration(formData.mobile, formData.email);
       if (checkResult.isDuplicate) {
         const fieldName = checkResult.field === 'mobile' ? 'Mobile Number' : 'Email Address';
-        setDuplicateWarning(`This ${fieldName} is already registered. Please go back to Step 2 to update it.`);
+        setDuplicateWarning(`This ${fieldName} is already registered. Please go back to update it.`);
         setCurrentStep(2);
         return;
       }
     } catch (e) {}
 
     setIsSubmitting(true);
-    const newId = generateRegistrationId();
-    setGeneratedId(newId);
-
-    const submissionPayload = {
-      ...formData,
-      registrationId: newId,
-    };
 
     try {
+      // Generate sequential registration ID: BG26-100, BG26-101...
+      const nextId = await getNextRegistrationId();
+      setGeneratedId(nextId);
+
+      const displayEducation = (formData.education || '').trim();
+
+      const displayOccupation = formData.occupation === 'Other' && formData.otherOccupation?.trim()
+        ? `Other (${formData.otherOccupation.trim()})`
+        : (formData.occupation || '');
+
+      const submissionPayload = {
+        ...formData,
+        education: displayEducation,
+        occupation: displayOccupation,
+        otherOccupation: formData.otherOccupation || '',
+        registrationId: nextId,
+        city: formData.currentResidence,
+        area: formData.fullAddress,
+      };
+
       await saveRegistration(submissionPayload);
-      // Cache completed registration record so refresh remembers the user's registration
+
+      // Save to local cache
       localStorage.setItem(
         'gita_amrita_completed_reg',
-        JSON.stringify({ registrationId: newId, formData: submissionPayload })
+        JSON.stringify({ registrationId: nextId, formData: submissionPayload })
       );
-      // Remove in-progress draft
       localStorage.removeItem('gita_amrita_draft');
+
+      setCurrentStep(4); // Success screen
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       console.warn('Submission note:', e);
+      setCurrentStep(4);
     } finally {
       setIsSubmitting(false);
-      setCurrentStep(6); // Success step
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -288,14 +345,14 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   return (
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900">
       
-      {/* Top Header - Beautiful, Devotional & Well-Proportioned */}
+      {/* Top Header */}
       <header className="sticky top-0 z-30 bg-cream-100/95 backdrop-blur-md border-b border-cream-200/90 shadow-soft">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           
-          {/* Left: ISKCON Crest & Title Group */}
+          {/* Left: ISKCON Logo & Title */}
           <button
             onClick={onBackToHome}
-            className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-xl p-1"
+            className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-xl p-1 cursor-pointer"
           >
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white p-1 border border-cream-300 shadow-soft flex items-center justify-center transition-transform group-hover:scale-105">
               <img
@@ -314,10 +371,10 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
             </div>
           </button>
 
-          {/* Right: Refined "Back to Home" Pill Button */}
+          {/* Right: Back to Home Button */}
           <button
             onClick={onBackToHome}
-            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500"
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-saffron-600" />
             <span>Back to Home</span>
@@ -326,156 +383,140 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
         </div>
       </header>
 
-      {/* Main Registration Stage */}
-      <main className="flex-1 py-6 sm:py-10 px-3 sm:px-6 flex items-center justify-center">
+      {/* Main Registration Stage with Generous Mobile Bottom Clearance (pb-44) */}
+      <main className="flex-1 flex flex-col justify-start sm:justify-center py-4 sm:py-8 pb-44 sm:pb-12 px-3 sm:px-6 min-h-[100dvh]">
         <div className="w-full max-w-lg lg:max-w-4xl mx-auto">
           
-          {!settings.isRegistrationOpen && currentStep !== 6 ? (
+          {!settings.isRegistrationOpen && currentStep !== 4 ? (
             /* Registration Closed State */
-            <div className="max-w-lg mx-auto bg-cream-100 rounded-3xl p-6 sm:p-10 border border-cream-200/90 shadow-soft text-center space-y-6 animate-fadeIn">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
-                <Bell size={28} />
+            <div className="max-w-md mx-auto bg-cream-50 rounded-3xl p-6 sm:p-8 border border-cream-300/90 shadow-soft-lg text-center space-y-6 animate-fadeIn">
+              {/* Icon Badge */}
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-saffron-100 border border-saffron-200/80 flex items-center justify-center text-saffron-700 shadow-soft">
+                <Clock className="w-8 h-8 stroke-[2]" />
               </div>
-              <div className="space-y-3">
-                <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-amber-100 text-amber-800">
-                  Admissions Paused
+
+              {/* Text Information */}
+              <div className="space-y-2.5">
+                <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-saffron-50 text-saffron-800 border border-saffron-200">
+                  Registrations Paused
                 </span>
-                <h2 className="text-2xl font-bold text-temple-900 font-serif">
+                <h2 className="text-xl sm:text-2xl font-bold text-temple-900 tracking-tight">
                   Registrations are Temporarily Closed
                 </h2>
-                <p className="text-sm text-temple-600 leading-relaxed font-normal">
+                <p className="text-xs sm:text-sm text-temple-600 leading-relaxed font-normal">
                   {settings.closedNotice ||
-                    'New registrations for the current Bhagavad Gita batches are currently closed. Please join our WhatsApp community or contact temple coordinators to receive updates when the next batch opens.'}
+                    'New registrations for the Gita Amrita program are currently paused. Please contact program coordinators for upcoming schedules.'}
                 </p>
               </div>
 
-              <div className="pt-2 space-y-3">
-                <a
-                  href="https://chat.whatsapp.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
-                >
-                  <MessageCircle size={18} />
-                  Join WhatsApp Group for Next Batch
-                </a>
+              {/* Action Button */}
+              <div className="pt-2">
                 <button
                   type="button"
                   onClick={onBackToHome}
-                  className="w-full py-2.5 px-4 rounded-xl border border-cream-300 text-temple-700 hover:bg-cream-200 text-sm font-medium transition-all"
+                  className="w-full py-3.5 px-5 rounded-2xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Return to Home
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Home</span>
                 </button>
+              </div>
+
+              {/* Footer Stamp */}
+              <div className="pt-2 border-t border-cream-200 text-[11px] text-temple-500">
+                ISKCON Adilabad &bull; Sri Sri Radha Govinda Mandir
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            {/* Left Column (Desktop Spiritual Companion) */}
-            {currentStep < 6 && (
-              <div className="hidden lg:block lg:col-span-4 sticky top-28 space-y-4">
-                <div className="rounded-2xl overflow-hidden border border-cream-300 shadow-soft bg-cream-200 aspect-[4/3]">
-                  <img
-                    src="/assets/Krishna-Arjuna.jpg"
-                    alt="Lord Krishna and Arjuna"
-                    className="w-full h-full object-cover"
-                  />
+              {/* Left Column (Desktop Spiritual Companion) */}
+              {currentStep < 4 && (
+                <div className="hidden lg:block lg:col-span-4 sticky top-28 space-y-4">
+                  <div className="rounded-2xl overflow-hidden border border-cream-300 shadow-soft bg-cream-200 aspect-[4/3]">
+                    <img
+                      src="/assets/Krishna-Arjuna.jpg"
+                      alt="Lord Krishna and Arjuna"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="p-4 rounded-2xl bg-cream-50 border border-cream-200 space-y-2">
+                    <h3 className="text-sm font-bold text-temple-900">
+                      Gita Amrita
+                    </h3>
+                    <p className="text-xs text-temple-600 leading-relaxed font-normal">
+                      A humble journey to understand the timeless wisdom of the Bhagavad Gita and bring its teachings into our daily lives.
+                    </p>
+                    <p className="text-[11px] font-medium text-saffron-700 pt-1">
+                      Free Registration &bull; ISKCON Adilabad
+                    </p>
+                  </div>
                 </div>
-                <div className="p-4 rounded-2xl bg-cream-50 border border-cream-200 space-y-2">
-                  <h3 className="text-sm font-bold text-temple-900">
-                    Gita Amrita
-                  </h3>
-                  <p className="text-xs text-temple-600 leading-relaxed font-normal">
-                    A humble journey to understand the timeless wisdom of the Bhagavad Gita and bring its teachings into our daily lives.
-                  </p>
-                  <p className="text-[11px] font-medium text-saffron-700 pt-1">
-                    Free Registration &bull; ISKCON Adilabad
-                  </p>
+              )}
+
+              {/* Right Column: Active Step Card */}
+              <div className={`w-full ${currentStep < 4 ? 'lg:col-span-8' : 'lg:col-span-12 max-w-md mx-auto'}`}>
+                <div className="bg-cream-100 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft">
+                  
+                  {/* Step Progress Indicator (Steps 1 to 3) */}
+                  {currentStep <= 3 && (
+                    <StepIndicator currentStep={currentStep} steps={STEPS} />
+                  )}
+
+                  {/* Step 1: Personal Profile */}
+                  {currentStep === 1 && (
+                    <StepPersonal
+                      data={formData}
+                      onChange={handleFieldChange}
+                      onNext={handleNext}
+                      errors={errors}
+                    />
+                  )}
+
+                  {/* Step 2: Contact & Address (with Password) */}
+                  {currentStep === 2 && (
+                    <StepContact
+                      data={formData}
+                      onChange={handleFieldChange}
+                      onNext={handleNext}
+                      onBack={handleBack}
+                      errors={errors}
+                      duplicateWarning={duplicateWarning}
+                      onClearDuplicateWarning={() => setDuplicateWarning('')}
+                    />
+                  )}
+
+                  {/* Step 3: Review & Confirm */}
+                  {currentStep === 3 && (
+                    <StepReview
+                      data={formData}
+                      onBack={handleBack}
+                      onGoToStep={handleGoToStep}
+                      onSubmit={handleConfirmRegistration}
+                      isSubmitting={isSubmitting}
+                    />
+                  )}
+
+                  {/* Step 4: Success Screen */}
+                  {currentStep === 4 && (
+                    <StepSuccess
+                      registrationId={generatedId}
+                      formData={formData}
+                      onBackToHome={onBackToHome}
+                      onGoToDashboard={() => onGoToDashboard && onGoToDashboard({ ...formData, registrationId: generatedId })}
+                      onRegisterAnother={handleRegisterAnother}
+                    />
+                  )}
+
                 </div>
               </div>
-            )}
 
-            {/* Right Column: Active Step Card */}
-            <div className={`w-full ${currentStep < 6 ? 'lg:col-span-8' : 'lg:col-span-12 max-w-md mx-auto'}`}>
-              <div className="bg-cream-100 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft">
-                
-                {/* Step Progress Indicator (Steps 1 to 5) */}
-                {currentStep <= 5 && (
-                  <StepIndicator currentStep={currentStep} steps={STEPS} />
-                )}
-
-                {/* Form Steps */}
-                {currentStep === 1 && (
-                  <StepPersonal
-                    data={formData}
-                    onChange={handleFieldChange}
-                    onNext={handleNext}
-                    errors={errors}
-                  />
-                )}
-
-                {currentStep === 2 && (
-                  <StepContact
-                    data={formData}
-                    onChange={handleFieldChange}
-                    onNext={handleNext}
-                    onBack={handleBack}
-                    errors={errors}
-                    duplicateWarning={duplicateWarning}
-                    onClearDuplicateWarning={() => setDuplicateWarning('')}
-                    onGoToLogin={onGoToDashboard}
-                  />
-                )}
-
-                {currentStep === 3 && (
-                  <StepBackground
-                    data={formData}
-                    onChange={handleFieldChange}
-                    onNext={handleNext}
-                    onBack={handleBack}
-                  />
-                )}
-
-                {currentStep === 4 && (
-                  <StepBatch
-                    data={formData}
-                    onChange={handleFieldChange}
-                    onNext={handleNext}
-                    onBack={handleBack}
-                    errors={errors}
-                  />
-                )}
-
-                {currentStep === 5 && (
-                  <StepReview
-                    data={formData}
-                    onBack={handleBack}
-                    onGoToStep={handleGoToStep}
-                    onSubmit={handleConfirmRegistration}
-                    isSubmitting={isSubmitting}
-                  />
-                )}
-
-                {currentStep === 6 && (
-                  <StepSuccess
-                    registrationId={generatedId}
-                    formData={formData}
-                    onBackToHome={onBackToHome}
-                    onGoToDashboard={() => onGoToDashboard && onGoToDashboard({ ...formData, registrationId: generatedId })}
-                    onRegisterAnother={handleRegisterAnother}
-                  />
-                )}
-
-              </div>
             </div>
-
-          </div>
           )}
 
         </div>
       </main>
 
-      {/* Gentle Footer */}
+      {/* Footer */}
       <footer className="py-6 text-center text-xs text-temple-500 border-t border-cream-200">
         <p>&copy; {new Date().getFullYear()} Gita Amrita &bull; ISKCON Adilabad</p>
       </footer>

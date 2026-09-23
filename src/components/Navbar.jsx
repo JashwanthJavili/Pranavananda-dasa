@@ -5,7 +5,6 @@ export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdm
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  const loginLabel = isAdmin ? 'Admin Panel' : studentUser ? 'My Dashboard' : 'Login';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -14,23 +13,6 @@ export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdm
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const navLinks = [
-    { name: 'About', href: '#about' },
-    { name: 'Guide', href: '#guide' },
-    { name: 'Experiences', href: '#experiences' },
-    { name: 'FAQ', href: '#faq' },
-    { name: 'More', href: '#more' },
-  ];
-
-  const handleLinkClick = (e, href) => {
-    e.preventDefault();
-    setMobileMenuOpen(false);
-    const element = document.querySelector(href);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   return (
     <header
@@ -63,103 +45,18 @@ export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdm
             </div>
           </a>
 
-          {/* Center: Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-1 lg:space-x-2">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={(e) => handleLinkClick(e, link.href)}
-                className="px-3.5 py-2 text-sm font-medium text-temple-700 hover:text-saffron-600 rounded-lg hover:bg-cream-200/60 transition-colors"
-              >
-                {link.name}
-              </a>
-            ))}
-          </nav>
-
-          {/* Right: Actions (Desktop) */}
-          <div className="hidden md:flex items-center space-x-3">
+          {/* Right: Actions */}
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <button
               onClick={onOpenLogin}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 ${
-                isAdmin || studentUser 
-                  ? 'text-saffron-700 bg-saffron-50 hover:bg-saffron-100 border border-saffron-200' 
-                  : 'text-temple-700 hover:text-temple-900 hover:bg-cream-200/50'
-              }`}
+              className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl text-temple-800 hover:text-temple-900 bg-white hover:bg-cream-200/80 border border-cream-300 shadow-2xs transition-all focus:outline-none cursor-pointer"
             >
-              {loginLabel}
-            </button>
-            <button
-              onClick={onOpenRegister}
-              className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg shadow-xs hover:shadow transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 cursor-pointer flex items-center gap-1.5 ${
-                isRegistrationOpen
-                  ? 'text-white bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700'
-                  : 'text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300'
-              }`}
-            >
-              {!isRegistrationOpen && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />}
-              <span>{isRegistrationOpen ? 'Register Now' : 'Admissions Paused'}</span>
-            </button>
-          </div>
-
-          {/* Mobile Right Controls: Login + Menu Hamburger */}
-          <div className="flex md:hidden items-center space-x-2">
-            <button
-              onClick={onOpenLogin}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                isAdmin || studentUser 
-                  ? 'text-saffron-700 bg-saffron-50 border border-saffron-200' 
-                  : 'text-temple-800 hover:bg-cream-200'
-              }`}
-            >
-              {loginLabel}
-            </button>
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-temple-700 hover:text-temple-900 hover:bg-cream-200 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500"
-              aria-label="Toggle navigation menu"
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isAdmin ? 'Admin Panel' : 'Login'}
             </button>
           </div>
 
         </div>
       </div>
-
-      {/* Mobile Drawer / Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-cream-200 bg-cream-50 px-4 pt-3 pb-6 space-y-2 shadow-lg animate-fadeIn">
-          <div className="flex flex-col space-y-1">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={(e) => handleLinkClick(e, link.href)}
-                className="px-4 py-2.5 text-base font-medium text-temple-800 hover:text-saffron-600 hover:bg-cream-200/60 rounded-lg transition-colors"
-              >
-                {link.name}
-              </a>
-            ))}
-          </div>
-          <div className="pt-3 border-t border-cream-200/80">
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenRegister();
-              }}
-              className={`w-full py-2.5 text-center text-xs sm:text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2 ${
-                isRegistrationOpen
-                  ? 'text-white bg-saffron-500 hover:bg-saffron-600'
-                  : 'text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300'
-              }`}
-            >
-              {!isRegistrationOpen && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />}
-              <span>{isRegistrationOpen ? 'Register Now' : 'Admissions Paused'}</span>
-            </button>
-          </div>
-        </div>
-      )}
     </header>
   );
 }

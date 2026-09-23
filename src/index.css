@@ -38,3 +38,17 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #C86314;
 }
+
+@keyframes cuteArrow {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-cute-arrow {
+  animation: cuteArrow 1.2s ease-in-out infinite;
+}
+

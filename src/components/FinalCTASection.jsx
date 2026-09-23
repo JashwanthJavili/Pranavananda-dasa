@@ -19,10 +19,10 @@ export default function FinalCTASection({ onOpenRegister }) {
         <div className="pt-2">
           <button
             onClick={onOpenRegister}
-            className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-semibold text-white bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 rounded-xl shadow-soft hover:shadow-soft-md transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500"
+            className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-semibold text-white bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 rounded-xl shadow-soft hover:shadow-soft-md transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 cursor-pointer"
           >
             <span>Register Now</span>
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="w-4 h-4 animate-cute-arrow" />
           </button>
         </div>
 

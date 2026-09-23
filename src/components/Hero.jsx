@@ -1,17 +1,9 @@
 import React from 'react';
-import { ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 export default function Hero({ onOpenRegister }) {
-  const scrollToAbout = (e) => {
-    e.preventDefault();
-    const aboutSection = document.getElementById('about');
-    if (aboutSection) {
-      aboutSection.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   return (
-    <section className="relative overflow-hidden pt-8 pb-16 sm:pt-14 sm:pb-24 lg:pt-20 lg:pb-32">
+    <section className="relative overflow-hidden pt-8 pb-14 sm:pt-14 sm:pb-20 lg:pt-18 lg:pb-28">
       {/* Gentle background accent aura */}
       <div 
         aria-hidden="true" 
@@ -21,11 +13,12 @@ export default function Hero({ onOpenRegister }) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           
-          {/* Left / Top Text Content (7 cols on desktop) */}
+          {/* Left / Top Text Content */}
           <div className="lg:col-span-7 text-center lg:text-left space-y-6 sm:space-y-7 order-2 lg:order-1">
             
-            {/* Small ISKCON Adilabad Header Badge without logo */}
-            <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-cream-200/80 border border-cream-300 text-temple-700 shadow-sm mx-auto lg:mx-0">
+            {/* Header Badge */}
+            <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-cream-200/80 border border-cream-300 text-temple-700 shadow-sm mx-auto lg:mx-0">
+              <Sparkles className="w-3.5 h-3.5 text-saffron-600" />
               <span className="text-xs sm:text-sm font-medium tracking-wide">
                 ISKCON Adilabad Presents
               </span>
@@ -37,38 +30,29 @@ export default function Hero({ onOpenRegister }) {
                 Gita Amrita
               </h1>
               <p className="text-xl sm:text-2xl font-medium text-saffron-600 tracking-tight">
-                Bhagavad Gita Classes
+                Bhagavad Gita Wisdom Sessions
               </p>
             </div>
 
             {/* Humble Description */}
             <p className="text-base sm:text-lg text-temple-700 leading-relaxed max-w-xl mx-auto lg:mx-0 font-normal">
-              A humble journey to understand the timeless wisdom of the Bhagavad Gita and bring its teachings into our daily lives.
+              A humble journey to understand the timeless wisdom of the Bhagavad Gita and bring its sacred teachings into our daily lives.
             </p>
 
             {/* Actions */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 sm:gap-5">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
               <button
                 onClick={onOpenRegister}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 text-base font-semibold text-white bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 rounded-xl shadow-soft hover:shadow-soft-md transition-all duration-200 group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 focus-visible:ring-offset-2"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-semibold text-white bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 rounded-2xl shadow-soft hover:shadow-soft-md transition-all duration-200 group focus:outline-none cursor-pointer"
               >
                 <span>Register Now</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="w-4 h-4 animate-cute-arrow" />
               </button>
-
-              <a
-                href="#about"
-                onClick={scrollToAbout}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-temple-600 hover:text-saffron-600 transition-colors py-2 px-3"
-              >
-                <span>Learn About the Program</span>
-                <ChevronDown className="w-4 h-4 animate-bounce" />
-              </a>
             </div>
 
           </div>
 
-          {/* Right / Top Hero Image (5 cols on desktop, large on mobile) */}
+          {/* Right / Top Hero Image */}
           <div className="lg:col-span-5 order-1 lg:order-2 flex justify-center">
             <div className="relative w-full max-w-md lg:max-w-none">
               {/* Soft warm frame & glow */}
@@ -80,7 +64,6 @@ export default function Hero({ onOpenRegister }) {
                     className="w-full h-full object-cover object-center transform hover:scale-102 transition-transform duration-700 ease-out"
                     loading="eager"
                   />
-                  {/* Subtle inner devotional vignette */}
                   <div className="absolute inset-0 ring-1 ring-inset ring-black/5 rounded-xl sm:rounded-2xl pointer-events-none" />
                 </div>
               </div>

@@ -1,46 +1,117 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Users, 
   Search, 
   Download, 
   RefreshCw, 
   Trash2, 
-  Edit,
   Eye, 
+  EyeOff,
   CheckCircle, 
-  Calendar, 
-  MapPin, 
-  Phone, 
-  Mail, 
   LogOut, 
   Plus, 
   X, 
   Check, 
   AlertTriangle,
-  Clock,
-  Megaphone,
-  Pin,
   Power,
-  Bell
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Loader2,
+  Calendar,
+  MapPin,
+  Phone,
+  Mail,
+  UserCheck,
+  FileSpreadsheet,
+  Edit3,
+  Sparkles,
+  Database,
+  ShieldCheck,
+  UserPlus,
+  ShieldAlert,
+  Settings,
+  KeyRound,
+  Shield,
+  Activity,
+  TrendingUp,
+  Clock,
+  Lock,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { 
   fetchAllRegistrations, 
   updateParticipant, 
   deleteParticipant, 
-  fetchBatchesFromFirestore, 
-  saveBatchToFirestore, 
-  deleteBatchFromFirestore,
   fetchProgramSettings,
   updateProgramSettings,
   subscribeToProgramSettings,
-  fetchAnnouncements,
-  saveAnnouncementToFirestore,
-  deleteAnnouncementFromFirestore
+  generateFullDatabaseBackup,
+  downloadBackupFile,
+  fetchAllAdmins,
+  subscribeToAdmins,
+  addAdminToFirestore,
+  updateAdminRoleInFirestore,
+  removeAdminFromFirestore,
+  isSuperAdminUser,
+  changeAdminPassword,
+  resetAdminPasswordBySuperAdmin
 } from '../../firebase';
-import BatchFormModal from './BatchFormModal';
+
+const ALL_COLUMNS = [
+  { id: 'sno', label: 'S.No', default: true },
+  { id: 'id', label: 'Registration ID', default: true },
+  { id: 'name', label: 'Participant Name', default: true },
+  { id: 'mobile', label: 'Mobile Number', default: true },
+  { id: 'email', label: 'Email Address', default: false },
+  { id: 'residence', label: 'Current Residence', default: true },
+  { id: 'address', label: 'Address', default: false },
+  { id: 'pincode', label: 'Pincode', default: false },
+  { id: 'age', label: 'Age', default: false },
+  { id: 'gender', label: 'Gender', default: false },
+  { id: 'education', label: 'Qualification', default: false },
+  { id: 'occupation', label: 'Occupation', default: false },
+  { id: 'date', label: 'Registration Date', default: false },
+  { id: 'actions', label: 'Actions', default: true },
+];
 
 export default function AdminDashboard({ adminUser, onLogout }) {
-  // Initialize state immediately from cache to eliminate any flash of "0"
+  // Navigation: 'participants' | 'settings'
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#settings' || hash === '#admin-settings') return 'settings';
+    }
+    return 'participants';
+  });
+
+  // Sync tab changes with URL hash
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'settings') {
+      window.location.hash = 'settings';
+    } else {
+      window.location.hash = 'admin';
+    }
+  };
+
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#settings' || hash === '#admin-settings') {
+        setActiveTab('settings');
+      } else if (hash === '#admin' || hash === '#admin-dashboard') {
+        setActiveTab('participants');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  // Registrations state
   const [registrations, setRegistrations] = useState(() => {
     try {
       const cached = localStorage.getItem('gita_amrita_cached_admin_regs');
@@ -51,16 +122,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     return [];
   });
 
-  const [batches, setBatches] = useState(() => {
-    try {
-      const cached = localStorage.getItem('gita_amrita_cached_batches');
-      if (cached) return JSON.parse(cached);
-    } catch (e) {}
-    return [];
-  });
-
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('participants'); // 'participants' | 'batches' | 'announcements'
 
   // Settings: Registration Open / Closed
   const [settings, setSettings] = useState(() => {
@@ -70,345 +132,617 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     } catch (e) {}
     return {
       isRegistrationOpen: true,
-      closedNotice: 'Registrations for current batches are currently closed. Please contact temple coordinators for upcoming batch schedules.'
+      closedNotice: 'Registrations for Gita Amrita are currently paused. Please contact program coordinators for upcoming schedules.'
     };
   });
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-  const [regStatusDraft, setRegStatusDraft] = useState(true);
   const [closedNoticeDraft, setClosedNoticeDraft] = useState('');
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
-  // Announcements
-  const [announcements, setAnnouncements] = useState(() => {
-    try {
-      const cached = localStorage.getItem('gita_amrita_cached_announcements');
-      if (cached) return JSON.parse(cached);
-    } catch (e) {}
-    return [];
-  });
-  const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
-  const [deleteAnnConfirmId, setDeleteAnnConfirmId] = useState(null);
-  const [newAnnouncement, setNewAnnouncement] = useState({
-    title: '',
-    content: '',
-    type: 'General',
-    target: 'All',
-    isPinned: false
-  });
-
-  // Search & Filter
+  // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedModeFilter, setSelectedModeFilter] = useState('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
 
-  // Modals & Selected
+  // Pagination & Display Customizations
+  const [pageSize, setPageSize] = useState('20');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Column Visibility Customization
+  const [columnVisibility, setColumnVisibility] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gita_amrita_admin_cols');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    const initial = {};
+    ALL_COLUMNS.forEach(c => {
+      initial[c.id] = c.default;
+    });
+    return initial;
+  });
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const columnMenuRef = useRef(null);
+
+  // Modals & Confirmation States
   const [detailParticipant, setDetailParticipant] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-  const [editingBatch, setEditingBatch] = useState(null);
-  const [deleteBatchConfirmId, setDeleteBatchConfirmId] = useState(null);
-  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
-  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [isDeletingParticipant, setIsDeletingParticipant] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
+
+  // Admin Access Management State
+  const [adminsList, setAdminsList] = useState([]);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [showNewAdminPassword, setShowNewAdminPassword] = useState(false);
+  const [newAdminRole, setNewAdminRole] = useState('Admin');
+  const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [adminActionError, setAdminActionError] = useState('');
+  const [adminDeleteConfirm, setAdminDeleteConfirm] = useState(null);
+  const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
+  const [changingRoleId, setChangingRoleId] = useState(null);
+
+  // Change Password State
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeMsg, setPasswordChangeMsg] = useState({ type: '', text: '' });
+
+  // Reset Password for Coordinator by Super Admin State
+  const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [showResetNewPass, setShowResetNewPass] = useState(false);
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [showResetConfirmPass, setShowResetConfirmPass] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState('');
+
+  // Latest Backup Info
+  const [lastBackupInfo, setLastBackupInfo] = useState(() => {
+    try {
+      const stored = localStorage.getItem('gita_amrita_last_backup_meta');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return null;
+  });
 
   const [notification, setNotification] = useState('');
 
   const showNotification = (msg) => {
     setNotification(msg);
-    setTimeout(() => setNotification(''), 3000);
+    setTimeout(() => setNotification(''), 3500);
   };
 
-  // Background fetch
-  const loadData = async (isManual = false) => {
-    if (isManual) setLoading(true);
+  // Determine if current logged in user has Super Admin role
+  const isSuperAdmin = useMemo(() => {
+    return isSuperAdminUser(adminUser);
+  }, [adminUser]);
+
+  // Close column dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (columnMenuRef.current && !columnMenuRef.current.contains(event.target)) {
+        setColumnMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Subscribe to program settings
+  useEffect(() => {
+    const unsubscribeSettings = subscribeToProgramSettings((latestSettings) => {
+      if (latestSettings) {
+        setSettings(latestSettings);
+        if (latestSettings.closedNotice !== undefined) {
+          setClosedNoticeDraft(latestSettings.closedNotice);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeSettings();
+    };
+  }, []);
+
+  // Subscribe to Authorized Admins List in real-time
+  useEffect(() => {
+    const unsubAdmins = subscribeToAdmins((list) => {
+      if (list) setAdminsList(list);
+    });
+    return () => unsubAdmins();
+  }, []);
+
+  // Fetch data
+  const loadData = async (forceSync = false) => {
+    setLoading(true);
     try {
-      const [regs, batchList, sett, annList] = await Promise.all([
+      const [regs, sett, adms] = await Promise.all([
         fetchAllRegistrations(),
-        fetchBatchesFromFirestore(),
         fetchProgramSettings(),
-        fetchAnnouncements()
+        fetchAllAdmins()
       ]);
-      setRegistrations(regs);
-      setBatches(batchList);
+
+      if (regs) {
+        setRegistrations(regs);
+        try {
+          localStorage.setItem('gita_amrita_cached_admin_regs', JSON.stringify(regs));
+        } catch (e) {}
+      }
+
       if (sett) {
         setSettings(sett);
         setClosedNoticeDraft(sett.closedNotice || '');
+        try {
+          localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(sett));
+        } catch (e) {}
       }
-      if (annList) setAnnouncements(annList);
-      try {
-        localStorage.setItem('gita_amrita_cached_admin_regs', JSON.stringify(regs));
-        localStorage.setItem('gita_amrita_cached_batches', JSON.stringify(batchList));
-        if (sett) localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(sett));
-        if (annList) localStorage.setItem('gita_amrita_cached_announcements', JSON.stringify(annList));
-      } catch (e) {}
+
+      if (adms) {
+        setAdminsList(adms);
+        try {
+          localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(adms));
+        } catch (e) {}
+      }
+
+      if (forceSync) {
+        showNotification('Database synchronized successfully.');
+      }
     } catch (err) {
-      console.warn('Sync note:', err);
+      console.warn('Error loading admin data:', err);
+      showNotification('Failed to sync live data. Using local cache.');
     } finally {
-      if (isManual) setLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData(false);
-
-    const unsubSettings = subscribeToProgramSettings((latestSettings) => {
-      if (latestSettings) {
-        setSettings(latestSettings);
-        setClosedNoticeDraft(latestSettings.closedNotice || '');
-        setRegStatusDraft(Boolean(latestSettings.isRegistrationOpen));
-      }
-    });
-
-    return () => unsubSettings();
+    loadData();
   }, []);
 
-  // Filtered registrations
-  const filteredRegistrations = useMemo(() => {
-    return registrations.filter((item) => {
-      const query = searchQuery.toLowerCase().trim();
-      const matchesSearch = !query || 
-        (item.fullName || '').toLowerCase().includes(query) ||
-        (item.registrationId || item.id || '').toLowerCase().includes(query) ||
-        (item.mobile || '').includes(query) ||
-        (item.email || '').toLowerCase().includes(query) ||
-        (item.city || '').toLowerCase().includes(query);
-
-      const matchesMode = selectedModeFilter === 'all' || 
-        (item.batchMode || '').toLowerCase() === selectedModeFilter.toLowerCase();
-
-      const matchesStatus = selectedStatusFilter === 'all' || 
-        (item.status || 'Confirmed').toLowerCase() === selectedStatusFilter.toLowerCase();
-
-      return matchesSearch && matchesMode && matchesStatus;
+  // Save Column settings to localStorage
+  const toggleColumn = (columnId) => {
+    setColumnVisibility(prev => {
+      const updated = { ...prev, [columnId]: !prev[columnId] };
+      try {
+        localStorage.setItem('gita_amrita_admin_cols', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
     });
-  }, [registrations, searchQuery, selectedModeFilter, selectedStatusFilter]);
+  };
 
-  // Statistics calculation
-  const stats = useMemo(() => {
-    const total = registrations.length;
-    const online = registrations.filter(r => (r.batchMode || '').toLowerCase() === 'online').length;
-    const offline = registrations.filter(r => (r.batchMode || '').toLowerCase() === 'offline').length;
-    return { total, online, offline };
-  }, [registrations]);
+  const resetColumns = () => {
+    const initial = {};
+    ALL_COLUMNS.forEach(c => {
+      initial[c.id] = c.default;
+    });
+    setColumnVisibility(initial);
+    try {
+      localStorage.setItem('gita_amrita_admin_cols', JSON.stringify(initial));
+    } catch (e) {}
+  };
 
-  // Unique Batches (prevent duplicate cards from multiple clicks or remote duplicates)
-  const uniqueBatches = useMemo(() => {
-    const seen = new Set();
-    const unique = [];
-    for (const b of batches) {
-      if (!b) continue;
-      const key = b.id || '';
-      const contentKey = `${(b.title || '').trim().toLowerCase()}_${(b.schedule || '').trim().toLowerCase()}_${(b.mode || '').toLowerCase()}_${b.startDate || ''}_${b.endDate || ''}`;
-      if ((key && seen.has(key)) || seen.has(contentKey)) {
-        continue;
+  // Toggle Registration Open/Closed Status
+  const handleToggleRegistrationStatus = async (newStatus) => {
+    if (isUpdatingStatus) return;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        isRegistrationOpen: newStatus
+      });
+      if (res.success) {
+        setSettings(prev => ({ ...prev, isRegistrationOpen: newStatus }));
+        showNotification(`Registration form is now ${newStatus ? 'OPEN' : 'CLOSED'}.`);
       }
-      if (key) seen.add(key);
-      seen.add(contentKey);
-      unique.push(b);
+    } catch (err) {
+      showNotification('Failed to update registration status.');
+    } finally {
+      setIsUpdatingStatus(false);
     }
-    return unique;
-  }, [batches]);
+  };
 
-  // Export CSV
-  const handleExportCSV = () => {
-    if (!filteredRegistrations.length) {
-      showNotification('No participant records to export.');
+  // Save Custom Pause Notice
+  const handleSaveNoticeMessage = async (e) => {
+    e?.preventDefault();
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        closedNotice: closedNoticeDraft.trim()
+      });
+      if (res.success) {
+        setSettings(prev => ({ ...prev, closedNotice: closedNoticeDraft.trim() }));
+        showNotification('Custom registration pause notice saved.');
+      }
+    } catch (err) {
+      showNotification('Failed to save notice message.');
+    }
+  };
+
+  // Add / Grant Admin Access
+  const handleAddAdmin = async (e) => {
+    e.preventDefault();
+    if (!isSuperAdmin) {
+      setAdminActionError('Access Denied: Only Super Administrators can add new admins.');
+      return;
+    }
+    if (!newAdminEmail.trim() || !newAdminEmail.includes('@')) {
+      setAdminActionError('Please enter a valid email address.');
+      return;
+    }
+    if (!newAdminPassword.trim() || newAdminPassword.trim().length < 6) {
+      setAdminActionError('Initial password must be at least 6 characters long.');
+      return;
+    }
+    setAdminActionError('');
+    setIsAddingAdmin(true);
+
+    try {
+      const res = await addAdminToFirestore({
+        email: newAdminEmail.trim().toLowerCase(),
+        name: newAdminName.trim() || newAdminEmail.trim().split('@')[0],
+        password: newAdminPassword.trim(),
+        role: newAdminRole,
+        addedBy: adminUser?.email || adminUser?.name || 'Super Admin',
+        callerUser: adminUser
+      });
+
+      if (res.success) {
+        setNewAdminEmail('');
+        setNewAdminName('');
+        setNewAdminPassword('');
+        setShowNewAdminPassword(false);
+        setNewAdminRole('Admin');
+        
+        // Immediately update adminsList state so the new admin appears instantly
+        setAdminsList(prev => {
+          const next = [res.admin, ...prev.filter(a => (a.email || '').toLowerCase() !== (res.admin.email || '').toLowerCase())];
+          next.sort((a, b) => {
+            const aSuper = (a.role === 'Super Admin' || a.role === 'Super Administrator') ? 1 : 0;
+            const bSuper = (b.role === 'Super Admin' || b.role === 'Super Administrator') ? 1 : 0;
+            if (aSuper !== bSuper) return bSuper - aSuper;
+            return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+          });
+          return next;
+        });
+
+        showNotification(`Coordinator access granted to ${res.admin.email} (${res.admin.role})`);
+      } else {
+        setAdminActionError(res.error || 'Failed to grant admin access.');
+      }
+    } catch (err) {
+      setAdminActionError('Error adding admin. Please try again.');
+    } finally {
+      setIsAddingAdmin(false);
+    }
+  };
+
+  // Change Admin Role (Super Admin only)
+  const handleChangeAdminRole = async (email, newRole) => {
+    if (!isSuperAdmin) {
+      showNotification('Access Denied: Only Super Administrators can modify roles.');
+      return;
+    }
+    setChangingRoleId(email);
+    try {
+      const res = await updateAdminRoleInFirestore({
+        email,
+        newRole,
+        callerUser: adminUser
+      });
+      if (res.success) {
+        setAdminsList(prev => {
+          const next = prev.map(a => {
+            if ((a.email || '').toLowerCase() === email.toLowerCase()) {
+              return { ...a, role: newRole };
+            }
+            return a;
+          });
+          next.sort((a, b) => {
+            const aSuper = (a.role === 'Super Admin' || a.role === 'Super Administrator') ? 1 : 0;
+            const bSuper = (b.role === 'Super Admin' || b.role === 'Super Administrator') ? 1 : 0;
+            if (aSuper !== bSuper) return bSuper - aSuper;
+            return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+          });
+          return next;
+        });
+        showNotification(`Role updated to ${newRole} for ${email}`);
+      } else {
+        showNotification(res.error || 'Failed to update role.');
+      }
+    } catch (err) {
+      showNotification('Error modifying role.');
+    } finally {
+      setChangingRoleId(null);
+    }
+  };
+
+  // Remove / Revoke Admin Access (Instantly updates UI & database)
+  const handleRemoveAdmin = async (adminIdOrEmail) => {
+    if (!isSuperAdmin) {
+      showNotification('Access Denied: Only Super Administrators can remove admins.');
+      return;
+    }
+    setIsDeletingAdmin(true);
+    setAdminActionError('');
+    try {
+      const res = await removeAdminFromFirestore(adminIdOrEmail, adminUser);
+      if (res.success) {
+        const targetClean = (adminIdOrEmail || '').toLowerCase();
+        
+        // Immediately filter out from state so the card instantly disappears
+        setAdminsList(prev => prev.filter(a => {
+          const em = (a.email || '').toLowerCase();
+          const id = (a.id || '').toLowerCase();
+          return em !== targetClean && id !== targetClean && em.split('@')[0] !== targetClean;
+        }));
+        
+        setAdminDeleteConfirm(null);
+        showNotification('Coordinator access revoked successfully.');
+      } else {
+        setAdminActionError(res.error || 'Could not revoke coordinator access.');
+      }
+    } catch (err) {
+      setAdminActionError('Error revoking coordinator access.');
+    } finally {
+      setIsDeletingAdmin(false);
+    }
+  };
+
+  // Change Password for Logged-In Admin (requires current password + new password 2 times)
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentPasswordInput) {
+      setPasswordChangeMsg({ type: 'error', text: 'Please enter your current password.' });
+      return;
+    }
+    if (newPasswordInput.length < 6) {
+      setPasswordChangeMsg({ type: 'error', text: 'New password must be at least 6 characters long.' });
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordChangeMsg({ type: 'error', text: 'New passwords do not match. Please re-enter.' });
       return;
     }
 
-    const headers = [
-      'Registration ID',
-      'Full Name',
-      'Age',
-      'Gender',
-      'Mobile',
-      'Email',
-      'City',
-      'Area',
-      'Occupation',
-      'Gita Experience',
-      'Batch Title',
-      'Batch Mode',
-      'Batch Schedule',
-      'Referral Source',
-      'Status',
-      'Registration Date'
-    ];
+    setPasswordChangeLoading(true);
+    setPasswordChangeMsg({ type: '', text: '' });
 
-    const rows = filteredRegistrations.map(r => [
-      r.registrationId || r.id || '',
-      `"${(r.fullName || '').replace(/"/g, '""')}"`,
-      r.age || '',
-      r.gender || '',
-      `"${r.countryCode || '+91'} ${r.mobile || ''}"`,
-      `"${r.email || ''}"`,
-      `"${(r.city || '').replace(/"/g, '""')}"`,
-      `"${(r.area || '').replace(/"/g, '""')}"`,
-      `"${r.occupation || ''}"`,
-      `"${r.gitaExperience || ''}"`,
-      `"${r.batchTitle || 'Bhagavad Gita'}"`,
-      r.batchMode || '',
-      `"${r.batchSchedule || ''}"`,
-      `"${r.referralSource || ''}"`,
-      r.status || 'Confirmed',
-      `"${r.createdAtFormatted || ''}"`
-    ]);
+    try {
+      const res = await changeAdminPassword({
+        adminEmail: adminUser?.email,
+        currentPassword: currentPasswordInput,
+        newPassword: newPasswordInput,
+        callerUser: adminUser
+      });
+      if (res.success) {
+        setPasswordChangeMsg({ type: 'success', text: res.message || 'Password updated successfully!' });
+        setCurrentPasswordInput('');
+        setNewPasswordInput('');
+        setConfirmPasswordInput('');
+        showNotification('Admin password updated successfully.');
+      } else {
+        setPasswordChangeMsg({ type: 'error', text: res.error || 'Failed to update password.' });
+      }
+    } catch (err) {
+      setPasswordChangeMsg({ type: 'error', text: 'Unexpected error changing password.' });
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `gita_amrita_participants_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showNotification('Exported CSV successfully!');
+  // Super Admin: Reset Password for an Admin directly
+  const handleResetAdminPasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!resetNewPassword || resetNewPassword.length < 6) {
+      setResetPasswordError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setResetPasswordError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    setResetPasswordError('');
+
+    try {
+      const res = await resetAdminPasswordBySuperAdmin({
+        adminEmail: resetPasswordTarget?.email,
+        newPassword: resetNewPassword,
+        callerUser: adminUser
+      });
+
+      if (res.success) {
+        showNotification(res.message || `Password for ${resetPasswordTarget?.email} reset successfully.`);
+        setResetPasswordTarget(null);
+        setResetNewPassword('');
+        setResetConfirmPassword('');
+      } else {
+        setResetPasswordError(res.error || 'Failed to reset password.');
+      }
+    } catch (err) {
+      setResetPasswordError('Unexpected error resetting password.');
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  // Filter & Search Registrations
+  const filteredRegistrations = useMemo(() => {
+    return registrations.filter(item => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = (item.fullName || item.name || '').toLowerCase().includes(q);
+        const matchMobile = (item.mobile || '').replace(/\D/g, '').includes(q.replace(/\D/g, ''));
+        const matchEmail = (item.email || '').toLowerCase().includes(q);
+        const matchId = (item.registrationId || item.id || '').toLowerCase().includes(q);
+        const matchCity = (item.currentResidence || item.city || '').toLowerCase().includes(q);
+        const matchOcc = (item.occupation || '').toLowerCase().includes(q);
+        if (!matchName && !matchMobile && !matchEmail && !matchId && !matchCity && !matchOcc) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [registrations, searchQuery]);
+
+  // Statistics Summary
+  const stats = useMemo(() => {
+    const total = registrations.length;
+    const male = registrations.filter(r => (r.gender || '').toLowerCase() === 'male').length;
+    const female = registrations.filter(r => (r.gender || '').toLowerCase() === 'female').length;
+
+    // Calculate Today's Registrations
+    const today = new Date();
+    const todayDateStr = today.toISOString().slice(0, 10);
+    const todayLocaleStr = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    let todayCount = 0;
+    registrations.forEach(r => {
+      if (r.createdAt?.toDate) {
+        const d = r.createdAt.toDate();
+        if (d.toISOString().slice(0, 10) === todayDateStr) {
+          todayCount++;
+        }
+      } else if (r.createdAtFormatted && r.createdAtFormatted.includes(todayLocaleStr)) {
+        todayCount++;
+      }
+    });
+
+    return { total, male, female, todayCount };
+  }, [registrations]);
+
+  // Recent Activity Feed
+  const recentActivities = useMemo(() => {
+    return registrations.slice(0, 6).map(r => ({
+      id: r.registrationId || r.id,
+      name: r.fullName || 'Participant',
+      city: r.currentResidence || r.city || 'Adilabad',
+      date: r.createdAtFormatted || 'Recent',
+      gender: r.gender || '—',
+      education: r.education || '—'
+    }));
+  }, [registrations]);
+
+  // Pagination
+  const totalItems = filteredRegistrations.length;
+  const itemsPerPage = pageSize === 'all' ? (totalItems || 1) : parseInt(pageSize, 10);
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+  const paginatedRegistrations = useMemo(() => {
+    if (pageSize === 'all') return filteredRegistrations;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredRegistrations.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredRegistrations, currentPage, itemsPerPage, pageSize]);
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    if (!registrations || registrations.length === 0) {
+      showNotification('No participant registrations available to export.');
+      return;
+    }
+
+    try {
+      const exportData = registrations.map((p, idx) => ({
+        'S.No': idx + 1,
+        'Registration ID': p.registrationId || p.id || '',
+        'Full Name': p.fullName || p.name || '',
+        'Mobile Number': p.mobile ? `${p.countryCode || '+91'} ${p.mobile}` : '',
+        'Email Address': p.email || '',
+        'Age': p.age || '',
+        'Gender': p.gender || '',
+        'Current Residence': p.currentResidence || p.city || '',
+        'Address': p.fullAddress || p.address || p.area || '',
+        'Pincode': p.pincode || '',
+        'Qualification': p.education || '—',
+        'Occupation': p.occupation || '',
+        'Registration Date': p.createdAtFormatted || p.date || 'Recent'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Gita_Amrita_Participants');
+
+      const colWidths = [
+        { wch: 6 },
+        { wch: 14 },
+        { wch: 22 },
+        { wch: 18 },
+        { wch: 26 },
+        { wch: 6 },
+        { wch: 10 },
+        { wch: 20 },
+        { wch: 30 },
+        { wch: 10 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 22 }
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `Gita_Amrita_Participants_${dateStr}.xlsx`);
+
+      const backupMeta = {
+        type: 'Excel (.xlsx)',
+        timestamp: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        count: registrations.length
+      };
+      setLastBackupInfo(backupMeta);
+      try {
+        localStorage.setItem('gita_amrita_last_backup_meta', JSON.stringify(backupMeta));
+      } catch (e) {}
+
+      showNotification(`Exported ${registrations.length} records to Excel.`);
+    } catch (err) {
+      console.error('Error generating Excel file:', err);
+      showNotification('Failed to generate Excel file.');
+    }
+  };
+
+  // Full Database Backup (.json)
+  const handleBackupDatabase = async () => {
+    setIsBackingUp(true);
+    try {
+      const backupData = await generateFullDatabaseBackup();
+      downloadBackupFile(backupData);
+
+      const backupMeta = {
+        type: 'JSON Database Snapshot',
+        timestamp: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        count: registrations.length
+      };
+      setLastBackupInfo(backupMeta);
+      try {
+        localStorage.setItem('gita_amrita_last_backup_meta', JSON.stringify(backupMeta));
+      } catch (e) {}
+
+      showNotification('Complete raw database backup downloaded.');
+    } catch (err) {
+      console.warn('Backup error:', err);
+      showNotification('Failed to generate database backup.');
+    } finally {
+      setIsBackingUp(false);
+    }
   };
 
   // Delete participant
-  const handleDeleteParticipant = async (id) => {
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmId || isDeletingParticipant) return;
+    setIsDeletingParticipant(true);
     try {
-      await deleteParticipant(id);
-      const updated = registrations.filter(p => p.id !== id);
-      setRegistrations(updated);
-      try {
-        localStorage.setItem('gita_amrita_cached_admin_regs', JSON.stringify(updated));
-      } catch (e) {}
+      await deleteParticipant(deleteConfirmId);
+      setRegistrations(prev => prev.filter(r => r.id !== deleteConfirmId && r.registrationId !== deleteConfirmId));
       setDeleteConfirmId(null);
-      showNotification('Participant removed.');
+      showNotification('Participant deleted successfully.');
     } catch (err) {
       showNotification('Failed to delete participant.');
-    }
-  };
-
-  // Add new batch (with deduplication)
-  const handleCreateBatch = async (batchData) => {
-    try {
-      const res = await saveBatchToFirestore(batchData);
-      if (res.success) {
-        setBatches(prev => {
-          const filtered = prev.filter(b => b.id !== res.batch.id);
-          const updated = [...filtered, res.batch];
-          try {
-            localStorage.setItem('gita_amrita_cached_batches', JSON.stringify(updated));
-          } catch (e) {}
-          return updated;
-        });
-        setBatchModalOpen(false);
-        showNotification('Batch created successfully.');
-      }
-    } catch (err) {
-      showNotification('Failed to create batch.');
-    }
-  };
-
-  // Update batch
-  const handleUpdateBatch = async (batchData) => {
-    if (!batchData) return;
-    try {
-      const res = await saveBatchToFirestore(batchData);
-      if (res.success) {
-        setBatches(prev => {
-          const updated = prev.map(b => b.id === batchData.id ? { ...b, ...batchData } : b);
-          try {
-            localStorage.setItem('gita_amrita_cached_batches', JSON.stringify(updated));
-          } catch (e) {}
-          return updated;
-        });
-        setEditingBatch(null);
-        showNotification('Batch updated successfully.');
-      }
-    } catch (err) {
-      showNotification('Failed to update batch.');
-    }
-  };
-
-  // Delete batch (via UI modal confirmation with loading state)
-  const handleConfirmDeleteBatch = async () => {
-    if (!deleteBatchConfirmId || isDeletingBatch) return;
-    setIsDeletingBatch(true);
-    try {
-      await deleteBatchFromFirestore(deleteBatchConfirmId);
-      setBatches(prev => {
-        const updated = prev.filter(b => b.id !== deleteBatchConfirmId);
-        try {
-          localStorage.setItem('gita_amrita_cached_batches', JSON.stringify(updated));
-        } catch (e) {}
-        return updated;
-      });
-      showNotification('Batch removed successfully.');
-      setDeleteBatchConfirmId(null);
-    } catch (err) {
-      showNotification('Failed to delete batch.');
     } finally {
-      setIsDeletingBatch(false);
-    }
-  };
-
-  // Open Registration Settings Modal
-  const handleOpenRegistrationModal = () => {
-    setRegStatusDraft(Boolean(settings.isRegistrationOpen));
-    setClosedNoticeDraft(settings.closedNotice || '');
-    setSettingsModalOpen(true);
-  };
-
-  // Save Settings from Modal
-  const handleSaveRegistrationSettings = async () => {
-    setIsSavingSettings(true);
-    const updated = {
-      ...settings,
-      isRegistrationOpen: regStatusDraft,
-      closedNotice: (closedNoticeDraft || '').trim()
-    };
-    setSettings(updated);
-    try {
-      localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(updated));
-    } catch (e) {}
-    setSettingsModalOpen(false);
-    setIsSavingSettings(false);
-    showNotification(regStatusDraft ? 'Registration is now OPEN.' : 'Registration is now CLOSED.');
-    await updateProgramSettings(updated);
-  };
-
-  // Create Announcement
-  const handleCreateAnnouncement = async (e) => {
-    e.preventDefault();
-    if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) return;
-    try {
-      const res = await saveAnnouncementToFirestore(newAnnouncement);
-      if (res.success) {
-        const updated = [res.announcement, ...announcements.filter(a => a.id !== res.announcement.id)];
-        setAnnouncements(updated);
-        try {
-          localStorage.setItem('gita_amrita_cached_announcements', JSON.stringify(updated));
-        } catch (e) {}
-        setAnnouncementModalOpen(false);
-        setNewAnnouncement({
-          title: '',
-          content: '',
-          type: 'General',
-          target: 'All',
-          isPinned: false
-        });
-        showNotification('Announcement posted successfully.');
-      }
-    } catch (err) {
-      showNotification('Failed to post announcement.');
-    }
-  };
-
-  // Delete Announcement
-  const handleDeleteAnnouncement = async () => {
-    if (!deleteAnnConfirmId) return;
-    try {
-      await deleteAnnouncementFromFirestore(deleteAnnConfirmId);
-      const updated = announcements.filter(a => a.id !== deleteAnnConfirmId);
-      setAnnouncements(updated);
-      try {
-        localStorage.setItem('gita_amrita_cached_announcements', JSON.stringify(updated));
-      } catch (e) {}
-      setDeleteAnnConfirmId(null);
-      showNotification('Announcement removed.');
-    } catch (err) {
-      showNotification('Failed to delete announcement.');
+      setIsDeletingParticipant(false);
     }
   };
 
@@ -417,17 +751,17 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-4 right-4 z-50 bg-temple-900 text-cream-50 px-4 py-2.5 rounded-xl shadow-soft flex items-center gap-2 text-xs font-medium animate-fadeIn">
-          <Check className="w-3.5 h-3.5 text-saffron-400" />
+        <div className="fixed bottom-6 right-6 z-50 bg-temple-900 text-cream-50 px-4 py-2.5 rounded-2xl shadow-soft-lg text-xs font-medium flex items-center gap-2 animate-fadeIn border border-saffron-500/30">
+          <Sparkles className="w-3.5 h-3.5 text-saffron-400" />
           <span>{notification}</span>
         </div>
       )}
 
-      {/* Clean, Simple Admin Header */}
-      <header className="sticky top-0 z-30 bg-cream-50/95 backdrop-blur-md border-b border-cream-200 shadow-soft">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+      {/* Admin Header with Icon-Only Clean Navigation */}
+      <header className="sticky top-0 z-30 bg-cream-50/95 backdrop-blur-md border-b border-cream-200/80 shadow-2xs">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
           
-          {/* Brand */}
+          {/* Left: Brand */}
           <div className="flex items-center gap-2.5">
             <img
               src="/assets/iskcon_logo.webp"
@@ -439,8 +773,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 <span className="text-sm font-bold text-temple-900 leading-tight">
                   Gita Amrita
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider bg-saffron-50 text-saffron-700 px-1.5 py-0.2 rounded border border-saffron-200">
-                  Admin
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                  isSuperAdmin 
+                    ? 'text-purple-700 bg-purple-50 border-purple-200' 
+                    : 'text-saffron-700 bg-saffron-50 border-saffron-200'
+                }`}>
+                  {isSuperAdmin ? 'Super Admin' : 'Admin'}
                 </span>
               </div>
               <span className="text-[10px] text-temple-500 block">
@@ -449,94 +787,123 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             </div>
           </div>
 
-          {/* Right: Compact Registration Status Button & Logout */}
-          <div className="flex items-center gap-2">
+          {/* Center: Clean Icon Navigation */}
+          <div className="flex items-center gap-1 bg-cream-200/80 p-1 rounded-2xl border border-cream-300">
             <button
-              type="button"
-              onClick={handleOpenRegistrationModal}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer shadow-2xs hover:opacity-90 active:scale-95 ${
-                settings.isRegistrationOpen
-                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
-                  : 'bg-red-50 hover:bg-red-100 text-red-800 border-red-300'
+              onClick={() => switchTab('participants')}
+              className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
+                activeTab === 'participants'
+                  ? 'bg-white text-saffron-700 shadow-soft font-bold'
+                  : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
               }`}
-              title="Click to manage registration status"
+              title="Participants Registrations"
+              aria-label="Participants Registrations"
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${settings.isRegistrationOpen ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-              <span className="font-extrabold uppercase tracking-wider">
-                {settings.isRegistrationOpen ? 'OPEN' : 'CLOSED'}
-              </span>
+              <Users className="w-4 h-4" />
             </button>
 
             <button
-              onClick={onLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cream-300 hover:border-red-200 bg-white hover:bg-red-50 text-temple-700 hover:text-red-700 text-xs font-medium transition-colors cursor-pointer"
+              onClick={() => switchTab('settings')}
+              className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
+                activeTab === 'settings'
+                  ? 'bg-white text-saffron-700 shadow-soft font-bold'
+                  : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
+              }`}
+              title="System & Administrative Settings"
+              aria-label="Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Right: Coordinator Details & Logout */}
+          <div className="flex items-center gap-2">
+            <div className="text-right hidden sm:block">
+              <span className="text-xs font-semibold text-temple-800 block truncate max-w-[140px]">
+                {adminUser?.name || 'Coordinator'}
+              </span>
+              <span className="text-[10px] text-temple-500 block truncate max-w-[140px]">
+                {adminUser?.email || ''}
+              </span>
+            </div>
+            
+            <button
+              onClick={() => setLogoutConfirmOpen(true)}
+              className="inline-flex items-center gap-1 p-2 sm:px-3 sm:py-1.5 rounded-xl border border-cream-300 hover:border-red-200 bg-white hover:bg-red-50 text-temple-700 hover:text-red-700 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
               title="Log out of Admin Dashboard"
+              aria-label="Logout"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
 
         </div>
       </header>
 
-      {/* Simple Admin Body */}
+      {/* Main Content Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
         
-        {/* Simple Tab Navigation */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 bg-cream-200/60 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('participants')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeTab === 'participants'
-                  ? 'bg-white text-temple-900 shadow-sm'
-                  : 'text-temple-600 hover:text-temple-900'
-              }`}
-            >
-              Participants ({registrations.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('batches')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeTab === 'batches'
-                  ? 'bg-white text-temple-900 shadow-sm'
-                  : 'text-temple-600 hover:text-temple-900'
-              }`}
-            >
-              Batches ({uniqueBatches.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('announcements')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeTab === 'announcements'
-                  ? 'bg-white text-temple-900 shadow-sm'
-                  : 'text-temple-600 hover:text-temple-900'
-              }`}
-            >
-              Announcements ({announcements.length})
-            </button>
-          </div>
-
-          <button
-            onClick={() => loadData(true)}
-            className="inline-flex items-center gap-1 text-xs text-temple-600 hover:text-saffron-700 font-medium cursor-pointer p-1.5"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-saffron-600' : ''}`} />
-            <span className="hidden sm:inline">Sync</span>
-          </button>
-        </div>
-
-        {/* TAB 1: PARTICIPANTS */}
+        {/* TAB 1: PARTICIPANTS MANAGEMENT VIEW */}
         {activeTab === 'participants' && (
           <div className="space-y-4 animate-fadeIn">
             
-            {/* Clean, Simple Stat Chips */}
+            {/* Warm Welcome Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1">
+              <div>
+                <span className="text-xs font-semibold text-saffron-700 tracking-wide block">
+                  Hare Krishna 🙏
+                </span>
+                <h2 className="text-lg sm:text-xl font-bold text-temple-900 tracking-tight">
+                  Welcome, {adminUser?.name || 'Coordinator'}
+                </h2>
+              </div>
+              <div className="text-[11px] text-temple-500">
+                Dedicated service to Sri Sri Radha Govinda &bull; ISKCON Adilabad
+              </div>
+            </div>
+            
+            {/* Top Bar: Title + Status Pill + Sync */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-temple-900">
+                  Participant Registrations
+                </h1>
+                <span className="text-xs font-semibold text-temple-600 bg-cream-200/80 px-2.5 py-0.5 rounded-full">
+                  {registrations.length} Total
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 justify-between sm:justify-end">
+                {/* Compact Registration Status Pill */}
+                <div className={`px-2.5 py-1.5 rounded-xl border transition-all flex items-center gap-2 shadow-2xs ${
+                  settings.isRegistrationOpen
+                    ? 'bg-emerald-50/90 border-emerald-200'
+                    : 'bg-amber-50/90 border-amber-200'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${settings.isRegistrationOpen ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  <span className="text-[11px] font-semibold text-temple-800 whitespace-nowrap">
+                    Form: {settings.isRegistrationOpen ? 'Open' : 'Closed'}
+                  </span>
+                </div>
+
+                {/* Sync Button */}
+                <button
+                  onClick={() => loadData(true)}
+                  className="inline-flex items-center gap-1 text-xs text-temple-600 hover:text-saffron-700 font-medium cursor-pointer p-1.5 rounded-xl border border-cream-200 bg-white hover:bg-cream-100 shadow-2xs"
+                  title="Sync latest records from database"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-saffron-600' : ''}`} />
+                  <span className="hidden sm:inline">Sync</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Stat Summary Cards */}
             <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
               <div className="bg-cream-50 rounded-2xl p-3 sm:p-4 border border-cream-200 shadow-soft text-left">
                 <span className="text-[11px] uppercase tracking-wide text-temple-500 font-semibold block">
-                  Total Devotees
+                  Total Participants
                 </span>
                 <span className="text-xl sm:text-2xl font-bold text-temple-900 font-mono">
                   {stats.total}
@@ -544,353 +911,860 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               </div>
 
               <div className="bg-cream-50 rounded-2xl p-3 sm:p-4 border border-cream-200 shadow-soft text-left">
-                <span className="text-[11px] uppercase tracking-wide text-blue-700 font-semibold block">
-                  Online
+                <span className="text-[11px] uppercase tracking-wide text-saffron-700 font-semibold block">
+                  Male Participants
                 </span>
-                <span className="text-xl sm:text-2xl font-bold text-blue-900 font-mono">
-                  {stats.online}
+                <span className="text-xl sm:text-2xl font-bold text-saffron-900 font-mono">
+                  {stats.male}
                 </span>
               </div>
 
               <div className="bg-cream-50 rounded-2xl p-3 sm:p-4 border border-cream-200 shadow-soft text-left">
                 <span className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold block">
-                  Temple (Offline)
+                  Female Participants
                 </span>
                 <span className="text-xl sm:text-2xl font-bold text-emerald-900 font-mono">
-                  {stats.offline}
+                  {stats.female}
                 </span>
               </div>
             </div>
 
-            {/* Simple Search & Filter Bar */}
-            <div className="bg-cream-50 rounded-2xl p-3 border border-cream-200 shadow-soft flex flex-col sm:flex-row gap-2.5 items-center justify-between">
+            {/* Controls Bar: Search, Rows Selector, Columns */}
+            <div className="bg-cream-50 rounded-2xl p-3 border border-cream-200 shadow-soft flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
               
               {/* Search */}
-              <div className="relative w-full sm:w-72">
+              <div className="relative flex-1 max-w-sm">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-temple-400" />
                 <input
                   type="text"
-                  placeholder="Search name, phone, email, ID..."
+                  placeholder="Search name, phone, email, residence, ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-cream-300 bg-white text-xs text-temple-900 placeholder:text-temple-400 focus:outline-none focus:border-saffron-500 transition-all"
                 />
               </div>
 
-              {/* Mode & Export Controls */}
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <select
-                  value={selectedModeFilter}
-                  onChange={(e) => setSelectedModeFilter(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-xs text-temple-800 focus:outline-none cursor-pointer"
-                >
-                  <option value="all">All Modes</option>
-                  <option value="Offline">Offline (Temple)</option>
-                  <option value="Online">Online</option>
-                </select>
+              {/* Action Tools */}
+              <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
+                
+                {/* Rows per page */}
+                <div className="flex items-center gap-1.5 text-xs text-temple-600">
+                  <span className="text-[11px] font-medium hidden sm:inline">Show:</span>
+                  <div className="relative inline-flex items-center">
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(e.target.value)}
+                      className="appearance-none pl-3 pr-7 py-1.5 rounded-xl border border-cream-300 bg-white text-xs text-temple-800 focus:outline-none cursor-pointer font-medium shadow-2xs hover:border-cream-400 transition-colors"
+                    >
+                      <option value="10">10 rows</option>
+                      <option value="20">20 rows</option>
+                      <option value="30">30 rows</option>
+                      <option value="50">50 rows</option>
+                      <option value="all">All ({totalItems})</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 pointer-events-none text-temple-500" />
+                  </div>
+                </div>
 
+                {/* Column Visibility Menu */}
+                <div className="relative" ref={columnMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setColumnMenuOpen(!columnMenuOpen)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-temple-700 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+                    title="Customize visible columns"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-saffron-600" />
+                    <span>Columns</span>
+                  </button>
+
+                  {columnMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-2xl p-2.5 shadow-soft-lg border border-cream-300 z-40 animate-fadeIn text-left">
+                      <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-cream-200">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-temple-700">Display Columns</span>
+                        <button
+                          type="button"
+                          onClick={resetColumns}
+                          className="text-[10px] text-saffron-600 hover:text-saffron-700 font-semibold cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
+                        {ALL_COLUMNS.map(col => (
+                          <label 
+                            key={col.id} 
+                            className="flex items-center gap-2 p-1 rounded hover:bg-cream-100 text-xs text-temple-800 cursor-pointer select-none"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(columnVisibility[col.id])}
+                              onChange={() => toggleColumn(col.id)}
+                              className="rounded border-cream-400 text-saffron-600 focus:ring-saffron-500 cursor-pointer"
+                            />
+                            <span>{col.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Export Excel */}
                 <button
-                  onClick={handleExportCSV}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white font-semibold text-xs transition-colors shadow-soft cursor-pointer"
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium text-xs transition-colors shadow-soft cursor-pointer"
+                  title="Download Microsoft Excel Sheet (.xlsx)"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>CSV</span>
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Export Excel</span>
                 </button>
-              </div>
 
+              </div>
             </div>
 
-            {/* Clean Table */}
+            {/* Participants Table */}
             <div className="bg-cream-50 rounded-2xl border border-cream-200 shadow-soft overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-cream-200/60 border-b border-cream-200 text-[10px] uppercase font-bold tracking-wider text-temple-600">
-                      <th className="py-2.5 px-3.5">ID</th>
-                      <th className="py-2.5 px-3.5">Devotee</th>
-                      <th className="py-2.5 px-3.5">Contact</th>
-                      <th className="py-2.5 px-3.5">Batch</th>
-                      <th className="py-2.5 px-3.5">City</th>
-                      <th className="py-2.5 px-3.5 text-right">Action</th>
+                      {columnVisibility.sno && <th className="py-2.5 px-3">S.No</th>}
+                      {columnVisibility.id && <th className="py-2.5 px-3">ID</th>}
+                      {columnVisibility.name && <th className="py-2.5 px-3">Participant</th>}
+                      {columnVisibility.mobile && <th className="py-2.5 px-3">Mobile</th>}
+                      {columnVisibility.email && <th className="py-2.5 px-3">Email</th>}
+                      {columnVisibility.residence && <th className="py-2.5 px-3">Residence</th>}
+                      {columnVisibility.address && <th className="py-2.5 px-3">Address</th>}
+                      {columnVisibility.pincode && <th className="py-2.5 px-3">Pincode</th>}
+                      {columnVisibility.age && <th className="py-2.5 px-3">Age</th>}
+                      {columnVisibility.gender && <th className="py-2.5 px-3">Gender</th>}
+                      {columnVisibility.education && <th className="py-2.5 px-3">Qualification</th>}
+                      {columnVisibility.occupation && <th className="py-2.5 px-3">Occupation</th>}
+                      {columnVisibility.date && <th className="py-2.5 px-3">Date</th>}
+                      {columnVisibility.actions && <th className="py-2.5 px-3 text-right">Actions</th>}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-cream-200/70">
-                    {filteredRegistrations.length === 0 ? (
+                  <tbody className="divide-y divide-cream-200/80">
+                    {paginatedRegistrations.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="py-8 text-center text-temple-500 text-xs">
-                          No registered devotees found.
+                        <td colSpan={14} className="py-12 text-center text-temple-500">
+                          <Users className="w-8 h-8 mx-auto text-temple-300 mb-2" />
+                          <p className="font-semibold text-sm">No registrations found</p>
+                          <p className="text-xs text-temple-400">Try adjusting your search query or sync the database.</p>
                         </td>
                       </tr>
                     ) : (
-                      filteredRegistrations.map((item) => (
-                        <tr key={item.id} className="hover:bg-cream-100/60 transition-colors">
-                          <td className="py-2.5 px-3.5 font-mono font-bold text-saffron-800">
-                            {item.registrationId || item.id}
-                          </td>
-                          <td className="py-2.5 px-3.5 font-semibold text-temple-900">
-                            {item.fullName || 'Participant'}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-temple-700">
-                            {item.countryCode || '+91'} {item.mobile}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-temple-800">
-                            <span className="font-medium">{item.batchMode}</span> &bull; {item.batchSchedule}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-temple-600">
-                            {item.city || 'Adilabad'}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-right space-x-1">
-                            <button
-                              onClick={() => setDetailParticipant(item)}
-                              className="p-1 rounded text-temple-500 hover:text-saffron-600 hover:bg-cream-200 transition-colors cursor-pointer"
-                              title="View details"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(item.id)}
-                              className="p-1 rounded text-temple-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                              title="Delete record"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      paginatedRegistrations.map((item, index) => {
+                        const serialNum = pageSize === 'all' ? (index + 1) : ((currentPage - 1) * itemsPerPage + index + 1);
+
+                        return (
+                          <tr 
+                            key={item.registrationId || item.id || index}
+                            className="hover:bg-cream-100/70 transition-colors group"
+                          >
+                            {columnVisibility.sno && (
+                              <td className="py-3 px-3 font-mono text-temple-400 text-[11px]">
+                                {serialNum}
+                              </td>
+                            )}
+
+                            {columnVisibility.id && (
+                              <td className="py-3 px-3 font-mono font-semibold text-saffron-800">
+                                {item.registrationId || item.id || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.name && (
+                              <td className="py-3 px-3 font-semibold text-temple-900">
+                                {item.fullName || item.name || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.mobile && (
+                              <td className="py-3 px-3 font-mono text-temple-700">
+                                {item.mobile ? `${item.countryCode || '+91'} ${item.mobile}` : '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.email && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[140px] truncate" title={item.email}>
+                                {item.email || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.residence && (
+                              <td className="py-3 px-3 text-temple-700">
+                                {item.currentResidence || item.city || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.address && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[150px] truncate" title={item.fullAddress || item.address}>
+                                {item.fullAddress || item.address || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.pincode && (
+                              <td className="py-3 px-3 font-mono text-temple-700">
+                                {item.pincode || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.age && (
+                              <td className="py-3 px-3 text-temple-700">
+                                {item.age ? `${item.age} yrs` : '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.gender && (
+                              <td className="py-3 px-3 text-temple-700">
+                                {item.gender || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.education && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[120px] truncate" title={item.education}>
+                                {item.education || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.occupation && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[120px] truncate" title={item.occupation}>
+                                {item.occupation || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.date && (
+                              <td className="py-3 px-3 text-temple-500 text-[11px] whitespace-nowrap">
+                                {item.createdAtFormatted || item.date || 'Recent'}
+                              </td>
+                            )}
+
+                            {columnVisibility.actions && (
+                              <td className="py-3 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => setDetailParticipant(item)}
+                                    className="p-1.5 rounded-lg hover:bg-cream-200 text-temple-600 hover:text-saffron-700 transition-colors cursor-pointer"
+                                    title="View Full Details"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteConfirmId(item.registrationId || item.id)}
+                                    className="p-1.5 rounded-lg hover:bg-red-100 text-temple-400 hover:text-red-700 transition-colors cursor-pointer"
+                                    title="Delete Participant"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination Controls */}
+              {pageSize !== 'all' && totalPages > 1 && (
+                <div className="py-2.5 px-4 border-t border-cream-200 flex items-center justify-between text-xs text-temple-600 bg-cream-100/50">
+                  <span>
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}
+                  </span>
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1 rounded-lg border border-cream-300 bg-white hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="px-2 font-medium">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1 rounded-lg border border-cream-300 bg-white hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>
         )}
 
-        {/* TAB 2: BATCHES */}
-        {activeTab === 'batches' && (
-          <div className="space-y-4 animate-fadeIn">
-            {/* Registration Status Control Card */}
-            <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-soft ${
-              settings.isRegistrationOpen 
-                ? 'bg-gradient-to-r from-emerald-50 via-cream-50 to-cream-100 border-emerald-200' 
-                : 'bg-gradient-to-r from-red-50 via-cream-50 to-cream-100 border-red-200'
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shadow-xs ${
-                  settings.isRegistrationOpen ? 'bg-emerald-600' : 'bg-red-600'
-                }`}>
-                  {settings.isRegistrationOpen ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-                </div>
+        {/* TAB 2: DEDICATED SETTINGS & SYSTEM HUB */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6 animate-fadeIn text-left">
+            
+            {/* Top Navigation Row: Header Title */}
+            <div className="flex items-center justify-between gap-3 border-b border-cream-200 pb-4">
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-temple-900">
+                  System &amp; Administration Settings
+                </h1>
+              </div>
+            </div>
+
+            {/* COMPACT SYSTEM OVERVIEW STRIP */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="bg-white rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 border border-cream-200 shadow-2xs flex items-center justify-between">
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs sm:text-sm font-bold text-temple-900">
-                      Public Registration Status:
-                    </span>
-                    <span className={`text-[11px] uppercase font-extrabold px-2 py-0.5 rounded-full ${
-                      settings.isRegistrationOpen 
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                        : 'bg-red-100 text-red-800 border border-red-300'
-                    }`}>
-                      {settings.isRegistrationOpen ? 'Currently Open' : 'Currently Closed'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-temple-600 mt-0.5">
-                    {settings.isRegistrationOpen 
-                      ? 'Devotees can register for any batch on the website.'
-                      : 'Admissions are paused. Devotees see the notice message and WhatsApp link.'}
-                  </p>
+                  <span className="text-[10px] sm:text-[11px] uppercase tracking-wide text-temple-500 font-semibold block">
+                    Total Registrations
+                  </span>
+                  <span className="text-lg sm:text-2xl font-bold text-temple-900 font-mono">
+                    {stats.total}
+                  </span>
                 </div>
+                <Users className="w-5 h-5 text-temple-400 hidden sm:block" />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={handleOpenRegistrationModal}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1.5 bg-temple-900 hover:bg-temple-800 text-white"
-                >
-                  <Power className="w-3.5 h-3.5" />
-                  <span>Change Status</span>
-                </button>
+              <div className="bg-white rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 border border-cream-200 shadow-2xs flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] sm:text-[11px] uppercase tracking-wide text-emerald-700 font-semibold block">
+                    Today Registrations
+                  </span>
+                  <span className="text-lg sm:text-2xl font-bold text-emerald-800 font-mono">
+                    {stats.todayCount}
+                  </span>
+                </div>
+                <Activity className="w-5 h-5 text-emerald-500 hidden sm:block" />
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-temple-600 font-medium">Program Batches</span>
-              <button
-                onClick={() => setBatchModalOpen(true)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white font-semibold text-xs shadow-soft transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Batch</span>
-              </button>
+            {/* SECTION 2: REGISTRATION SETTINGS */}
+            <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
+              <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
+                <Power className="w-4 h-4 text-saffron-600" />
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
+                  Registration Form Controls
+                </h2>
+              </div>
+
+              <div className="space-y-4">
+                {/* Registration Switch Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-white border border-cream-200 gap-3">
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                      Enable Registration Form
+                    </h3>
+                    <p className="text-xs text-temple-600">
+                      When turned OFF, the public registration form is disabled and displays the notice message below.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleRegistrationStatus(true)}
+                      disabled={isUpdatingStatus || settings.isRegistrationOpen}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        settings.isRegistrationOpen
+                          ? 'bg-emerald-600 text-white shadow-soft ring-2 ring-emerald-500/20'
+                          : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
+                      }`}
+                    >
+                      {isUpdatingStatus && settings.isRegistrationOpen ? 'Updating...' : 'Open (Active)'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirmTarget(false)}
+                      disabled={isUpdatingStatus || !settings.isRegistrationOpen}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        !settings.isRegistrationOpen
+                          ? 'bg-amber-600 text-white shadow-soft ring-2 ring-amber-500/20'
+                          : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
+                      }`}
+                    >
+                      Paused (Closed)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Custom Closed Notice Message Form */}
+                <form onSubmit={handleSaveNoticeMessage} className="p-4 rounded-2xl bg-white border border-cream-200 space-y-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-temple-800 uppercase tracking-wide">
+                      Registration Paused Notice Message
+                    </label>
+                    <p className="text-xs text-temple-500">
+                      Message shown to visitors when registrations are paused.
+                    </p>
+                  </div>
+
+                  <textarea
+                    rows={3}
+                    value={closedNoticeDraft}
+                    onChange={(e) => setClosedNoticeDraft(e.target.value)}
+                    placeholder="e.g. Registrations for Gita Amrita are currently paused. Please contact program coordinators for upcoming schedules."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none"
+                  />
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all cursor-pointer"
+                    >
+                      Save Notice Message
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
 
-            {uniqueBatches.length === 0 ? (
-              <div className="bg-cream-50 rounded-2xl p-8 border border-cream-200 text-center space-y-2">
-                <p className="text-sm font-semibold text-temple-800">No batches created yet.</p>
-                <p className="text-xs text-temple-600">Click "+ Add Batch" above to create your first class batch.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {uniqueBatches.map((b) => {
-                  const count = registrations.filter(r => 
-                    r.batchId === b.id || 
-                    (r.batchSchedule && b.schedule && r.batchSchedule.toLowerCase() === b.schedule.toLowerCase())
-                  ).length;
+            {/* SECTION 3: ADMIN MANAGEMENT & ROLE-BASED ACCESS CONTROL (Super Admin Only) */}
+            {isSuperAdmin && (
+              <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
+                <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
+                  <ShieldCheck className="w-4 h-4 text-saffron-600" />
+                  <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
+                    Coordinator Access &amp; Role Management
+                  </h2>
+                </div>
 
-                  return (
-                    <div key={b.id} className="bg-cream-50 rounded-2xl p-4 border border-cream-200 shadow-soft text-left space-y-2 relative">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${
-                            b.mode === 'Offline' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-blue-50 text-blue-800 border-blue-200'
-                          }`}>
-                            {b.mode}
-                          </span>
-                          <h4 className="font-bold text-sm text-temple-900 mt-1">{b.title}</h4>
-                          {b.startDate && (
-                            <div className="text-[11px] font-semibold text-temple-700 flex items-center gap-1 my-0.5">
-                              <Calendar className="w-3 h-3 text-saffron-600 flex-shrink-0" />
-                              <span>{b.startDate} {b.endDate ? `to ${b.endDate}` : ''}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5 flex-wrap text-xs font-medium">
-                            <span className="text-saffron-700">{b.schedule}</span>
-                          </div>
-                        </div>
+                {/* Error Message */}
+                {adminActionError && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2 animate-fadeIn">
+                    <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <span className="flex-1">{adminActionError}</span>
+                  </div>
+                )}
 
-                        <div className="flex items-center gap-1">
+                {/* Form: Add New Administrator */}
+                <div className="p-4 rounded-2xl bg-white border border-cream-200 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-saffron-600" />
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-temple-800">
+                      Grant Admin Access to New Coordinator
+                    </h3>
+                  </div>
+
+                  <form onSubmit={handleAddAdmin} className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      {/* Email */}
+                      <div className="sm:col-span-4 space-y-1">
+                        <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                          Email Address <span className="text-saffron-600">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="coordinator@domain.com"
+                          value={newAdminEmail}
+                          onChange={(e) => {
+                            setNewAdminEmail(e.target.value);
+                            if (adminActionError) setAdminActionError('');
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                        />
+                      </div>
+
+                      {/* Full Name */}
+                      <div className="sm:col-span-3 space-y-1">
+                        <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                          Full Name / Title <span className="text-saffron-600">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Madhava Das"
+                          value={newAdminName}
+                          onChange={(e) => setNewAdminName(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                        />
+                      </div>
+
+                      {/* Initial Password with Eye toggle */}
+                      <div className="sm:col-span-3 space-y-1">
+                        <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                          Initial Password <span className="text-saffron-600">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showNewAdminPassword ? 'text' : 'password'}
+                            required
+                            placeholder="Min 6 chars"
+                            value={newAdminPassword}
+                            onChange={(e) => {
+                              setNewAdminPassword(e.target.value);
+                              if (adminActionError) setAdminActionError('');
+                            }}
+                            className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                          />
                           <button
                             type="button"
-                            onClick={() => setEditingBatch({ ...b })}
-                            className="p-1 rounded text-temple-500 hover:text-saffron-600 hover:bg-cream-200 transition-colors cursor-pointer"
-                            title="Edit Batch"
+                            onClick={() => setShowNewAdminPassword(!showNewAdminPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                            title="Toggle password view"
                           >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteBatchConfirmId(b.id)}
-                            className="p-1 rounded text-temple-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                            title="Remove Batch"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {showNewAdminPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between border-t border-cream-200 pt-2 text-[11px]">
-                        <span className="text-temple-500 truncate max-w-[140px]">{b.location}</span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-saffron-50 border border-saffron-200 text-saffron-800 font-semibold text-[11px] flex-shrink-0">
-                          <Users className="w-3 h-3" />
-                          <span>{count} {count === 1 ? 'Devotee' : 'Devotees'}</span>
-                        </span>
+                      {/* Role Selector: Admin or Super Admin */}
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                          Role
+                        </label>
+                        <select
+                          value={newAdminRole}
+                          onChange={(e) => setNewAdminRole(e.target.value)}
+                          className="w-full px-2.5 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium"
+                        >
+                          <option value="Admin">Admin</option>
+                          <option value="Super Admin">Super Admin</option>
+                        </select>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* TAB 3: ANNOUNCEMENTS */}
-        {activeTab === 'announcements' && (
-          <div className="space-y-4 animate-fadeIn">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-cream-50 p-4 rounded-2xl border border-cream-200 shadow-soft">
-              <div>
-                <h3 className="font-bold text-sm text-temple-900 flex items-center gap-2">
-                  <Megaphone className="w-4 h-4 text-saffron-600" />
-                  Devotee Announcements & Updates
-                </h3>
-                <p className="text-xs text-temple-600">
-                  Broadcast class links, schedule changes, orientation notices, or temple events to students.
-                </p>
-              </div>
-              <button
-                onClick={() => setAnnouncementModalOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-soft transition-all cursor-pointer flex-shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Post Announcement</span>
-              </button>
-            </div>
-
-            {announcements.length === 0 ? (
-              <div className="bg-cream-50 rounded-2xl p-10 border border-cream-200 text-center space-y-2.5">
-                <div className="w-12 h-12 rounded-full bg-saffron-100 border border-saffron-200 flex items-center justify-center mx-auto text-saffron-700">
-                  <Megaphone className="w-6 h-6" />
-                </div>
-                <h4 className="font-bold text-sm text-temple-900">No Announcements Active</h4>
-                <p className="text-xs text-temple-600 max-w-sm mx-auto">
-                  Keep your students informed by posting daily reminders, Zoom links, or festival invitations.
-                </p>
-                <button
-                  onClick={() => setAnnouncementModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cream-100 hover:bg-cream-200 border border-cream-300 text-temple-800 text-xs font-semibold cursor-pointer transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5 text-saffron-600" />
-                  <span>Create First Announcement</span>
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {announcements.map((ann) => (
-                  <div 
-                    key={ann.id} 
-                    className={`rounded-2xl p-4 sm:p-5 border shadow-soft text-left space-y-2.5 relative transition-all ${
-                      ann.isPinned 
-                        ? 'bg-saffron-50/70 border-saffron-300 ring-1 ring-saffron-300/60' 
-                        : 'bg-cream-50 border-cream-200'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {ann.isPinned && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 border border-amber-300">
-                            <Pin className="w-2.5 h-2.5" />
-                            Pinned
-                          </span>
-                        )}
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                          ann.type === 'Urgent' ? 'bg-red-100 text-red-900 border-red-200' :
-                          ann.type === 'Online' ? 'bg-blue-100 text-blue-900 border-blue-200' :
-                          ann.type === 'Offline' ? 'bg-emerald-100 text-emerald-900 border-emerald-200' :
-                          'bg-saffron-100 text-saffron-900 border-saffron-200'
-                        }`}>
-                          {ann.type || 'General'}
-                        </span>
-                        <span className="text-[10px] text-temple-500 font-medium">
-                          Audience: <strong>{ann.target || 'All Devotees'}</strong>
-                        </span>
-                      </div>
-
+                    <div className="flex justify-end pt-1">
                       <button
-                        type="button"
-                        onClick={() => setDeleteAnnConfirmId(ann.id)}
-                        className="p-1.5 rounded-lg text-temple-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                        title="Delete Announcement"
+                        type="submit"
+                        disabled={isAddingAdmin || !newAdminEmail.trim() || !newAdminPassword.trim()}
+                        className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {isAddingAdmin ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving Account...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Grant Admin Access</span>
+                          </>
+                        )}
                       </button>
                     </div>
+                  </form>
+                </div>
 
-                    <h4 className="font-bold text-sm text-temple-900 leading-snug">
-                      {ann.title}
-                    </h4>
-
-                    <p className="text-xs text-temple-700 whitespace-pre-line leading-relaxed">
-                      {ann.content}
-                    </p>
-
-                    <div className="pt-2 border-t border-cream-200/80 flex items-center justify-between text-[11px] text-temple-500">
-                      <span>{ann.dateString} {ann.timeString ? `• ${ann.timeString}` : ''}</span>
-                      <span className="text-saffron-700 font-medium">Visible to students</span>
-                    </div>
+                {/* List of Authorized Administrators (Sorted Super Admins first) */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-temple-800 flex items-center gap-1.5">
+                      <span>Authorized Coordinators ({adminsList.length})</span>
+                    </h3>
+                    <span className="text-[11px] text-temple-500">
+                      Database authorized
+                    </span>
                   </div>
-                ))}
+
+                  <div className="space-y-2">
+                    {adminsList.map((adm) => {
+                      const emailLower = (adm.email || '').toLowerCase();
+                      const isSelf = adminUser?.email && emailLower === adminUser.email.toLowerCase();
+                      const isAdmSuper = adm.role === 'Super Admin' || adm.role === 'Super Administrator';
+
+                      return (
+                        <div
+                          key={adm.email || adm.id}
+                          className="p-3.5 rounded-2xl bg-white border border-cream-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-cream-300 transition-all"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-9 h-9 rounded-2xl font-bold text-xs flex items-center justify-center flex-shrink-0 border uppercase ${
+                              isAdmSuper 
+                                ? 'bg-purple-100 text-purple-800 border-purple-200' 
+                                : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            }`}>
+                              {(adm.name || adm.email || 'A').slice(0, 2)}
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-semibold text-temple-900 truncate">
+                                  {adm.name || 'Coordinator'}
+                                </span>
+
+                                <div className="inline-flex items-center gap-1">
+                                  <select
+                                    value={isAdmSuper ? 'Super Admin' : 'Admin'}
+                                    disabled={changingRoleId === emailLower || isSelf}
+                                    onChange={(e) => handleChangeAdminRole(emailLower, e.target.value)}
+                                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md border border-cream-300 bg-cream-50 text-temple-800 focus:outline-none cursor-pointer"
+                                  >
+                                    <option value="Admin">Admin</option>
+                                    <option value="Super Admin">Super Admin</option>
+                                  </select>
+                                  {changingRoleId === emailLower && (
+                                    <Loader2 className="w-3 h-3 animate-spin text-saffron-600" />
+                                  )}
+                                </div>
+
+                                {isSelf && (
+                                  <span className="text-[10px] bg-saffron-50 text-saffron-800 border border-saffron-200 px-1.5 py-0.5 rounded font-medium">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="text-[11px] text-temple-500 truncate pt-0.5">
+                                {adm.email}
+                                {adm.addedBy && (
+                                  <span className="text-temple-400"> &bull; Added by {adm.addedBy}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Actions: Reset Password & Revoke Buttons */}
+                          <div className="flex items-center gap-2 justify-end flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setResetPasswordTarget(adm);
+                                setResetNewPassword('');
+                                setResetConfirmPassword('');
+                                setShowResetNewPass(false);
+                                setShowResetConfirmPass(false);
+                                setResetPasswordError('');
+                              }}
+                              className="px-2.5 py-1 rounded-xl border border-saffron-200 bg-saffron-50 hover:bg-saffron-100 text-saffron-800 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                              title={`Reset password for ${adm.name || adm.email}`}
+                            >
+                              <KeyRound className="w-3 h-3 text-saffron-600" />
+                              <span>Reset Password</span>
+                            </button>
+
+                            {isSelf ? (
+                              <span className="text-[11px] text-temple-400 font-medium px-2">
+                                Active Session
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setAdminDeleteConfirm(adm)}
+                                className="px-2.5 py-1 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100 text-red-700 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Revoke admin access"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Revoke</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* SECTION 4: SECURITY & PASSWORD CREDENTIALS */}
+            <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
+              <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
+                <KeyRound className="w-4 h-4 text-saffron-600" />
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
+                  Security &amp; Account Credentials
+                </h2>
+              </div>
+
+              {/* Change Password Form with Eye Toggles */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-3 max-w-2xl">
+                <div className="space-y-1">
+                  <h3 className="text-xs font-semibold text-temple-800 uppercase tracking-wide">
+                    Change Coordinator Password
+                  </h3>
+                  <p className="text-xs text-temple-500">
+                    Update your account password for secure portal sign in.
+                  </p>
+                </div>
+
+                {passwordChangeMsg.text && (
+                  <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                    passwordChangeMsg.type === 'success'
+                      ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                      : 'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                    {passwordChangeMsg.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-red-600" />}
+                    <span>{passwordChangeMsg.text}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePasswordSubmit} className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                      Current Password <span className="text-saffron-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPass ? 'text' : 'password'}
+                        required
+                        placeholder="Enter your current password"
+                        value={currentPasswordInput}
+                        onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                        className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPass(!showCurrentPass)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                      >
+                        {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                        New Password <span className="text-saffron-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showNewPass ? 'text' : 'password'}
+                          required
+                          placeholder="Min 6 characters"
+                          value={newPasswordInput}
+                          onChange={(e) => setNewPasswordInput(e.target.value)}
+                          className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPass(!showNewPass)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                        >
+                          {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                        Confirm New Password <span className="text-saffron-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPass ? 'text' : 'password'}
+                          required
+                          placeholder="Re-enter new password"
+                          value={confirmPasswordInput}
+                          onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                          className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPass(!showConfirmPass)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                        >
+                          {showConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={passwordChangeLoading || !currentPasswordInput || !newPasswordInput || !confirmPasswordInput}
+                      className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {passwordChangeLoading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Verifying &amp; Updating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>Change Password</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* SECTION 5: BACKUP & DATA MANAGEMENT */}
+            <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
+              <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
+                <Database className="w-4 h-4 text-saffron-600" />
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
+                  Backup &amp; Data Management
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Excel Export Card */}
+                <div className="p-4 rounded-2xl bg-white border border-cream-200 shadow-2xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-emerald-700">
+                      <FileSpreadsheet className="w-5 h-5" />
+                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                        Export to Excel (.xlsx)
+                      </h3>
+                    </div>
+                    <p className="text-xs text-temple-600 leading-relaxed">
+                      Download formatted spreadsheet of all {registrations.length} participant registrations with serial numbers, contact info, qualifications, and dates.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs transition-colors shadow-soft flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Download Excel Spreadsheet</span>
+                  </button>
+                </div>
+
+                {/* Complete JSON Database Snapshot Card */}
+                <div className="p-4 rounded-2xl bg-white border border-cream-200 shadow-2xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-saffron-700">
+                      <Database className="w-5 h-5" />
+                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                        Full Database Backup (.json)
+                      </h3>
+                    </div>
+                    <p className="text-xs text-temple-600 leading-relaxed">
+                      Generate and download a complete JSON snapshot containing all participant registrations, program settings, and administrative access records.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleBackupDatabase}
+                    disabled={isBackingUp}
+                    className="w-full py-2.5 px-4 rounded-xl bg-saffron-600 hover:bg-saffron-700 active:bg-saffron-800 text-white font-semibold text-xs transition-colors shadow-soft flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Database className={`w-4 h-4 ${isBackingUp ? 'animate-spin' : ''}`} />
+                    <span>{isBackingUp ? 'Generating Backup Snapshot...' : 'Download JSON Snapshot'}</span>
+                  </button>
+                </div>
+
+              </div>
+
+              {/* Latest Backup Log Metadata */}
+              {lastBackupInfo && (
+                <div className="p-3 rounded-2xl bg-white/80 border border-cream-200 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    <span>Latest Export: <strong>{lastBackupInfo.type}</strong> ({lastBackupInfo.count} records)</span>
+                  </div>
+                  <span className="text-[11px] text-temple-500 font-mono">
+                    {lastBackupInfo.timestamp}
+                  </span>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
@@ -898,43 +1772,77 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
       {/* Participant Detail Modal */}
       {detailParticipant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
           <div 
-            className="w-full max-w-sm bg-cream-50 rounded-3xl p-5 border border-cream-300 shadow-soft-lg text-left space-y-3"
+            className="w-full max-w-lg bg-cream-50 rounded-3xl p-5 sm:p-7 border border-cream-300 shadow-soft-lg text-left space-y-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-cream-200 pb-2">
-              <div>
-                <h3 className="font-bold text-base text-temple-900">{detailParticipant.fullName}</h3>
-                <span className="text-xs font-mono text-saffron-800 font-bold">{detailParticipant.registrationId || detailParticipant.id}</span>
+            <div className="flex items-center justify-between pb-3 border-b border-cream-200">
+              <div className="space-y-0.5">
+                <span className="text-[11px] uppercase font-bold text-saffron-700 tracking-wider">
+                  Registration Pass
+                </span>
+                <h3 className="text-lg font-bold text-temple-900">
+                  {detailParticipant.fullName || detailParticipant.name || 'Participant'}
+                </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setDetailParticipant(null)}
-                className="p-1 rounded-full text-temple-500 hover:text-temple-900"
+                className="p-1.5 rounded-full text-temple-400 hover:text-temple-800 hover:bg-cream-200 transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-1.5 text-xs text-temple-700">
-              <p><strong>Mobile:</strong> {detailParticipant.countryCode || '+91'} {detailParticipant.mobile}</p>
-              <p><strong>Email:</strong> {detailParticipant.email || '—'}</p>
-              <p><strong>Age &amp; Gender:</strong> {detailParticipant.age || '—'} yrs &bull; {detailParticipant.gender || '—'}</p>
-              <p><strong>City &amp; Area:</strong> {detailParticipant.city}, {detailParticipant.area}</p>
-              <p><strong>Occupation:</strong> {detailParticipant.occupation || 'Student'}</p>
-              <p><strong>Familiarity:</strong> {detailParticipant.gitaExperience || 'Beginner'}</p>
-              <p><strong>Batch:</strong> {detailParticipant.batchMode} &bull; {detailParticipant.batchSchedule}</p>
-              {detailParticipant.referralSource && (
-                <p><strong>Referral:</strong> {detailParticipant.referralSource}</p>
-              )}
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <div className="p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Registration ID</span>
+                <span className="font-bold text-saffron-800 font-mono">{detailParticipant.registrationId || detailParticipant.id || '—'}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Mobile Number</span>
+                <span className="font-semibold">{detailParticipant.countryCode || '+91'} {detailParticipant.mobile || '—'}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Email</span>
+                <span className="font-semibold truncate block" title={detailParticipant.email}>{detailParticipant.email || '—'}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Age / Gender</span>
+                <span className="font-semibold">{detailParticipant.age || '—'} yrs &bull; {detailParticipant.gender || '—'}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Educational Qualification</span>
+                <span className="font-semibold">{detailParticipant.education || '—'}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Occupation</span>
+                <span className="font-semibold">{detailParticipant.occupation || '—'}</span>
+              </div>
+              <div className="col-span-2 p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Current Residence</span>
+                <span className="font-semibold">{detailParticipant.currentResidence || detailParticipant.city || '—'}</span>
+              </div>
+              <div className="col-span-2 p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Address</span>
+                <span className="font-semibold">{detailParticipant.fullAddress || detailParticipant.address || '—'} (Pincode: {detailParticipant.pincode || '—'})</span>
+              </div>
+              <div className="col-span-2 p-2.5 rounded-xl bg-white border border-cream-200">
+                <span className="text-temple-500 block text-[10px] uppercase">Registration Date</span>
+                <span className="font-semibold">{detailParticipant.createdAtFormatted || detailParticipant.date || 'Recent'}</span>
+              </div>
             </div>
 
-            <button
-              onClick={() => setDetailParticipant(null)}
-              className="w-full py-2 bg-cream-200 hover:bg-cream-300 text-temple-800 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-            >
-              Close
-            </button>
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDetailParticipant(null)}
+                className="px-4 py-2 rounded-xl bg-cream-200 hover:bg-cream-300 text-temple-800 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -942,85 +1850,45 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-xs bg-cream-50 rounded-2xl p-5 border border-cream-300 shadow-soft text-center space-y-3">
-            <h4 className="font-bold text-sm text-temple-900">Remove Devotee?</h4>
-            <p className="text-xs text-temple-600">Are you sure you want to delete this participant record?</p>
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => setDeleteConfirmId(null)}
-                className="w-1/2 py-2 rounded-xl border border-cream-300 bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDeleteParticipant(deleteConfirmId)}
-                className="w-1/2 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Batch Modal */}
-      <BatchFormModal
-        isOpen={batchModalOpen}
-        onClose={() => setBatchModalOpen(false)}
-        modalTitle="Add New Batch"
-        initialBatch={null}
-        onSubmit={handleCreateBatch}
-        submitLabel="Create Batch"
-      />
-
-      {/* Edit Batch Modal with Duration & Digit Time Picker */}
-      <BatchFormModal
-        isOpen={Boolean(editingBatch)}
-        onClose={() => setEditingBatch(null)}
-        modalTitle="Edit Batch"
-        initialBatch={editingBatch || {}}
-        onSubmit={handleUpdateBatch}
-        submitLabel="Save Changes"
-      />
-
-      {/* Delete Batch Confirmation UI Modal */}
-      {deleteBatchConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
           <div 
-            className="w-full max-w-xs bg-cream-50 rounded-2xl p-5 border border-cream-300 shadow-soft text-center space-y-3"
+            className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-soft-lg text-center space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
-              <AlertTriangle className="w-5 h-5" />
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
             </div>
-            <div>
-              <h4 className="font-bold text-sm text-temple-900">Remove Batch?</h4>
-              <p className="text-xs text-temple-600 mt-0.5">
-                Are you sure you want to remove this batch? Devotees won't be able to select it during registration.
+
+            <div className="space-y-1">
+              <h3 className="font-bold text-base text-temple-900">
+                Delete Registration Record?
+              </h3>
+              <p className="text-xs text-temple-600">
+                Are you sure you want to permanently delete participant <strong className="text-temple-900">{deleteConfirmId}</strong>? This action cannot be undone.
               </p>
             </div>
-            <div className="flex gap-2 pt-1">
+
+            <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
-                disabled={isDeletingBatch}
-                onClick={() => setDeleteBatchConfirmId(null)}
-                className="w-1/2 py-2 rounded-xl border border-cream-300 bg-cream-100 hover:bg-cream-200 disabled:opacity-50 text-xs font-semibold text-temple-700 cursor-pointer"
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={isDeletingParticipant}
+                className="w-1/2 py-2.5 px-3 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={isDeletingBatch}
-                onClick={handleConfirmDeleteBatch}
-                className="w-1/2 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-75 text-white text-xs font-semibold shadow-soft cursor-pointer flex items-center justify-center gap-1.5"
+                disabled={isDeletingParticipant}
+                onClick={handleConfirmDelete}
+                className="w-1/2 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-semibold shadow-soft cursor-pointer transition-colors flex items-center justify-center gap-1.5"
               >
-                {isDeletingBatch ? (
+                {isDeletingParticipant ? (
                   <>
-                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     <span>Deleting...</span>
                   </>
                 ) : (
-                  <span>Delete</span>
+                  <span>Delete Record</span>
                 )}
               </button>
             </div>
@@ -1028,248 +1896,278 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         </div>
       )}
 
-      {/* Registration Open/Close Control Modal */}
-      {settingsModalOpen && (
+      {/* Status Close Confirmation Modal */}
+      {statusConfirmTarget !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
           <div 
-            className="w-full max-w-sm bg-cream-50 rounded-2xl p-5 border border-cream-300 shadow-soft text-left space-y-4"
+            className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-soft-lg text-center space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-cream-200 pb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-saffron-100 text-saffron-700 flex items-center justify-center">
-                  <Power className="w-4 h-4" />
-                </div>
-                <h4 className="font-bold text-sm text-temple-900">Registration Control</h4>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setSettingsModalOpen(false)}
-                className="p-1 rounded text-temple-400 hover:text-temple-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
             </div>
 
-            {/* Status Switch Buttons */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-temple-800">
-                Are Registrations Open?
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRegStatusDraft(true)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    regStatusDraft
-                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm ring-2 ring-emerald-400/40'
-                      : 'bg-white text-temple-700 border-cream-300 hover:bg-cream-100'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${regStatusDraft ? 'bg-white' : 'bg-emerald-500'}`} />
-                  <span>OPEN</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRegStatusDraft(false)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    !regStatusDraft
-                      ? 'bg-red-600 text-white border-red-700 shadow-sm ring-2 ring-red-400/40'
-                      : 'bg-white text-temple-700 border-cream-300 hover:bg-cream-100'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${!regStatusDraft ? 'bg-white' : 'bg-red-500'}`} />
-                  <span>CLOSED</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Closed Notice message customization */}
-            <div className="space-y-1.5 text-xs">
-              <label className="block font-semibold text-temple-800">
-                Notice Message When Closed
-              </label>
-              <textarea
-                rows={3}
-                value={closedNoticeDraft}
-                onChange={(e) => setClosedNoticeDraft(e.target.value)}
-                placeholder="e.g. Registrations for this batch are currently full. Join our WhatsApp group to be notified when the next batch opens."
-                className="w-full p-2.5 border border-cream-300 rounded-xl bg-white text-xs text-temple-900 focus:ring-1 focus:ring-saffron-500 focus:outline-none leading-relaxed"
-              />
-              <p className="text-[10px] text-temple-500 leading-tight">
-                Devotees will see this friendly notice if registrations are closed.
+            <div className="space-y-1">
+              <h3 className="font-bold text-base text-temple-900">
+                Close Registration Form?
+              </h3>
+              <p className="text-xs text-temple-600">
+                New seekers will not be able to register while the form is closed. You can re-open registrations at any time.
               </p>
             </div>
 
-            <div className="flex gap-2 pt-1 border-t border-cream-200">
+            <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setSettingsModalOpen(false)}
-                className="w-1/2 py-2.5 rounded-xl border border-cream-300 bg-cream-100 hover:bg-cream-200 text-xs font-semibold text-temple-700 transition-colors cursor-pointer"
+                onClick={() => setStatusConfirmTarget(null)}
+                className="w-1/2 py-2.5 px-3 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={isSavingSettings}
-                onClick={handleSaveRegistrationSettings}
-                className="w-1/2 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white text-xs font-semibold shadow-soft hover:shadow transition-all cursor-pointer"
+                onClick={async () => {
+                  const target = statusConfirmTarget;
+                  setStatusConfirmTarget(null);
+                  await handleToggleRegistrationStatus(target);
+                }}
+                className="w-1/2 py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-soft cursor-pointer transition-colors"
               >
-                {isSavingSettings ? 'Saving...' : 'Save & Apply'}
+                Confirm Close
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Post Announcement Modal */}
-      {announcementModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
-          <form 
-            onSubmit={handleCreateAnnouncement}
-            className="w-full max-w-md bg-cream-50 rounded-2xl p-5 border border-cream-300 shadow-soft text-left space-y-3.5 max-h-[90vh] overflow-y-auto"
+      {/* Reset Coordinator Password Modal (Super Admin Only) */}
+      {resetPasswordTarget && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="w-full max-w-md bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-soft-lg text-left space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-cream-200 pb-2.5">
+            <div className="flex items-center justify-between pb-2 border-b border-cream-200">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-saffron-100 text-saffron-700 flex items-center justify-center">
-                  <Megaphone className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-saffron-100 text-saffron-700 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
                 </div>
-                <h4 className="font-bold text-sm sm:text-base text-temple-900">Post Announcement</h4>
+                <div>
+                  <h3 className="font-bold text-sm text-temple-900">
+                    Reset Coordinator Password
+                  </h3>
+                  <p className="text-[11px] text-temple-500">
+                    Set a new password for this coordinator account.
+                  </p>
+                </div>
               </div>
-              <button 
-                type="button" 
-                onClick={() => setAnnouncementModalOpen(false)}
-                className="p-1 rounded text-temple-400 hover:text-temple-700"
+
+              <button
+                type="button"
+                onClick={() => setResetPasswordTarget(null)}
+                className="p-1 rounded-lg text-temple-400 hover:text-temple-700 hover:bg-cream-200 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              {/* Title */}
-              <div>
-                <label className="block font-semibold mb-1 text-temple-800">Announcement Title</label>
-                <input
-                  type="text"
-                  required
-                  value={newAnnouncement.title}
-                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
-                  placeholder="e.g. Orientation Session & Zoom Link"
-                  className="w-full p-2 border border-cream-300 rounded-lg bg-white text-xs text-temple-900 focus:ring-1 focus:ring-saffron-500 focus:outline-none"
-                />
+            {/* Target Account Summary */}
+            <div className="p-3 rounded-xl bg-white border border-cream-200 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-temple-500">Coordinator:</span>
+                <span className="font-semibold text-temple-900">{resetPasswordTarget.name || 'Coordinator'}</span>
               </div>
-
-              {/* Tag & Target */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-semibold mb-1 text-temple-800">Category Tag</label>
-                  <select
-                    value={newAnnouncement.type}
-                    onChange={(e) => setNewAnnouncement({ ...newAnnouncement, type: e.target.value })}
-                    className="w-full p-2 border border-cream-300 rounded-lg bg-white text-xs font-medium text-temple-800 cursor-pointer"
-                  >
-                    <option value="General">General</option>
-                    <option value="Urgent">Important / Urgent</option>
-                    <option value="Online">Online Class Update</option>
-                    <option value="Offline">Temple Hall Event</option>
-                    <option value="Prasadam">Prasadam Feast</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold mb-1 text-temple-800">Target Audience</label>
-                  <select
-                    value={newAnnouncement.target}
-                    onChange={(e) => setNewAnnouncement({ ...newAnnouncement, target: e.target.value })}
-                    className="w-full p-2 border border-cream-300 rounded-lg bg-white text-xs font-medium text-temple-800 cursor-pointer"
-                  >
-                    <option value="All">All Devotees</option>
-                    <option value="Online">Online Batches Only</option>
-                    <option value="Offline">Offline Temple Only</option>
-                  </select>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-temple-500">Email:</span>
+                <span className="font-mono text-temple-800 text-[11px]">{resetPasswordTarget.email}</span>
               </div>
-
-              {/* Content Body */}
-              <div>
-                <label className="block font-semibold mb-1 text-temple-800">Message Content</label>
-                <textarea
-                  rows={4}
-                  required
-                  value={newAnnouncement.content}
-                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
-                  placeholder="Type your message, Zoom credentials, timings, or sacred instructions here..."
-                  className="w-full p-2.5 border border-cream-300 rounded-lg bg-white text-xs text-temple-900 focus:ring-1 focus:ring-saffron-500 focus:outline-none leading-relaxed"
-                />
+              <div className="flex items-center justify-between">
+                <span className="text-temple-500">Role:</span>
+                <span className="font-medium text-purple-700">{resetPasswordTarget.role || 'Admin'}</span>
               </div>
+            </div>
 
-              {/* Pin checkbox */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="pinAnnouncement"
-                  checked={newAnnouncement.isPinned}
-                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, isPinned: e.target.checked })}
-                  className="w-4 h-4 rounded border-cream-300 text-saffron-600 focus:ring-saffron-500 cursor-pointer"
-                />
-                <label htmlFor="pinAnnouncement" className="text-xs font-medium text-temple-800 cursor-pointer flex items-center gap-1">
-                  <Pin className="w-3 h-3 text-saffron-600" />
-                  <span>Pin this announcement at the top of the feed</span>
+            {/* Error Message */}
+            {resetPasswordError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <span>{resetPasswordError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleResetAdminPasswordSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                  New Password <span className="text-saffron-600">*</span>
                 </label>
+                <div className="relative">
+                  <input
+                    type={showResetNewPass ? 'text' : 'password'}
+                    required
+                    placeholder="Min 6 characters"
+                    value={resetNewPassword}
+                    onChange={(e) => {
+                      setResetNewPassword(e.target.value);
+                      if (resetPasswordError) setResetPasswordError('');
+                    }}
+                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetNewPass(!showResetNewPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                  >
+                    {showResetNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="flex gap-2 pt-2 border-t border-cream-200">
-              <button
-                type="button"
-                onClick={() => setAnnouncementModalOpen(false)}
-                className="w-1/2 py-2.5 rounded-xl border border-cream-300 bg-cream-100 hover:bg-cream-200 text-xs font-semibold text-temple-700 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="w-1/2 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold shadow-soft cursor-pointer"
-              >
-                Post Now
-              </button>
-            </div>
-          </form>
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                  Confirm New Password <span className="text-saffron-600">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showResetConfirmPass ? 'text' : 'password'}
+                    required
+                    placeholder="Re-enter new password"
+                    value={resetConfirmPassword}
+                    onChange={(e) => {
+                      setResetConfirmPassword(e.target.value);
+                      if (resetPasswordError) setResetPasswordError('');
+                    }}
+                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirmPass(!showResetConfirmPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                  >
+                    {showResetConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordTarget(null)}
+                  disabled={isResettingPassword}
+                  className="w-1/2 py-2.5 px-3 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isResettingPassword || !resetNewPassword || !resetConfirmPassword}
+                  className="w-1/2 py-2.5 px-3 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white text-xs font-semibold shadow-soft cursor-pointer transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isResettingPassword ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Resetting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Update Password</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* Delete Announcement Confirmation UI Modal */}
-      {deleteAnnConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
+      {/* Revoke Admin Confirmation Dialog */}
+      {adminDeleteConfirm && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
           <div 
-            className="w-full max-w-xs bg-cream-50 rounded-2xl p-5 border border-cream-300 shadow-soft text-center space-y-3"
+            className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-soft-lg text-center space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
-              <Trash2 className="w-5 h-5" />
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
             </div>
-            <div>
-              <h4 className="font-bold text-sm text-temple-900">Remove Announcement?</h4>
-              <p className="text-xs text-temple-600 mt-0.5">
-                Are you sure you want to remove this announcement? It will no longer appear on student dashboards.
+
+            <div className="space-y-1">
+              <h3 className="font-bold text-base text-temple-900">
+                Revoke Administrator Access?
+              </h3>
+              <p className="text-xs text-temple-600 leading-relaxed">
+                Are you sure you want to revoke coordinator access for <strong className="text-temple-900">{adminDeleteConfirm.email}</strong>? They will immediately lose access to the admin dashboard.
               </p>
             </div>
-            <div className="flex gap-2 pt-1">
+
+            <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteAnnConfirmId(null)}
-                className="w-1/2 py-2 rounded-xl border border-cream-300 bg-cream-100 hover:bg-cream-200 text-xs font-semibold text-temple-700 cursor-pointer"
+                onClick={() => setAdminDeleteConfirm(null)}
+                disabled={isDeletingAdmin}
+                className="w-1/2 py-2.5 px-3 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleDeleteAnnouncement}
-                className="w-1/2 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-soft cursor-pointer"
+                disabled={isDeletingAdmin}
+                onClick={() => handleRemoveAdmin(adminDeleteConfirm.email || adminDeleteConfirm.id)}
+                className="w-1/2 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-semibold shadow-soft cursor-pointer transition-colors flex items-center justify-center gap-1.5"
               >
-                Delete
+                {isDeletingAdmin ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Revoking...</span>
+                  </>
+                ) : (
+                  <span>Revoke Access</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {logoutConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-soft-lg text-center space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <LogOut className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="font-bold text-base text-temple-900">
+                Confirm Logout
+              </h3>
+              <p className="text-xs text-temple-600">
+                Are you sure you want to end your current coordinator session?
+              </p>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setLogoutConfirmOpen(false)}
+                className="w-1/2 py-2.5 px-3 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLogoutConfirmOpen(false);
+                  onLogout();
+                }}
+                className="w-1/2 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-semibold shadow-soft cursor-pointer transition-colors"
+              >
+                Log Out
               </button>
             </div>
           </div>
