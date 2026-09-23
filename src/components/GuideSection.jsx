@@ -39,7 +39,7 @@ export default function GuideSection() {
             {/* Content & Stats */}
             <div className="flex-1 text-center sm:text-left space-y-5">
               <p className="text-base sm:text-lg text-temple-700 leading-relaxed font-normal">
-                With a heart dedicated to sharing Krishna's teachings, HG Pranavananda Prabhuji guides seekers through the timeless wisdom of the Bhagavad Gita in a simple and relatable way. He is currently rendering his dedicated seva at ISKCON Edulapuram (Adilabad).
+                With a heart dedicated to sharing Krishna's teachings, HG Pranavananda Prabhuji guides seekers through the timeless wisdom of the Bhagavad Gita in a simple and relatable way.
               </p>
 
               {/* YouTube / Community Stats */}

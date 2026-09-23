@@ -217,7 +217,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
               Admin Portal
             </h2>
             <p className="text-xs sm:text-sm text-temple-600">
-              ISKCON Adilabad &bull; Gita Amrita Management
+              Gita Amrita Management Portal
             </p>
           </div>
         </div>
@@ -264,7 +264,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
                 autoCapitalize="none"
                 spellCheck="false"
                 required
-                placeholder="e.g. administrator@iskconadilabad.com"
+                placeholder="e.g. coordinator@gitaamrita.org"
                 value={username}
                 onFocus={() => {
                   if (!manuallyDismissed) {
@@ -465,7 +465,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
       </div>
 
       <p className="text-xs text-temple-500 mt-6 text-center">
-        Hare Krishna &bull; Dedicated to Sri Sri Radha Govinda &bull; ISKCON Adilabad
+        Hare Krishna &bull; Dedicated to Sri Sri Radha Govinda &bull; Gita Amrita
       </p>
 
     </div>

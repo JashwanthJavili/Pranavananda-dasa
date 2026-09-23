@@ -18,6 +18,12 @@ export default function App() {
       if (hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
       if (hash === '#admin-login') return 'admin-login';
       if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
+      try {
+        const cached = localStorage.getItem('gita_amrita_cached_settings');
+        if (cached && JSON.parse(cached).showLandingPage === false) {
+          return 'register';
+        }
+      } catch (e) {}
     }
     return 'landing'; // 'landing' | 'register' | 'admin' | 'admin-login' | 'student'
   });
@@ -46,6 +52,14 @@ export default function App() {
 
   const isAdmin = Boolean(adminUser);
 
+  const [showLandingPage, setShowLandingPage] = useState(() => {
+    try {
+      const cached = localStorage.getItem('gita_amrita_cached_settings');
+      if (cached) return JSON.parse(cached).showLandingPage !== false;
+    } catch (e) {}
+    return true;
+  });
+
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(() => {
     try {
       const cached = localStorage.getItem('gita_amrita_cached_settings');
@@ -58,10 +72,18 @@ export default function App() {
     const unsub = subscribeToProgramSettings((sett) => {
       if (sett) {
         setIsRegistrationOpen(sett.isRegistrationOpen !== false);
+        const shouldShowLanding = sett.showLandingPage !== false;
+        setShowLandingPage(shouldShowLanding);
+        if (!shouldShowLanding && currentView === 'landing') {
+          const hash = (window.location.hash || '').toLowerCase();
+          if (!hash || hash === '#' || hash === '#home') {
+            setCurrentView('register');
+          }
+        }
       }
     });
     return () => unsub();
-  }, []);
+  }, [currentView]);
 
   const goToRegister = () => {
     setCurrentView('register');
@@ -70,6 +92,10 @@ export default function App() {
   };
 
   const goToHome = () => {
+    if (!showLandingPage) {
+      goToRegister();
+      return;
+    }
     setCurrentView('landing');
     if (window.location.hash) {
       window.history.pushState(null, '', window.location.pathname);

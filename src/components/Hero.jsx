@@ -20,7 +20,7 @@ export default function Hero({ onOpenRegister }) {
             <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-cream-200/80 border border-cream-300 text-temple-700 shadow-sm mx-auto lg:mx-0">
               <Sparkles className="w-3.5 h-3.5 text-saffron-600" />
               <span className="text-xs sm:text-sm font-medium tracking-wide">
-                ISKCON Adilabad Presents
+                Sacred Wisdom Sessions
               </span>
             </div>
 

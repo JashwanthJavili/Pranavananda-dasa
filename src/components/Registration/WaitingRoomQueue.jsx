@@ -186,13 +186,13 @@ export default function WaitingRoomQueue({
           <div className="w-10 h-10" />
         )}
 
-        {/* Gita Amrita & ISKCON Adilabad Clean Header */}
+        {/* Gita Amrita Clean Header */}
         <div className="flex flex-col items-center">
           <span className="text-lg sm:text-xl font-bold tracking-tight text-temple-900 font-serif leading-tight">
             Gita Amrita
           </span>
           <span className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-saffron-700">
-            ISKCON Adilabad
+            Bhagavad Gita
           </span>
         </div>
 
@@ -292,7 +292,7 @@ export default function WaitingRoomQueue({
 
       {/* Simple Clean Footer */}
       <footer className="relative z-10 w-full py-3.5 text-center text-[11px] sm:text-xs text-temple-500 border-t border-amber-200/50 bg-white/50">
-        <span>Sri Sri Radha Govinda Mandir &bull; ISKCON Adilabad</span>
+        <span>&copy; 2026 Pranavananda Das | Built with devotion for spreading Krishna consciousness</span>
       </footer>
 
     </div>

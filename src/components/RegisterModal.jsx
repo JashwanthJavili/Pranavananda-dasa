@@ -64,7 +64,7 @@ export default function RegisterModal({ isOpen, onClose }) {
             {/* Header */}
             <div className="text-center mb-6">
               <span className="text-xs font-semibold uppercase tracking-widest text-saffron-600">
-                ISKCON Adilabad
+                Sacred Wisdom Program
               </span>
               <h3 className="text-2xl font-bold text-temple-900 mt-1">
                 Register for Gita Amrita

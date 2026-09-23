@@ -336,6 +336,27 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     } catch (e) {}
   };
 
+  // Toggle Landing Page Visibility (Show landing vs Direct to Register)
+  const [isUpdatingLandingPage, setIsUpdatingLandingPage] = useState(false);
+  const handleToggleLandingPage = async (show) => {
+    if (isUpdatingLandingPage) return;
+    setIsUpdatingLandingPage(true);
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        showLandingPage: show
+      });
+      if (res.success) {
+        setSettings(prev => ({ ...prev, showLandingPage: show }));
+        showNotification(`Landing page is now ${show ? 'VISIBLE (Standard Home Page)' : 'BYPASSED (Direct to Registration/Waiting Queue)'}.`);
+      }
+    } catch (err) {
+      showNotification('Failed to update landing page setting.');
+    } finally {
+      setIsUpdatingLandingPage(false);
+    }
+  };
+
   // Toggle Registration Open/Closed Status
   const handleToggleRegistrationStatus = async (newStatus) => {
     if (isUpdatingStatus) return;
@@ -680,7 +701,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     return registrations.slice(0, 6).map(r => ({
       id: r.registrationId || r.id,
       name: r.fullName || 'Participant',
-      city: r.currentResidence || r.city || 'Adilabad',
+      city: r.currentResidence || r.city || '—',
       date: r.createdAtFormatted || 'Recent',
       gender: r.gender || '—',
       education: r.education || '—'
@@ -719,6 +740,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         'Pincode': p.pincode || '',
         'Qualification': p.education || '—',
         'Occupation': p.occupation || '',
+        'Question for Pranavananda Prabhu': p.questionForPranavanandaPrabhu || '—',
+        'Inspiration to Join': p.inspirationToJoin || '—',
+        'Course Takeaway': p.takeawayAspiration || '—',
+        'Source of Discovery': p.sourceOfDiscovery === 'Other' && p.sourceOfDiscoveryOther ? `Other (${p.sourceOfDiscoveryOther})` : (p.sourceOfDiscovery || '—'),
         'Registration Date': p.createdAtFormatted || p.date || 'Recent'
       }));
 
@@ -739,6 +764,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         { wch: 10 },
         { wch: 18 },
         { wch: 20 },
+        { wch: 35 },
+        { wch: 35 },
+        { wch: 35 },
+        { wch: 25 },
         { wch: 22 }
       ];
       worksheet['!cols'] = colWidths;
@@ -823,9 +852,9 @@ export default function AdminDashboard({ adminUser, onLogout }) {
           {/* Left: Brand */}
           <div className="flex items-center gap-2.5">
             <img
-              src="/assets/iskcon_logo.webp"
-              alt="ISKCON Logo"
-              className="h-8 w-auto object-contain"
+              src="/assets/krishna-logo1.webp"
+              alt="Krishna"
+              className="h-8 w-8 object-contain rounded-full border border-saffron-300 shadow-2xs"
             />
             <div className="text-left">
               <div className="flex items-center gap-1.5">
@@ -841,7 +870,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 </span>
               </div>
               <span className="text-[10px] text-temple-500 block">
-                ISKCON Adilabad
+                Program Administration
               </span>
             </div>
           </div>
@@ -918,7 +947,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 </h2>
               </div>
               <div className="text-[11px] text-temple-500">
-                Dedicated service to Sri Sri Radha Govinda &bull; ISKCON Adilabad
+                Dedicated service to Sri Sri Radha Govinda &bull; Gita Amrita
               </div>
             </div>
             
@@ -1307,11 +1336,61 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
                 <Power className="w-4 h-4 text-saffron-600" />
                 <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
-                  Registration Form Controls
+                  Registration &amp; Website Flow Controls
                 </h2>
               </div>
 
               <div className="space-y-4">
+                {/* Landing Page Display Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-white border border-cream-200 gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                        Show Landing Page
+                      </h3>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        settings.showLandingPage !== false
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {settings.showLandingPage !== false ? 'Standard Home' : 'Direct to Register'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-temple-600 mt-0.5">
+                      <strong>Yes (Normal):</strong> Shows full landing page. <br />
+                      <strong>No (Direct Register):</strong> Visitors go directly to Registration (or Waiting Queue first if active) and header &quot;Back to Home&quot; is hidden.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleLandingPage(true)}
+                      disabled={isUpdatingLandingPage || settings.showLandingPage !== false}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        settings.showLandingPage !== false
+                          ? 'bg-emerald-600 text-white shadow-soft ring-2 ring-emerald-500/20'
+                          : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
+                      }`}
+                    >
+                      {isUpdatingLandingPage && settings.showLandingPage !== false ? 'Updating...' : 'Yes (Show Home)'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleLandingPage(false)}
+                      disabled={isUpdatingLandingPage || settings.showLandingPage === false}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        settings.showLandingPage === false
+                          ? 'bg-amber-600 text-white shadow-soft ring-2 ring-amber-500/20'
+                          : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
+                      }`}
+                    >
+                      {isUpdatingLandingPage && settings.showLandingPage === false ? 'Updating...' : 'No (Direct Register)'}
+                    </button>
+                  </div>
+                </div>
+
                 {/* Registration Switch Row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-white border border-cream-200 gap-3">
                   <div>

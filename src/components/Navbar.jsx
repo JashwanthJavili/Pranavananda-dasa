@@ -25,22 +25,24 @@ export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdm
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           
-          {/* Left: ISKCON Logo & Title */}
+          {/* Left: Brand & Title */}
           <a
             href="#"
-            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-lg p-1"
+            className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-lg p-1"
           >
-            <img
-              src="/assets/iskcon_logo.webp"
-              alt="ISKCON Logo"
-              className="h-10 sm:h-12 w-auto object-contain transition-transform group-hover:scale-105"
-            />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden border border-amber-300 shadow-2xs flex items-center justify-center bg-cream-50 flex-shrink-0 transition-transform group-hover:scale-105">
+              <img
+                src="/assets/krishna-logo1.webp"
+                alt="Sri Krishna"
+                className="w-full h-full object-contain"
+              />
+            </div>
             <div className="flex flex-col text-left">
-              <span className="text-base sm:text-lg font-semibold tracking-tight text-temple-900 leading-tight">
+              <span className="text-base sm:text-lg font-bold tracking-tight text-temple-900 leading-tight">
                 Gita Amrita
               </span>
-              <span className="text-[11px] sm:text-xs font-normal text-temple-600 tracking-wide">
-                ISKCON Adilabad
+              <span className="text-[10px] sm:text-xs text-temple-500 block">
+                Bhagavad Gita
               </span>
             </div>
           </a>

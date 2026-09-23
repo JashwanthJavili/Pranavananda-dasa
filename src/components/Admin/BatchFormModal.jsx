@@ -431,7 +431,7 @@ export default function BatchFormModal({
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. ISKCON Temple, Adilabad or Live Zoom Sessions"
+              placeholder="e.g. Main Hall or Live Online Sessions"
               className="w-full p-2 border border-cream-300 rounded-lg bg-white text-xs text-temple-900 focus:ring-1 focus:ring-saffron-500 focus:outline-none"
             />
           </div>

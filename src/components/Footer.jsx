@@ -5,7 +5,7 @@ export default function Footer({ onOpenLogin }) {
     <footer className="bg-cream-100 border-t border-cream-200/80 py-6 sm:py-8 mt-auto">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-temple-500 font-normal">
         <p>
-          &copy; {new Date().getFullYear()} Gita Amrita &bull; ISKCON Adilabad. All rights reserved.
+          &copy; 2026 Pranavananda Das | Built with devotion for spreading Krishna consciousness
         </p>
         <div>
           <button

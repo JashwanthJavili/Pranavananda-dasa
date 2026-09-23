@@ -124,7 +124,7 @@ export default function StepBatch({ data, onChange, onNext, onBack, errors }) {
           <div className="p-6 text-center bg-cream-50 rounded-2xl border border-cream-300/80 space-y-2">
             <p className="text-sm font-semibold text-temple-800">No batches currently published</p>
             <p className="text-xs text-temple-600">
-              Coordinators are preparing upcoming class schedules. Please contact ISKCON Adilabad or check back shortly.
+              Coordinators are preparing upcoming class schedules. Please contact the coordinators or check back shortly.
             </p>
           </div>
         ) : (

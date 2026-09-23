@@ -3,6 +3,7 @@ import { ArrowLeft, Clock } from 'lucide-react';
 import StepIndicator from './StepIndicator';
 import StepPersonal from './StepPersonal';
 import StepContact from './StepContact';
+import StepReflections from './StepReflections';
 import StepReview from './StepReview';
 import StepSuccess from './StepSuccess';
 import WaitingRoomQueue from './WaitingRoomQueue';
@@ -15,9 +16,10 @@ import {
 } from '../../firebase';
 
 const STEPS = [
-  { id: 1, title: 'Personal Profile', shortTitle: 'Profile' },
-  { id: 2, title: 'Contact & Address', shortTitle: 'Contact' },
-  { id: 3, title: 'Review & Confirm', shortTitle: 'Review' },
+  { id: 1, title: 'Participant Details', shortTitle: 'Profile' },
+  { id: 2, title: 'Contact Details', shortTitle: 'Contact' },
+  { id: 3, title: 'Reflections', shortTitle: 'Reflections' },
+  { id: 4, title: 'Review & Confirm', shortTitle: 'Review' },
 ];
 
 const INITIAL_FORM_DATA = {
@@ -36,18 +38,23 @@ const INITIAL_FORM_DATA = {
   currentResidence: '',
   fullAddress: '',
   pincode: '',
+  questionForPranavanandaPrabhu: '',
+  inspirationToJoin: '',
+  takeawayAspiration: '',
+  sourceOfDiscovery: '',
+  sourceOfDiscoveryOther: '',
 };
 
 export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   const [currentStep, setCurrentStep] = useState(() => {
     try {
       const completed = localStorage.getItem('gita_amrita_completed_reg');
-      if (completed) return 4; // Show success screen if already registered
+      if (completed) return 5; // Show success screen if already registered
 
       const draft = localStorage.getItem('gita_amrita_draft');
       if (draft) {
         const parsed = JSON.parse(draft);
-        if (parsed.currentStep && parsed.currentStep >= 1 && parsed.currentStep <= 3) {
+        if (parsed.currentStep && parsed.currentStep >= 1 && parsed.currentStep <= 4) {
           if (!parsed.formData?.fullName && !parsed.formData?.mobile) {
             localStorage.removeItem('gita_amrita_draft');
             return 1;
@@ -153,7 +160,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
 
   // Auto-save form draft to localStorage on change
   useEffect(() => {
-    if (currentStep < 4) {
+    if (currentStep < 5) {
       try {
         localStorage.setItem(
           'gita_amrita_draft',
@@ -232,16 +239,13 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
         errs.confirmPassword = 'Passwords do not match.';
       }
 
-      // Address fields validation
+      // Address fields validation (fullAddress and pincode are optional)
       if (!formData.currentResidence || formData.currentResidence.trim().length < 2) {
-        errs.currentResidence = 'Please enter your current residence place.';
-      }
-      if (!formData.fullAddress || formData.fullAddress.trim().length < 3) {
-        errs.fullAddress = 'Please enter your residential address.';
+        errs.currentResidence = 'Please enter your current residence city / town.';
       }
       const cleanPin = (formData.pincode || '').replace(/\D/g, '');
-      if (!cleanPin || cleanPin.length !== 6) {
-        errs.pincode = 'Pincode must be 6 digits.';
+      if (cleanPin && cleanPin.length !== 6) {
+        errs.pincode = 'Pincode must be 6 digits if provided.';
       }
     }
 
@@ -292,17 +296,6 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
       return;
     }
 
-    // Final duplicate check
-    try {
-      const checkResult = await checkDuplicateRegistration(formData.mobile, formData.email);
-      if (checkResult.isDuplicate) {
-        const fieldName = checkResult.field === 'mobile' ? 'Mobile Number' : 'Email Address';
-        setDuplicateWarning(`This ${fieldName} is already registered. Please go back to update it.`);
-        setCurrentStep(2);
-        return;
-      }
-    } catch (e) {}
-
     setIsSubmitting(true);
 
     try {
@@ -335,11 +328,11 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
       );
       localStorage.removeItem('gita_amrita_draft');
 
-      setCurrentStep(4); // Success screen
+      setCurrentStep(5); // Success screen
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       console.warn('Submission note:', e);
-      setCurrentStep(4);
+      setCurrentStep(5);
     } finally {
       setIsSubmitting(false);
     }
@@ -365,42 +358,43 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
       <header className="sticky top-0 z-30 bg-cream-100/95 backdrop-blur-md border-b border-cream-200/90 shadow-soft">
         <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between">
           
-          {/* Left: ISKCON Logo & Title */}
-          <button
-            onClick={onBackToHome}
-            className="flex items-center gap-2 sm:gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-xl p-0.5 sm:p-1 cursor-pointer min-w-0"
-          >
-            <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-white p-0.5 sm:p-1 border border-cream-300 shadow-soft flex items-center justify-center transition-transform group-hover:scale-105 flex-shrink-0">
+          {/* Left: Brand & Title */}
+          <div className="flex items-center gap-2 sm:gap-3 text-left p-0.5 sm:p-1 min-w-0">
+            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl overflow-hidden border border-amber-300 shadow-soft flex items-center justify-center bg-cream-50 flex-shrink-0">
               <img
-                src="/assets/iskcon_logo.webp"
-                alt="ISKCON Logo"
+                src="/assets/krishna-logo1.webp"
+                alt="Sri Krishna"
                 className="w-full h-full object-contain"
               />
             </div>
             <div className="min-w-0">
-              <span className="text-sm sm:text-lg font-bold text-temple-900 leading-tight block group-hover:text-saffron-600 transition-colors truncate">
+              <span className="text-sm sm:text-lg font-bold text-temple-900 leading-tight block truncate">
                 Gita Amrita
               </span>
-              <span className="text-[10px] sm:text-xs font-normal text-temple-600 tracking-wide block truncate">
-                ISKCON Adilabad
+              <span className="text-[10px] sm:text-xs text-temple-500 block truncate">
+                Bhagavad Gita
               </span>
             </div>
-          </button>
+          </div>
 
-          {/* Right: Back to Home Button */}
-          <button
-            onClick={onBackToHome}
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none cursor-pointer flex-shrink-0"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-saffron-600" />
-            <span>Home</span>
-          </button>
+          {/* Right: Back to Home Button (Hidden if landing page is disabled) */}
+          {settings.showLandingPage !== false && onBackToHome ? (
+            <button
+              onClick={onBackToHome}
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none cursor-pointer flex-shrink-0"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-saffron-600" />
+              <span>Home</span>
+            </button>
+          ) : (
+            <div className="w-6" />
+          )}
 
         </div>
       </header>
 
-      {/* Main Registration Stage with Generous Mobile Bottom Clearance (pb-44) */}
-      <main className="flex-1 flex flex-col justify-start sm:justify-center py-3 sm:py-8 pb-44 sm:pb-12 px-2.5 sm:px-6 min-h-[100dvh] w-full max-w-full overflow-x-hidden">
+      {/* Main Registration Stage */}
+      <main className="flex-1 flex flex-col justify-start sm:justify-center py-4 sm:py-8 px-3 sm:px-6 w-full max-w-full overflow-x-hidden">
         <div className="w-full max-w-lg lg:max-w-4xl mx-auto">
           
           {!settings.isRegistrationOpen && currentStep !== 4 ? (
@@ -439,54 +433,69 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
 
               {/* Footer Stamp */}
               <div className="pt-2 border-t border-cream-200 text-[11px] text-temple-500">
-                ISKCON Adilabad &bull; Sri Sri Radha Govinda Mandir
+                Gita Amrita &bull; Sri Sri Radha Govinda Mandir
               </div>
             </div>
-          ) : settings.isQueueEnabled && currentStep < 4 && !isQueuePassed ? (
+          ) : settings.isQueueEnabled && currentStep < 5 && !isQueuePassed ? (
             /* High Traffic Virtual Queue State */
             <WaitingRoomQueue
               waitSeconds={settings.queueWaitSeconds || 60}
               customMessage={settings.queueMessage || ''}
               onAdmitted={() => setIsQueuePassed(true)}
-              onBackToHome={onBackToHome}
+              onBackToHome={settings.showLandingPage !== false ? onBackToHome : null}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
               {/* Left Column (Desktop Spiritual Companion) */}
-              {currentStep < 4 && (
-                <div className="hidden lg:block lg:col-span-4 sticky top-28 space-y-4">
-                  <div className="rounded-2xl overflow-hidden border border-cream-300 shadow-soft bg-cream-200 aspect-[4/3]">
+              {currentStep < 5 && (
+                <div className="hidden lg:block lg:col-span-4 sticky top-28 space-y-4 animate-fadeIn">
+                  <div className="rounded-3xl overflow-hidden border border-amber-300/80 shadow-soft-lg bg-cream-100 aspect-[4/3] relative group">
                     <img
                       src="/assets/Krishna-Arjuna.jpg"
                       alt="Lord Krishna and Arjuna"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-temple-950/60 via-transparent to-transparent flex items-end p-4">
+                      <span className="text-xs font-bold text-white tracking-wide drop-shadow">
+                        Bhagavad Gita Wisdom
+                      </span>
+                    </div>
                   </div>
-                  <div className="p-4 rounded-2xl bg-cream-50 border border-cream-200 space-y-2">
-                    <h3 className="text-sm font-bold text-temple-900">
-                      Gita Amrita
-                    </h3>
+
+                  <div className="p-5 rounded-3xl bg-cream-50 border border-cream-200/90 shadow-soft space-y-3 text-left">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-saffron-700 bg-saffron-50 px-2.5 py-0.5 rounded-full border border-saffron-200">
+                        Sacred Program
+                      </span>
+                      <h3 className="text-base font-bold text-temple-900 mt-1.5">
+                        Gita Amrita
+                      </h3>
+                    </div>
                     <p className="text-xs text-temple-600 leading-relaxed font-normal">
-                      A humble journey to understand the timeless wisdom of the Bhagavad Gita and bring its teachings into our daily lives.
+                      A structured, transformative journey through the Bhagavad Gita to bring clarity, devotion, and peace to daily living.
                     </p>
-                    <p className="text-[11px] font-medium text-saffron-700 pt-1">
-                      Free Registration &bull; ISKCON Adilabad
-                    </p>
+                    <div className="pt-2 border-t border-cream-100 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-emerald-700 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Free Registration
+                      </span>
+                      <span className="text-[11px] text-temple-400 font-medium">Youth &amp; Adults</span>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Right Column: Active Step Card */}
-              <div className={`w-full ${currentStep < 4 ? 'lg:col-span-8' : 'lg:col-span-12 max-w-md mx-auto'}`}>
-                <div className="bg-cream-100 rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft w-full overflow-hidden">
+              <div className={`w-full ${currentStep < 5 ? 'lg:col-span-8' : 'lg:col-span-12 max-w-md mx-auto'}`}>
+                <div className="bg-cream-50 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft-lg w-full overflow-hidden">
                   
-                  {/* Step Progress Indicator (Steps 1 to 3) */}
-                  {currentStep <= 3 && (
+                  {/* Step Progress Indicator (Steps 1 to 4) */}
+                  {currentStep <= 4 && (
                     <StepIndicator currentStep={currentStep} steps={STEPS} />
                   )}
 
-                  {/* Step 1: Personal Profile */}
+                  {/* Step 1: Participant Details */}
                   {currentStep === 1 && (
                     <StepPersonal
                       data={formData}
@@ -496,7 +505,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
                     />
                   )}
 
-                  {/* Step 2: Contact & Address (with Password) */}
+                  {/* Step 2: Contact Details */}
                   {currentStep === 2 && (
                     <StepContact
                       data={formData}
@@ -509,8 +518,18 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
                     />
                   )}
 
-                  {/* Step 3: Review & Confirm */}
+                  {/* Step 3: Course Reflections */}
                   {currentStep === 3 && (
+                    <StepReflections
+                      data={formData}
+                      onChange={handleFieldChange}
+                      onNext={handleNext}
+                      onBack={handleBack}
+                    />
+                  )}
+
+                  {/* Step 4: Review & Confirm */}
+                  {currentStep === 4 && (
                     <StepReview
                       data={formData}
                       onBack={handleBack}
@@ -520,8 +539,8 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
                     />
                   )}
 
-                  {/* Step 4: Success Screen */}
-                  {currentStep === 4 && (
+                  {/* Step 5: Success Screen */}
+                  {currentStep === 5 && (
                     <StepSuccess
                       registrationId={generatedId}
                       formData={formData}
@@ -540,9 +559,13 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-6 text-center text-xs text-temple-500 border-t border-cream-200">
-        <p>&copy; {new Date().getFullYear()} Gita Amrita &bull; ISKCON Adilabad</p>
+      {/* Centered Devotional Footer with Left & Right Padding */}
+      <footer className="w-full border-t border-cream-200/90 py-4 sm:py-5 px-4 sm:px-8 mt-auto bg-cream-50/50">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-xs text-temple-500 leading-relaxed font-normal">
+            &copy; 2026 Pranavananda Das | Built with devotion for spreading Krishna consciousness
+          </p>
+        </div>
       </footer>
 
     </div>

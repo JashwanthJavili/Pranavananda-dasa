@@ -10,7 +10,9 @@ import {
   collection, 
   getDocs, 
   query, 
-  where, 
+  where,
+  limit,
+  orderBy,
   serverTimestamp,
   onSnapshot 
 } from 'firebase/firestore';
@@ -57,10 +59,18 @@ export function sanitizeText(val, maxLength = 500) {
 export async function getNextRegistrationId() {
   try {
     const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
-    const snapshot = await getDocs(regRef);
-    if (snapshot.empty) {
+    let snapshot;
+    try {
+      // Fetch latest 15 records sorted by createdAt to find latest ID instantly
+      snapshot = await getDocs(query(regRef, orderBy('createdAt', 'desc'), limit(15)));
+    } catch (indexErr) {
+      snapshot = await getDocs(query(regRef, limit(30)));
+    }
+
+    if (!snapshot || snapshot.empty) {
       return 'BG26-100';
     }
+
     let maxNum = 99;
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
@@ -103,7 +113,7 @@ export function generateRegistrationId() {
 }
 
 /**
- * Check if a mobile number or email is already registered
+ * Check if a mobile number or email is already registered (Parallel & Optimized)
  */
 export async function checkDuplicateRegistration(mobile, email) {
   const cleanMobile = (mobile || '').replace(/\D/g, '').slice(-10);
@@ -127,35 +137,34 @@ export async function checkDuplicateRegistration(mobile, email) {
     }
   } catch (e) {}
 
-  // Firestore remote check
+  // Parallel Firestore query with limit 1
   try {
     const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
-    
-    // Check mobile
+    const queries = [];
     if (cleanMobile) {
-      const qMobile = query(regRef, where('mobileNumberClean', '==', cleanMobile));
-      const mobileSnap = await getDocs(qMobile);
-      const activeMatch = mobileSnap.docs.find(d => !d.data().isDeleted);
-      if (activeMatch) {
-        return {
-          isDuplicate: true,
-          field: 'mobile',
-          message: 'This mobile number is already registered for Gita Amrita.'
-        };
-      }
+      queries.push(
+        getDocs(query(regRef, where('mobileNumberClean', '==', cleanMobile), limit(1)))
+          .then(snap => ({ type: 'mobile', snap }))
+      );
+    }
+    if (cleanEmail) {
+      queries.push(
+        getDocs(query(regRef, where('emailLower', '==', cleanEmail), limit(1)))
+          .then(snap => ({ type: 'email', snap }))
+      );
     }
 
-    // Check email if provided
-    if (cleanEmail) {
-      const qEmail = query(regRef, where('emailLower', '==', cleanEmail));
-      const emailSnap = await getDocs(qEmail);
-      const activeMatch = emailSnap.docs.find(d => !d.data().isDeleted);
-      if (activeMatch) {
-        return {
-          isDuplicate: true,
-          field: 'email',
-          message: 'This email address is already registered for Gita Amrita.'
-        };
+    if (queries.length > 0) {
+      const results = await Promise.all(queries);
+      for (const res of results) {
+        const activeMatch = res.snap?.docs?.find(d => !d.data().isDeleted);
+        if (activeMatch) {
+          return {
+            isDuplicate: true,
+            field: res.type,
+            message: `This ${res.type === 'mobile' ? 'mobile number' : 'email address'} is already registered for Gita Amrita.`
+          };
+        }
       }
     }
   } catch (err) {
@@ -169,17 +178,17 @@ export async function checkDuplicateRegistration(mobile, email) {
  * Cryptographic SHA-256 Password Hasher
  * Ensures passwords are never stored in plaintext in the database
  */
-export async function hashPassword(plainText) {
+export async function hashPassword(plainText, salt = '_gita_amrita_secure_salt_2026') {
   if (!plainText) return '';
   try {
     const encoder = new TextEncoder();
-    const data = encoder.encode(plainText + '_iskcon_gita_amrita_secure_salt_2026');
+    const data = encoder.encode(plainText + salt);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   } catch (err) {
     let hash = 0;
-    const str = plainText + '_iskcon_salt';
+    const str = plainText + '_ga_salt';
     for (let i = 0; i < str.length; i++) {
       hash = ((hash << 5) - hash) + str.charCodeAt(i);
       hash |= 0;
@@ -196,6 +205,8 @@ export async function verifyPasswordMatch(inputPassword, storedHash, storedPlain
   if (storedHash) {
     const inputHash = await hashPassword(inputPassword);
     if (inputHash === storedHash) return true;
+    const legacyHash = await hashPassword(inputPassword, '_iskcon_gita_amrita_secure_salt_2026');
+    if (legacyHash === storedHash) return true;
   }
   if (storedPlaintext && storedPlaintext === inputPassword) {
     return true;
@@ -215,10 +226,12 @@ export async function saveRegistration(registrationData) {
   let authUid = null;
   if (cleanEmail && registrationData.password) {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, registrationData.password);
-      authUid = userCredential.user.uid;
+      const authPromise = createUserWithEmailAndPassword(auth, cleanEmail, registrationData.password);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 1200));
+      const userCredential = await Promise.race([authPromise, timeoutPromise]);
+      authUid = userCredential?.user?.uid || null;
     } catch (authError) {
-      // Gracefully ignore CONFIGURATION_NOT_FOUND when Firebase Auth is not active in console
+      // Gracefully ignore or continue when Auth takes long or is not active
     }
   }
 
@@ -242,12 +255,17 @@ export async function saveRegistration(registrationData) {
     pincode: sanitizeText(registrationData.pincode, 10),
     city: sanitizeText(registrationData.currentResidence || registrationData.city || '', 150),
     area: sanitizeText(registrationData.fullAddress || registrationData.address || '', 300),
+    questionForPranavanandaPrabhu: sanitizeText(registrationData.questionForPranavanandaPrabhu || '', 500),
+    inspirationToJoin: sanitizeText(registrationData.inspirationToJoin || '', 500),
+    takeawayAspiration: sanitizeText(registrationData.takeawayAspiration || '', 500),
+    sourceOfDiscovery: sanitizeText(registrationData.sourceOfDiscovery || '', 100),
+    sourceOfDiscoveryOther: sanitizeText(registrationData.sourceOfDiscoveryOther || '', 200),
     registrationId,
     authUid,
     status: 'Confirmed',
     createdAt: serverTimestamp(),
     program: 'Gita Amrita',
-    center: 'ISKCON Adilabad (Edulapuram)',
+    center: 'Gita Amrita Study Circle',
   };
 
   try {
@@ -263,7 +281,7 @@ export async function saveRegistration(registrationData) {
     await setDoc(parentRef, {
       lastUpdated: serverTimestamp(),
       programName: 'Gita Amrita',
-      organization: 'ISKCON Adilabad',
+      organization: 'Gita Amrita',
     }, { merge: true });
 
     try {
@@ -481,7 +499,7 @@ export function isSuperAdminUser(userOrEmail) {
 export async function seedDefaultAdminsIfMissing() {
   // Legacy cleanup if needed
   try {
-    const obsoleteEmails = ['jashwanthjavili7@gmail.com', 'admin@gitaamrita.com', 'gita@iskconadilabad.org', 'admin@iskconadilabad.org'];
+    const obsoleteEmails = ['jashwanthjavili7@gmail.com', 'admin@gitaamrita.com'];
     for (const obsEmail of obsoleteEmails) {
       const obsDocId = obsEmail.replace(/[^a-z0-9]/g, '_');
       try {
@@ -518,7 +536,7 @@ export async function fetchAllAdmins() {
         const emailKey = (data.email || docSnap.id).toLowerCase();
         
         // Filter out obsolete legacy accounts
-        if (emailKey === 'jashwanthjavili7@gmail.com' || emailKey === 'admin@iskconadilabad.org' || emailKey === 'gita@iskconadilabad.org' || emailKey === 'admin@gitaamrita.com') {
+        if (emailKey === 'jashwanthjavili7@gmail.com' || emailKey === 'admin@gitaamrita.com') {
           return;
         }
 
@@ -544,7 +562,7 @@ export async function fetchAllAdmins() {
   }
 
   // 2. Merge local cached admins
-  const legacyPlaceholders = ['jashwanthjavili7@gmail.com', 'admin@iskconadilabad.org', 'gita@iskconadilabad.org', 'admin@gitaamrita.com'];
+  const legacyPlaceholders = ['jashwanthjavili7@gmail.com', 'admin@gitaamrita.com'];
   try {
     const local = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
     local.forEach(adm => {
@@ -1119,7 +1137,7 @@ export async function fetchAllRegistrations() {
           fullName: rec.fullName || 'Participant',
           mobile: rec.mobile || '',
           email: rec.email || '',
-          currentResidence: rec.currentResidence || rec.city || 'Adilabad',
+          currentResidence: rec.currentResidence || rec.city || 'India',
           fullAddress: rec.fullAddress || rec.address || rec.area || '',
           pincode: rec.pincode || '',
           education: rec.education || '',
@@ -1139,7 +1157,7 @@ export async function fetchAllRegistrations() {
           ...parsed.formData,
           registrationId: parsed.registrationId,
           education: parsed.formData?.education || '',
-          currentResidence: parsed.formData?.currentResidence || parsed.formData?.city || 'Adilabad',
+          currentResidence: parsed.formData?.currentResidence || parsed.formData?.city || 'India',
           fullAddress: parsed.formData?.fullAddress || parsed.formData?.address || parsed.formData?.area || '',
           pincode: parsed.formData?.pincode || '',
           status: 'Confirmed',
@@ -1236,14 +1254,15 @@ export async function fetchProgramSettings() {
     const snap = await getDoc(dataRef);
     if (snap.exists()) {
       const data = snap.data();
-      if (data.isRegistrationOpen !== undefined || data.whatsappLink !== undefined || data.isQueueEnabled !== undefined) {
+      if (data.isRegistrationOpen !== undefined || data.whatsappLink !== undefined || data.isQueueEnabled !== undefined || data.showLandingPage !== undefined) {
         const result = {
           isRegistrationOpen: data.isRegistrationOpen !== false,
           closedNotice: data.closedNotice || '',
           whatsappLink: data.whatsappLink || '',
           isQueueEnabled: Boolean(data.isQueueEnabled),
           queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
-          queueMessage: data.queueMessage || ''
+          queueMessage: data.queueMessage || '',
+          showLandingPage: data.showLandingPage !== false
         };
         try {
           localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(result));
@@ -1265,7 +1284,8 @@ export async function fetchProgramSettings() {
         whatsappLink: data.whatsappLink || '',
         isQueueEnabled: Boolean(data.isQueueEnabled),
         queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
-        queueMessage: data.queueMessage || ''
+        queueMessage: data.queueMessage || '',
+        showLandingPage: data.showLandingPage !== false
       };
     }
   } catch (e) {}
@@ -1276,7 +1296,8 @@ export async function fetchProgramSettings() {
     whatsappLink: '',
     isQueueEnabled: false,
     queueWaitSeconds: 60,
-    queueMessage: ''
+    queueMessage: '',
+    showLandingPage: true
   };
 }
 
@@ -1287,6 +1308,7 @@ export async function updateProgramSettings(settings) {
   const isQueueEnabled = Boolean(settings.isQueueEnabled);
   const queueWaitSeconds = Math.max(2, Math.min(240, Number(settings.queueWaitSeconds) || 60));
   const queueMessage = sanitizeText(settings.queueMessage !== undefined ? settings.queueMessage : '', 300);
+  const showLandingPage = settings.showLandingPage !== false;
 
   const payload = {
     isRegistrationOpen,
@@ -1295,9 +1317,10 @@ export async function updateProgramSettings(settings) {
     isQueueEnabled,
     queueWaitSeconds,
     queueMessage,
+    showLandingPage,
     lastUpdated: serverTimestamp(),
     programName: 'Gita Amrita',
-    organization: 'ISKCON Adilabad'
+    organization: 'Gita Amrita'
   };
 
   const localPayload = {
@@ -1306,7 +1329,8 @@ export async function updateProgramSettings(settings) {
     whatsappLink,
     isQueueEnabled,
     queueWaitSeconds,
-    queueMessage
+    queueMessage,
+    showLandingPage
   };
 
   try {
@@ -1324,7 +1348,7 @@ export async function updateProgramSettings(settings) {
     console.warn('Error saving settings to BhagavadGita/data:', err);
   }
 
-  return { success: true, isRegistrationOpen, closedNotice, whatsappLink, isQueueEnabled, queueWaitSeconds, queueMessage };
+  return { success: true, isRegistrationOpen, closedNotice, whatsappLink, isQueueEnabled, queueWaitSeconds, queueMessage, showLandingPage };
 }
 
 /**
@@ -1341,7 +1365,8 @@ export function subscribeToProgramSettings(callback) {
         whatsappLink: parsed.whatsappLink || '',
         isQueueEnabled: Boolean(parsed.isQueueEnabled),
         queueWaitSeconds: Number(parsed.queueWaitSeconds) || 60,
-        queueMessage: parsed.queueMessage || ''
+        queueMessage: parsed.queueMessage || '',
+        showLandingPage: parsed.showLandingPage !== false
       });
     }
   } catch (e) {}
@@ -1352,14 +1377,15 @@ export function subscribeToProgramSettings(callback) {
     unsubData = onSnapshot(dataRef, (snap) => {
       if (snap.exists()) {
         const d = snap.data();
-        if (d.isRegistrationOpen !== undefined || d.whatsappLink !== undefined || d.isQueueEnabled !== undefined) {
+        if (d.isRegistrationOpen !== undefined || d.whatsappLink !== undefined || d.isQueueEnabled !== undefined || d.showLandingPage !== undefined) {
           const sett = {
             isRegistrationOpen: d.isRegistrationOpen !== false,
             closedNotice: d.closedNotice || '',
             whatsappLink: d.whatsappLink || '',
             isQueueEnabled: Boolean(d.isQueueEnabled),
             queueWaitSeconds: Number(d.queueWaitSeconds) || 60,
-            queueMessage: d.queueMessage || ''
+            queueMessage: d.queueMessage || '',
+            showLandingPage: d.showLandingPage !== false
           };
           try {
             localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(sett));
@@ -1550,7 +1576,7 @@ export async function generateFullDatabaseBackup() {
     metadata: {
       version: '1.0',
       program: 'Gita Amrita',
-      organization: 'ISKCON Adilabad',
+      organization: 'Gita Amrita',
       backupDate: new Date().toISOString(),
       totalParticipants: registrations.length,
       totalAnnouncements: announcements.length,

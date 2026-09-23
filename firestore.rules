@@ -1,6 +1,4 @@
-// -----------------------------------------------------------------------------
-// FIRESTORE SECURITY RULES - ISKCON GITA AMRITA PORTAL
-// -----------------------------------------------------------------------------
+// FIRESTORE SECURITY RULES - GITA AMRITA PORTAL
 
 // Use Firestore Security Rules Version 2 (enables modern syntax & granular controls)
 rules_version = '2';

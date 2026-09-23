@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, AlertCircle, Eye, EyeOff, Lock, ChevronDown } from 'lucide-react';
+import { ArrowRight, ArrowLeft, AlertCircle, Eye, EyeOff, Lock, ChevronDown, Sparkles } from 'lucide-react';
 
 const COUNTRY_CODES = [
   { code: '+91', label: '+91 (IN)' },
@@ -10,12 +10,19 @@ const COUNTRY_CODES = [
   { code: '+61', label: '+61 (AU)' },
 ];
 
-export default function StepContact({ 
-  data, 
-  onChange, 
-  onNext, 
-  onBack, 
-  errors, 
+const DISCOVERY_SOURCES = [
+  'Yuva Setu',
+  'Friends / Devotees',
+  'Instagram / Social Media',
+  'Other',
+];
+
+export default function StepContact({
+  data,
+  onChange,
+  onNext,
+  onBack,
+  errors,
   duplicateWarning,
   onClearDuplicateWarning
 }) {
@@ -51,14 +58,14 @@ export default function StepContact({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 animate-fadeIn text-left w-full overflow-hidden">
+    <form onSubmit={handleSubmit} className="space-y-5 animate-fadeIn text-left w-full overflow-hidden">
       {/* Step Header */}
-      <div className="space-y-1 text-center sm:text-left">
-        <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-temple-900">
-          Contact &amp; Address
+      <div className="space-y-1 text-center sm:text-left border-b border-cream-200/80 pb-3">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-temple-900">
+          Contact Details
         </h2>
         <p className="text-xs sm:text-sm text-temple-600 font-normal">
-          Enter your contact information, residential address, and account password.
+          Enter your contact information, residence, and participant login password.
         </p>
       </div>
 
@@ -77,180 +84,169 @@ export default function StepContact({
         </div>
       )}
 
-      {/* Field: Mobile Number (10 Digits, Ignores 0 as First Digit) */}
-      <div className="space-y-1.5 scroll-mt-24 scroll-mb-36 w-full">
-        <label 
-          htmlFor="mobile"
-          className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
-        >
-          Mobile Number <span className="text-saffron-600">*</span>
-        </label>
-        <div className="flex gap-2 items-center w-full">
-          <div className="relative flex-shrink-0 w-24 sm:w-28">
-            <select
-              value={data.countryCode || '+91'}
-              onChange={(e) => {
-                onChange('countryCode', e.target.value);
-                if (onClearDuplicateWarning) onClearDuplicateWarning();
-              }}
-              className="w-full appearance-none pl-2.5 sm:pl-3 pr-7 sm:pr-8 py-2.5 sm:py-3 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all duration-200 cursor-pointer font-medium"
-            >
-              {COUNTRY_CODES.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 sm:pr-3 text-temple-500">
-              <ChevronDown className="w-3.5 h-3.5" />
+      {/* SECTION 1: Communication Info */}
+      <div className="space-y-4">
+        {/* Field: Mobile Number */}
+        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
+          <label
+            htmlFor="mobile"
+            className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
+          >
+            Mobile Number <span className="text-saffron-600">*</span>
+          </label>
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-shrink-0">
+              <select
+                value={data.countryCode || '+91'}
+                onChange={(e) => {
+                  onChange('countryCode', e.target.value);
+                  if (onClearDuplicateWarning) onClearDuplicateWarning();
+                }}
+                className="appearance-none pl-3 pr-7 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 text-sm sm:text-base focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all duration-200 cursor-pointer font-medium min-w-[72px] shadow-2xs"
+              >
+                {COUNTRY_CODES.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.code} ({item.label.split('(')[1] || ''}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-temple-500">
+                <ChevronDown className="w-3.5 h-3.5" />
+              </div>
             </div>
-          </div>
 
-          <input
-            id="mobile"
-            type="tel"
-            inputMode="numeric"
-            maxLength={10}
-            placeholder="10-digit mobile number"
-            value={data.mobile || ''}
-            onFocus={handleInputFocus}
-            onChange={handleMobileChange}
-            className={`flex-1 min-w-0 w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-base focus:outline-none focus:ring-2 transition-all ${
-              errors.mobile
-                ? 'border-red-400 focus:ring-red-400/40'
+            <input
+              id="mobile"
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="10-digit mobile number"
+              value={data.mobile || ''}
+              onFocus={handleInputFocus}
+              onChange={handleMobileChange}
+              className={`flex-1 min-w-0 px-4 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.mobile
+                ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
                 : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-            }`}
-          />
+                }`}
+            />
+          </div>
+          {errors.mobile && (
+            <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.mobile}</p>
+          )}
         </div>
-        {errors.mobile && (
-          <p className="text-xs text-red-600 font-medium pt-0.5">{errors.mobile}</p>
-        )}
-      </div>
 
-      {/* Field: Email Address */}
-      <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-        <label 
-          htmlFor="email"
-          className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
-        >
-          Email Address <span className="text-saffron-600">*</span>
-        </label>
-        <input
-          id="email"
-          type="email"
-          placeholder="Enter email address"
-          value={data.email || ''}
-          onFocus={handleInputFocus}
-          onChange={(e) => {
-            onChange('email', e.target.value);
-            if (onClearDuplicateWarning) onClearDuplicateWarning();
-          }}
-          className={`w-full px-4 py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all ${
-            errors.email
-              ? 'border-red-400 focus:ring-red-400/40'
+        {/* Field: Email Address */}
+        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
+          <label
+            htmlFor="email"
+            className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
+          >
+            Email Address <span className="text-saffron-600">*</span>
+          </label>
+          <input
+            id="email"
+            type="email"
+            placeholder="Enter your email address"
+            value={data.email || ''}
+            onFocus={handleInputFocus}
+            onChange={(e) => {
+              onChange('email', e.target.value);
+              if (onClearDuplicateWarning) onClearDuplicateWarning();
+            }}
+            className={`w-full px-4 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.email
+              ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
               : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-          }`}
-        />
-        {errors.email && (
-          <p className="text-xs text-red-600 font-medium pt-0.5">{errors.email}</p>
-        )}
+              }`}
+          />
+          {errors.email && (
+            <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.email}</p>
+          )}
+        </div>
       </div>
 
-      {/* Address Sequence: 1. Current Residence, 2. Address, 3. Pincode */}
-      <div className="space-y-3.5 pt-1 border-t border-cream-200">
-        
+      {/* SECTION 2: Location Information */}
+      <div className="space-y-3.5 pt-2 border-t border-cream-200/80">
         {/* 1. Current Residence */}
         <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-          <label 
+          <label
             htmlFor="currentResidence"
             className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
           >
-            Current Residence <span className="text-saffron-600">*</span>
+            Current City / Town <span className="text-saffron-600">*</span>
           </label>
           <input
             id="currentResidence"
             type="text"
-            placeholder="Enter current city / town"
+            placeholder="Enter your current city / town"
             value={data.currentResidence || ''}
             onFocus={handleInputFocus}
             onChange={(e) => onChange('currentResidence', e.target.value)}
-            className={`w-full px-4 py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all ${
-              errors.currentResidence
-                ? 'border-red-400 focus:ring-red-400/40'
-                : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-            }`}
+            className={`w-full px-4 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.currentResidence
+              ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
+              : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
+              }`}
           />
           {errors.currentResidence && (
-            <p className="text-xs text-red-600 font-medium pt-0.5">{errors.currentResidence}</p>
+            <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.currentResidence}</p>
           )}
         </div>
 
-        {/* 2. Their Address (Full Address) */}
-        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36 w-full">
-          <div className="flex flex-col gap-0.5">
-            <label 
+        {/* 2. Full Address & Pincode (Optional) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-2 space-y-1.5 scroll-mt-24 scroll-mb-36">
+            <label
               htmlFor="fullAddress"
               className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
             >
-              Full Address <span className="text-saffron-600">*</span>
+              Full Address <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
             </label>
-            <span className="text-[10px] sm:text-[11px] text-saffron-700 font-medium leading-tight">
-              (For physical certificate dispatch upon course completion)
-            </span>
+            <p className="text-[11px] text-temple-500 font-normal -mt-0.5">
+              Used for sending course certificates after course completion
+            </p>
+            <input
+              id="fullAddress"
+              type="text"
+              placeholder="Flat/House No., Street, Area"
+              value={data.fullAddress || ''}
+              onFocus={handleInputFocus}
+              onChange={(e) => onChange('fullAddress', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all shadow-2xs"
+            />
           </div>
-          <textarea
-            id="fullAddress"
-            rows={2}
-            placeholder="House/Flat No., Street, Landmark, Area"
-            value={data.fullAddress || ''}
-            onFocus={handleInputFocus}
-            onChange={(e) => onChange('fullAddress', e.target.value)}
-            className={`w-full px-4 py-2.5 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all resize-none ${
-              errors.fullAddress
-                ? 'border-red-400 focus:ring-red-400/40'
-                : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-            }`}
-          />
-          {errors.fullAddress && (
-            <p className="text-xs text-red-600 font-medium pt-0.5">{errors.fullAddress}</p>
-          )}
-        </div>
 
-        {/* 3. Pincode */}
-        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-          <label 
-            htmlFor="pincode"
-            className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
-          >
-            Pincode <span className="text-saffron-600">*</span>
-          </label>
-          <input
-            id="pincode"
-            type="tel"
-            maxLength={6}
-            placeholder="Enter 6-digit pincode"
-            value={data.pincode || ''}
-            onFocus={handleInputFocus}
-            onChange={handlePincodeChange}
-            className={`w-full px-4 py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all ${
-              errors.pincode
-                ? 'border-red-400 focus:ring-red-400/40'
+          <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
+            <label
+              htmlFor="pincode"
+              className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
+            >
+              Pincode <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
+            </label>
+            <input
+              id="pincode"
+              type="tel"
+              maxLength={6}
+              placeholder="6-digit pincode"
+              value={data.pincode || ''}
+              onFocus={handleInputFocus}
+              onChange={handlePincodeChange}
+              className={`w-full px-4 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.pincode
+                ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
                 : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-            }`}
-          />
-          {errors.pincode && (
-            <p className="text-xs text-red-600 font-medium pt-0.5">{errors.pincode}</p>
-          )}
+                }`}
+            />
+            {errors.pincode && (
+              <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.pincode}</p>
+            )}
+          </div>
         </div>
-
       </div>
 
-      {/* Fields: Password & Confirm Password */}
-      <div className="space-y-3 pt-1 border-t border-cream-200">
+      {/* SECTION 3: Account Security */}
+      <div className="space-y-3 pt-2 border-t border-cream-200/80">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Create Password */}
           <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-            <label 
+            <label
               htmlFor="password"
               className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
             >
@@ -264,11 +260,10 @@ export default function StepContact({
                 value={data.password || ''}
                 onFocus={handleInputFocus}
                 onChange={(e) => onChange('password', e.target.value)}
-                className={`w-full pl-4 pr-10 py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all ${
-                  errors.password
-                    ? 'border-red-400 focus:ring-red-400/40'
-                    : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-                }`}
+                className={`w-full pl-4 pr-10 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.password
+                  ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
+                  : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
+                  }`}
               />
               <button
                 type="button"
@@ -280,13 +275,13 @@ export default function StepContact({
               </button>
             </div>
             {errors.password && (
-              <p className="text-xs text-red-600 font-medium pt-0.5">{errors.password}</p>
+              <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.password}</p>
             )}
           </div>
 
           {/* Confirm Password */}
           <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-            <label 
+            <label
               htmlFor="confirmPassword"
               className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
             >
@@ -300,11 +295,10 @@ export default function StepContact({
                 value={data.confirmPassword || ''}
                 onFocus={handleInputFocus}
                 onChange={(e) => onChange('confirmPassword', e.target.value)}
-                className={`w-full pl-4 pr-10 py-3 rounded-xl border bg-cream-50 text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all ${
-                  errors.confirmPassword
-                    ? 'border-red-400 focus:ring-red-400/40'
-                    : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-                }`}
+                className={`w-full pl-4 pr-10 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.confirmPassword
+                  ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
+                  : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
+                  }`}
               />
               <button
                 type="button"
@@ -316,18 +310,18 @@ export default function StepContact({
               </button>
             </div>
             {errors.confirmPassword && (
-              <p className="text-xs text-red-600 font-medium pt-0.5">{errors.confirmPassword}</p>
+              <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.confirmPassword}</p>
             )}
           </div>
         </div>
       </div>
 
       {/* Back & Continue Actions */}
-      <div className="flex items-center gap-3 pt-3">
+      <div className="flex items-center gap-3 pt-2">
         <button
           type="button"
           onClick={onBack}
-          className="w-1/3 flex items-center justify-center gap-1.5 py-3.5 px-4 rounded-xl border border-cream-300 bg-cream-100 hover:bg-cream-200 text-temple-700 font-medium text-xs sm:text-sm transition-colors focus:outline-none cursor-pointer"
+          className="w-1/3 flex items-center justify-center gap-1.5 py-3.5 px-4 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-temple-700 font-semibold text-xs sm:text-sm shadow-2xs transition-colors focus:outline-none cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back</span>
@@ -336,9 +330,9 @@ export default function StepContact({
         <button
           type="submit"
           disabled={checking}
-          className="w-2/3 flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-saffron-500 focus:ring-offset-2 cursor-pointer"
+          className="w-2/3 flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all disabled:opacity-60 focus:outline-none focus:ring-4 focus:ring-saffron-500/20 cursor-pointer transform hover:-translate-y-0.5"
         >
-          <span>{checking ? 'Verifying...' : 'Review & Confirm'}</span>
+          <span>{checking ? 'Verifying...' : 'Continue'}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

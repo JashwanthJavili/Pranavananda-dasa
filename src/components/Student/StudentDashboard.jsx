@@ -21,7 +21,7 @@ export default function StudentDashboard({ studentUser, onLogout }) {
   const name = participant.fullName || participant.name || 'Participant';
   const email = participant.email || '—';
   const mobile = participant.mobile || '—';
-  const residence = participant.currentResidence || participant.city || 'Adilabad';
+  const residence = participant.currentResidence || participant.city || '—';
   const address = participant.fullAddress || participant.address || participant.area || '—';
   const pincode = participant.pincode || '—';
   const education = participant.education || '—';
@@ -53,19 +53,19 @@ export default function StudentDashboard({ studentUser, onLogout }) {
       <header className="sticky top-0 z-30 bg-cream-50/95 backdrop-blur-md border-b border-cream-200 shadow-soft">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
           
-          {/* ISKCON Brand */}
+          {/* Brand */}
           <div className="flex items-center gap-2.5">
             <img
-              src="/assets/iskcon_logo.webp"
-              alt="ISKCON Logo"
-              className="h-8 w-auto object-contain"
+              src="/assets/krishna-logo1.webp"
+              alt="Krishna"
+              className="h-8 w-8 object-contain rounded-full border border-saffron-300 shadow-2xs"
             />
             <div className="text-left">
               <span className="text-sm font-bold text-temple-900 leading-tight block">
                 Gita Amrita
               </span>
               <span className="text-[10px] text-temple-500 block">
-                ISKCON Adilabad
+                Participant Portal
               </span>
             </div>
           </div>
@@ -202,7 +202,7 @@ export default function StudentDashboard({ studentUser, onLogout }) {
             <HelpCircle className="w-4 h-4 text-saffron-600 flex-shrink-0" />
             <div>
               <p className="font-semibold text-temple-900">Have questions about the program?</p>
-              <p className="text-temple-500">Contact the ISKCON Adilabad coordinator team.</p>
+              <p className="text-temple-500">Contact the program coordinator team.</p>
             </div>
           </div>
           <a
@@ -217,7 +217,7 @@ export default function StudentDashboard({ studentUser, onLogout }) {
 
       {/* Devotional Footer */}
       <footer className="py-5 text-center text-xs text-temple-500 border-t border-cream-200 mt-auto bg-cream-50/50">
-        <p>&copy; {new Date().getFullYear()} Gita Amrita &bull; ISKCON Adilabad. All rights reserved.</p>
+        <p>© 2026 Pranavananda Das | Built with devotion for spreading Krishna consciousness</p>
       </footer>
 
       {/* Logout Confirmation Modal */}
