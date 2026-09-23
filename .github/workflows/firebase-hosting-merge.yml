@@ -24,3 +24,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_FORSEVA_21D12 }}
           channelId: live
           projectId: forseva-21d12
+          target: pranavananda-dasa

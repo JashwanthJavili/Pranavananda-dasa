@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "pranavananda-dasa",
     "public": "dist",
     "ignore": [
       "firebase.json",
