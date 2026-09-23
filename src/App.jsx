@@ -11,6 +11,14 @@ const AdminLogin = React.lazy(() => import('./components/Admin/AdminLogin'));
 const StudentDashboard = React.lazy(() => import('./components/Student/StudentDashboard'));
 
 export default function App() {
+  const [programSettings, setProgramSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('gita_amrita_cached_settings');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return null;
+  });
+
   const [currentView, setCurrentView] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = (window.location.hash || '').toLowerCase();
@@ -20,12 +28,19 @@ export default function App() {
       if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
       try {
         const cached = localStorage.getItem('gita_amrita_cached_settings');
-        if (cached && JSON.parse(cached).showLandingPage === false) {
-          return 'register';
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.showLandingPage === false) {
+            return 'register';
+          }
+          if (parsed && parsed.showLandingPage !== false) {
+            return 'landing';
+          }
         }
       } catch (e) {}
     }
-    return 'landing'; // 'landing' | 'register' | 'admin' | 'admin-login' | 'student'
+    // If no hash and no cache, show brief loading screen while reading initial settings
+    return 'loading';
   });
   const [loginModalOpen, setLoginModalOpen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -69,21 +84,49 @@ export default function App() {
   });
 
   useEffect(() => {
+    let isMounted = true;
+    
+    // Safety fallback timeout: if Firestore takes more than 600ms, fall back to landing
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) {
+        setCurrentView((prev) => (prev === 'loading' ? 'landing' : prev));
+      }
+    }, 600);
+
     const unsub = subscribeToProgramSettings((sett) => {
-      if (sett) {
+      if (sett && isMounted) {
+        setProgramSettings(sett);
         setIsRegistrationOpen(sett.isRegistrationOpen !== false);
         const shouldShowLanding = sett.showLandingPage !== false;
         setShowLandingPage(shouldShowLanding);
-        if (!shouldShowLanding && currentView === 'landing') {
-          const hash = (window.location.hash || '').toLowerCase();
-          if (!hash || hash === '#' || hash === '#home') {
-            setCurrentView('register');
+
+        setCurrentView((prev) => {
+          const hash = (typeof window !== 'undefined' ? (window.location.hash || '').toLowerCase() : '');
+          if (hash === '#register' || hash === '#registration') return 'register';
+          if (hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+          if (hash === '#admin-login') return 'admin-login';
+          if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
+
+          if (!shouldShowLanding) {
+            if (prev === 'loading' || prev === 'landing' || !hash || hash === '#' || hash === '#home') {
+              return 'register';
+            }
+          } else {
+            if (prev === 'loading') {
+              return 'landing';
+            }
           }
-        }
+          return prev;
+        });
       }
     });
-    return () => unsub();
-  }, [currentView]);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(fallbackTimer);
+      unsub();
+    };
+  }, []);
 
   const goToRegister = () => {
     setCurrentView('register');
@@ -194,13 +237,38 @@ export default function App() {
       } else if (hash === '#login') {
         setLoginModalOpen(true);
       } else if (hash === '' || hash === '#' || hash === '#home') {
-        setCurrentView('landing');
+        if (!showLandingPage) {
+          setCurrentView('register');
+        } else {
+          setCurrentView('landing');
+        }
         setLoginModalOpen(false);
       }
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [showLandingPage]);
+
+  if (currentView === 'loading') {
+    return (
+      <div className="min-h-screen bg-cream-100 flex flex-col items-center justify-center p-4 font-poppins text-temple-900">
+        <div className="text-center space-y-4 animate-fadeIn">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-2xl overflow-hidden border-2 border-amber-300 shadow-soft bg-cream-50 flex items-center justify-center p-1">
+            <img
+              src="/assets/krishna-logo1.webp"
+              alt="Gita Amrita"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="space-y-0.5">
+            <h1 className="text-base sm:text-lg font-bold text-temple-900">Gita Amrita</h1>
+            <p className="text-xs text-temple-500">Bhagavad Gita Wisdom</p>
+          </div>
+          <div className="w-6 h-6 border-2 border-saffron-500 border-t-transparent rounded-full animate-spin mx-auto mt-2" />
+        </div>
+      </div>
+    );
+  }
 
   if (currentView === 'register') {
     return (
@@ -222,6 +290,8 @@ export default function App() {
                 openLogin();
               }
             }} 
+            initialSettings={programSettings}
+            showLandingPage={showLandingPage}
           />
         </React.Suspense>
         <LoginModal 

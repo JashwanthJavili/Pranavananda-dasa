@@ -45,7 +45,7 @@ const INITIAL_FORM_DATA = {
   sourceOfDiscoveryOther: '',
 };
 
-export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
+export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initialSettings, showLandingPage }) {
   const [currentStep, setCurrentStep] = useState(() => {
     try {
       const completed = localStorage.getItem('gita_amrita_completed_reg');
@@ -117,6 +117,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   });
 
   const [settings, setSettings] = useState(() => {
+    if (initialSettings) return initialSettings;
     try {
       const cached = localStorage.getItem('gita_amrita_cached_settings');
       if (cached) return JSON.parse(cached);
@@ -127,6 +128,12 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (initialSettings) {
+      setSettings(initialSettings);
+    }
+  }, [initialSettings]);
 
   useEffect(() => {
     const unsubscribe = subscribeToProgramSettings((latestSettings) => {
@@ -378,7 +385,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
           </div>
 
           {/* Right: Back to Home Button (Hidden if landing page is disabled) */}
-          {settings.showLandingPage !== false && onBackToHome ? (
+          {showLandingPage !== false && settings.showLandingPage !== false && onBackToHome ? (
             <button
               onClick={onBackToHome}
               className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none cursor-pointer flex-shrink-0"
@@ -442,7 +449,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
               waitSeconds={settings.queueWaitSeconds || 60}
               customMessage={settings.queueMessage || ''}
               onAdmitted={() => setIsQueuePassed(true)}
-              onBackToHome={settings.showLandingPage !== false ? onBackToHome : null}
+              onBackToHome={showLandingPage !== false && settings.showLandingPage !== false ? onBackToHome : null}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -561,9 +568,12 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
 
       {/* Centered Devotional Footer with Left & Right Padding */}
       <footer className="w-full border-t border-cream-200/90 py-4 sm:py-5 px-4 sm:px-8 mt-auto bg-cream-50/50">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs text-temple-500 leading-relaxed font-normal">
-            &copy; 2026 Pranavananda Das | Built with devotion for spreading Krishna consciousness
+        <div className="max-w-4xl mx-auto text-center space-y-0.5 text-xs text-temple-500 font-normal">
+          <p className="font-medium text-temple-700">
+            &copy; 2026 Pranavananda Das
+          </p>
+          <p className="text-temple-500">
+            Built with devotion for spreading Krishna consciousness
           </p>
         </div>
       </footer>

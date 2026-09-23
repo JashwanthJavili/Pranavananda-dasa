@@ -40,7 +40,10 @@ import {
   Lock,
   Copy,
   ExternalLink,
-  Info
+  Info,
+  Globe,
+  Layout,
+  ArrowRightCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -1341,52 +1344,46 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               </div>
 
               <div className="space-y-4">
-                {/* Landing Page Display Toggle */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-white border border-cream-200 gap-3">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
-                        Show Landing Page
-                      </h3>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        settings.showLandingPage !== false
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {settings.showLandingPage !== false ? 'Standard Home' : 'Direct to Register'}
-                      </span>
+                {/* Landing Page Display Mode */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white border border-cream-200 gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-saffron-50 text-saffron-600 flex items-center justify-center flex-shrink-0 border border-saffron-100">
+                      <Globe className="w-4 h-4" />
                     </div>
-                    <p className="text-xs text-temple-600 mt-0.5">
-                      <strong>Yes (Normal):</strong> Shows full landing page. <br />
-                      <strong>No (Direct Register):</strong> Visitors go directly to Registration (or Waiting Queue first if active) and header &quot;Back to Home&quot; is hidden.
-                    </p>
+                    <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                      Website Landing Page Mode
+                    </h3>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => handleToggleLandingPage(true)}
-                      disabled={isUpdatingLandingPage || settings.showLandingPage !== false}
-                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      disabled={isUpdatingLandingPage}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                         settings.showLandingPage !== false
                           ? 'bg-emerald-600 text-white shadow-soft ring-2 ring-emerald-500/20'
                           : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
                       }`}
                     >
-                      {isUpdatingLandingPage && settings.showLandingPage !== false ? 'Updating...' : 'Yes (Show Home)'}
+                      <Layout className="w-3.5 h-3.5" />
+                      <span>{isUpdatingLandingPage && settings.showLandingPage !== false ? 'Updating...' : 'Full Landing Page'}</span>
+                      {settings.showLandingPage !== false && !isUpdatingLandingPage && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleToggleLandingPage(false)}
-                      disabled={isUpdatingLandingPage || settings.showLandingPage === false}
-                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      disabled={isUpdatingLandingPage}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                         settings.showLandingPage === false
                           ? 'bg-amber-600 text-white shadow-soft ring-2 ring-amber-500/20'
                           : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
                       }`}
                     >
-                      {isUpdatingLandingPage && settings.showLandingPage === false ? 'Updating...' : 'No (Direct Register)'}
+                      <ArrowRightCircle className="w-3.5 h-3.5" />
+                      <span>{isUpdatingLandingPage && settings.showLandingPage === false ? 'Updating...' : 'Direct Registration'}</span>
+                      {settings.showLandingPage === false && !isUpdatingLandingPage && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </button>
                   </div>
                 </div>
@@ -1507,21 +1504,21 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   {/* Queue Wait Duration & Message Form */}
                   <form onSubmit={handleSaveQueueConfig} className="space-y-4">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                      {/* Granular Wait Duration Selector (Minutes + Seconds + Direct Input) */}
+                      {/* Clean Wait Duration Selector */}
                       <div className="lg:col-span-6 space-y-2">
                         <div className="flex items-center justify-between">
-                          <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                            Queue Wait Duration (Max 4 Minutes)
+                          <label className="block text-xs font-semibold text-temple-750 uppercase tracking-wider">
+                            Queue Wait Duration
                           </label>
-                          <span className="text-[10px] font-bold text-saffron-800 bg-saffron-100/80 px-2 py-0.5 rounded-md">
-                            {Math.floor(queueWaitDraft / 60)}m {queueWaitDraft % 60}s ({queueWaitDraft}s)
+                          <span className="text-xs font-semibold text-saffron-800 bg-saffron-50 px-2.5 py-0.5 rounded-lg border border-saffron-200">
+                            {Math.floor(queueWaitDraft / 60)} min {queueWaitDraft % 60} sec
                           </span>
                         </div>
 
                         {/* Dual Minutes & Seconds Pickers */}
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <span className="text-[10px] text-temple-500 font-medium block mb-1">Minutes (0 - 4)</span>
+                            <span className="text-[11px] text-temple-500 font-medium block mb-1">Minutes</span>
                             <div className="relative">
                               <select
                                 value={Math.floor(queueWaitDraft / 60)}
@@ -1531,20 +1528,20 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   const total = Math.max(2, Math.min(240, m * 60 + s));
                                   setQueueWaitDraft(total);
                                 }}
-                                className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium"
+                                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium shadow-2xs"
                               >
-                                <option value="0">0 Minutes</option>
-                                <option value="1">1 Minute</option>
-                                <option value="2">2 Minutes</option>
-                                <option value="3">3 Minutes</option>
-                                <option value="4">4 Minutes (Max)</option>
+                                <option value="0">0 min</option>
+                                <option value="1">1 min</option>
+                                <option value="2">2 min</option>
+                                <option value="3">3 min</option>
+                                <option value="4">4 min</option>
                               </select>
                               <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-temple-500" />
                             </div>
                           </div>
 
                           <div>
-                            <span className="text-[10px] text-temple-500 font-medium block mb-1">Seconds (0 - 59)</span>
+                            <span className="text-[11px] text-temple-500 font-medium block mb-1">Seconds</span>
                             <div className="relative">
                               <select
                                 value={queueWaitDraft >= 240 ? 0 : (queueWaitDraft % 60)}
@@ -1555,11 +1552,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   const total = Math.max(2, Math.min(240, m * 60 + s));
                                   setQueueWaitDraft(total);
                                 }}
-                                className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium disabled:opacity-50"
+                                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium disabled:opacity-50 shadow-2xs"
                               >
                                 {Array.from({ length: 60 }, (_, idx) => (
                                   <option key={idx} value={idx}>
-                                    {String(idx).padStart(2, '0')} Seconds
+                                    {idx} sec
                                   </option>
                                 ))}
                               </select>
@@ -1567,52 +1564,26 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             </div>
                           </div>
                         </div>
-
-                        {/* Quick Presets */}
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {[
-                            { label: '3s (Test)', val: 3 },
-                            { label: '10s', val: 10 },
-                            { label: '30s', val: 30 },
-                            { label: '1m 05s', val: 65 },
-                            { label: '2m', val: 120 },
-                            { label: '3m 50s', val: 230 },
-                            { label: '4m (Max)', val: 240 },
-                          ].map((preset) => (
-                            <button
-                              key={preset.val}
-                              type="button"
-                              onClick={() => setQueueWaitDraft(preset.val)}
-                              className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer ${
-                                queueWaitDraft === preset.val
-                                  ? 'bg-saffron-600 text-white border-saffron-600 shadow-2xs'
-                                  : 'bg-cream-100 text-temple-700 border-cream-300 hover:bg-cream-200'
-                              }`}
-                            >
-                              {preset.label}
-                            </button>
-                          ))}
-                        </div>
                       </div>
 
                       {/* Custom Queue Guidance Message */}
                       <div className="lg:col-span-6 space-y-2">
-                        <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                          Custom Queue Guidance (Optional)
+                        <label className="block text-xs font-semibold text-temple-750 uppercase tracking-wider">
+                          Queue Message (Optional)
                         </label>
                         <textarea
                           rows={3}
                           value={queueMsgDraft}
                           onChange={(e) => setQueueMsgDraft(e.target.value)}
-                          placeholder="e.g. Due to exceptionally high traffic, registrations are being admitted in an orderly queue to guarantee your spot."
-                          className="w-full px-3 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none"
+                          placeholder="e.g. Registrations are being admitted in an orderly queue. Please wait a moment..."
+                          className="w-full px-3 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none shadow-2xs"
                         />
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-1 border-t border-cream-100">
                       <span className="text-[11px] text-temple-500">
-                        Limits: Minimum 2 seconds &bull; Maximum 4 minutes (240s)
+                        Duration range: 2 seconds to 4 minutes
                       </span>
                       <button
                         type="submit"

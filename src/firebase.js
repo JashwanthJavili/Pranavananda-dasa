@@ -1408,7 +1408,8 @@ export function subscribeToProgramSettings(callback) {
           whatsappLink: parsed.whatsappLink || '',
           isQueueEnabled: Boolean(parsed.isQueueEnabled),
           queueWaitSeconds: Number(parsed.queueWaitSeconds) || 60,
-          queueMessage: parsed.queueMessage || ''
+          queueMessage: parsed.queueMessage || '',
+          showLandingPage: parsed.showLandingPage !== false
         });
       } catch (err) {}
     }
@@ -1423,7 +1424,8 @@ export function subscribeToProgramSettings(callback) {
         whatsappLink: e.detail.whatsappLink || '',
         isQueueEnabled: Boolean(e.detail.isQueueEnabled),
         queueWaitSeconds: Number(e.detail.queueWaitSeconds) || 60,
-        queueMessage: e.detail.queueMessage || ''
+        queueMessage: e.detail.queueMessage || '',
+        showLandingPage: e.detail.showLandingPage !== false
       });
     }
   };

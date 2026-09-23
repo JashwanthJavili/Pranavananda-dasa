@@ -216,8 +216,9 @@ export default function StudentDashboard({ studentUser, onLogout }) {
       </main>
 
       {/* Devotional Footer */}
-      <footer className="py-5 text-center text-xs text-temple-500 border-t border-cream-200 mt-auto bg-cream-50/50">
-        <p>© 2026 Pranavananda Das | Built with devotion for spreading Krishna consciousness</p>
+      <footer className="py-5 text-center text-xs text-temple-500 border-t border-cream-200 mt-auto bg-cream-50/50 space-y-0.5">
+        <p className="font-medium text-temple-700">&copy; 2026 Pranavananda Das</p>
+        <p className="text-temple-500 font-normal">Built with devotion for spreading Krishna consciousness</p>
       </footer>
 
       {/* Logout Confirmation Modal */}

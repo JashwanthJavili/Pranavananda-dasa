@@ -290,9 +290,15 @@ export default function WaitingRoomQueue({
 
       </main>
 
-      {/* Simple Clean Footer */}
-      <footer className="relative z-10 w-full py-3.5 text-center text-[11px] sm:text-xs text-temple-500 border-t border-amber-200/50 bg-white/50">
-        <span>&copy; 2026 Pranavananda Das | Built with devotion for spreading Krishna consciousness</span>
+      {/* Devotional Footer */}
+      <footer className="relative z-10 w-full border-t border-amber-200/70 bg-cream-50/80 backdrop-blur-md py-4 px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto text-center text-[11px] sm:text-xs text-temple-600 font-normal">
+          <p className="flex flex-wrap items-center gap-1.5 justify-center">
+            <span>&copy; 2026 Pranavananda Das</span>
+            <span className="text-amber-400">&bull;</span>
+            <span className="text-temple-500">Built with devotion for spreading Krishna consciousness</span>
+          </p>
+        </div>
       </footer>
 
     </div>
