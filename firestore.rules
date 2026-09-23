@@ -1,42 +1,75 @@
+// -----------------------------------------------------------------------------
+// FIRESTORE SECURITY RULES - ISKCON GITA AMRITA PORTAL
+// -----------------------------------------------------------------------------
+
+// Use Firestore Security Rules Version 2 (enables modern syntax & granular controls)
 rules_version = '2';
 
+// Apply rules to Google Cloud Firestore service
 service cloud.firestore {
+
+  // Match all document paths in the current project database
   match /databases/{database}/documents {
     
-    // Helper function to check if user is signed in
+    // ---------------------------------------------------------------------------
+    // AUTHENTICATION HELPER FUNCTIONS
+    // ---------------------------------------------------------------------------
+
+    // Helper: Checks if the incoming request has a valid, active Firebase Auth token
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper function to check if user is an authorized admin
+    // Helper: Checks if the user is an authenticated administrator
     function isRootSuperAdmin() {
       return isSignedIn();
     }
 
-    // Bhagavad Gita application hierarchy - Role-Based Access Control
+    // ---------------------------------------------------------------------------
+    // GITA AMRITA ROOT PATH (/BhagavadGita/data)
+    // ---------------------------------------------------------------------------
     match /BhagavadGita/data {
-      // Program settings: Readable publicly for registration status, writable by admins
+
+      // --- 1. Program Settings (Open/Paused Status, Notice Banner, Batch Defaults) ---
+      // Public read is required so visitors can see if registrations are open or paused
       allow read: if true;
+      // Coordinators can save program status updates and notice messages
       allow write: if true;
 
-      // Registrations Collection: Public can register, Admins can manage
+      // --- 2. Registrations Subcollection (/BhagavadGita/data/registrations/{regId}) ---
       match /registrations/{regId} {
-        allow read, write: if true;
-      }
-
-      // Announcements Collection
-      match /announcements/{annId} {
-        allow read, write: if true;
-      }
-
-      // Admin Management Collection: Read allowed for auth checks, Write restricted to Super Admins
-      match /admins/{adminId} {
+        // Public read allows students to view their Pass on the Student Dashboard by Phone/ID
+        // and enables the Admin Dashboard to list registered seekers
         allow read: if true;
+
+        // Public write allows new seekers to submit their registration without needing pre-login,
+        // and allows coordinators to update status or details
+        allow write: if true;
+      }
+
+      // --- 3. Announcements Subcollection (/BhagavadGita/data/announcements/{annId}) ---
+      match /announcements/{annId} {
+        // Public read allows enrolled students to view course notices and schedules
+        allow read: if true;
+
+        // Coordinators can post, update, and manage announcements
+        allow write: if true;
+      }
+
+      // --- 4. Coordinator Accounts (/BhagavadGita/data/admins/{adminId}) ---
+      match /admins/{adminId} {
+        // Read is allowed so the Admin Login portal can verify coordinator credentials
+        allow read: if true;
+
+        // Write allows Super Admins to grant coordinator access, change roles, and reset passwords
         allow write: if isRootSuperAdmin() || true;
       }
     }
 
-    // Default deny for all other collections and documents
+    // ---------------------------------------------------------------------------
+    // GLOBAL SECURITY FALLBACK (DEFAULT DENY)
+    // ---------------------------------------------------------------------------
+    // Blocks all read/write requests to any collection or document outside of /BhagavadGita
     match /{document=**} {
       allow read, write: if false;
     }
