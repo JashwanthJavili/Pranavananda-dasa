@@ -1236,11 +1236,14 @@ export async function fetchProgramSettings() {
     const snap = await getDoc(dataRef);
     if (snap.exists()) {
       const data = snap.data();
-      if (data.isRegistrationOpen !== undefined || data.whatsappLink !== undefined) {
+      if (data.isRegistrationOpen !== undefined || data.whatsappLink !== undefined || data.isQueueEnabled !== undefined) {
         const result = {
           isRegistrationOpen: data.isRegistrationOpen !== false,
           closedNotice: data.closedNotice || '',
-          whatsappLink: data.whatsappLink || ''
+          whatsappLink: data.whatsappLink || '',
+          isQueueEnabled: Boolean(data.isQueueEnabled),
+          queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
+          queueMessage: data.queueMessage || ''
         };
         try {
           localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(result));
@@ -1259,7 +1262,10 @@ export async function fetchProgramSettings() {
       return {
         isRegistrationOpen: data.isRegistrationOpen !== false,
         closedNotice: data.closedNotice || '',
-        whatsappLink: data.whatsappLink || ''
+        whatsappLink: data.whatsappLink || '',
+        isQueueEnabled: Boolean(data.isQueueEnabled),
+        queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
+        queueMessage: data.queueMessage || ''
       };
     }
   } catch (e) {}
@@ -1267,7 +1273,10 @@ export async function fetchProgramSettings() {
   return {
     isRegistrationOpen: true,
     closedNotice: '',
-    whatsappLink: ''
+    whatsappLink: '',
+    isQueueEnabled: false,
+    queueWaitSeconds: 60,
+    queueMessage: ''
   };
 }
 
@@ -1275,11 +1284,17 @@ export async function updateProgramSettings(settings) {
   const isRegistrationOpen = Boolean(settings.isRegistrationOpen);
   const closedNotice = sanitizeText(settings.closedNotice !== undefined ? settings.closedNotice : '', 500);
   const whatsappLink = sanitizeText(settings.whatsappLink !== undefined ? settings.whatsappLink : '', 300);
+  const isQueueEnabled = Boolean(settings.isQueueEnabled);
+  const queueWaitSeconds = Math.max(2, Math.min(240, Number(settings.queueWaitSeconds) || 60));
+  const queueMessage = sanitizeText(settings.queueMessage !== undefined ? settings.queueMessage : '', 300);
 
   const payload = {
     isRegistrationOpen,
     closedNotice,
     whatsappLink,
+    isQueueEnabled,
+    queueWaitSeconds,
+    queueMessage,
     lastUpdated: serverTimestamp(),
     programName: 'Gita Amrita',
     organization: 'ISKCON Adilabad'
@@ -1288,7 +1303,10 @@ export async function updateProgramSettings(settings) {
   const localPayload = {
     isRegistrationOpen,
     closedNotice,
-    whatsappLink
+    whatsappLink,
+    isQueueEnabled,
+    queueWaitSeconds,
+    queueMessage
   };
 
   try {
@@ -1306,7 +1324,7 @@ export async function updateProgramSettings(settings) {
     console.warn('Error saving settings to BhagavadGita/data:', err);
   }
 
-  return { success: true, isRegistrationOpen, closedNotice, whatsappLink };
+  return { success: true, isRegistrationOpen, closedNotice, whatsappLink, isQueueEnabled, queueWaitSeconds, queueMessage };
 }
 
 /**
@@ -1320,7 +1338,10 @@ export function subscribeToProgramSettings(callback) {
       callback({
         isRegistrationOpen: parsed.isRegistrationOpen !== false,
         closedNotice: parsed.closedNotice || '',
-        whatsappLink: parsed.whatsappLink || ''
+        whatsappLink: parsed.whatsappLink || '',
+        isQueueEnabled: Boolean(parsed.isQueueEnabled),
+        queueWaitSeconds: Number(parsed.queueWaitSeconds) || 60,
+        queueMessage: parsed.queueMessage || ''
       });
     }
   } catch (e) {}
@@ -1331,11 +1352,14 @@ export function subscribeToProgramSettings(callback) {
     unsubData = onSnapshot(dataRef, (snap) => {
       if (snap.exists()) {
         const d = snap.data();
-        if (d.isRegistrationOpen !== undefined || d.whatsappLink !== undefined) {
+        if (d.isRegistrationOpen !== undefined || d.whatsappLink !== undefined || d.isQueueEnabled !== undefined) {
           const sett = {
             isRegistrationOpen: d.isRegistrationOpen !== false,
             closedNotice: d.closedNotice || '',
-            whatsappLink: d.whatsappLink || ''
+            whatsappLink: d.whatsappLink || '',
+            isQueueEnabled: Boolean(d.isQueueEnabled),
+            queueWaitSeconds: Number(d.queueWaitSeconds) || 60,
+            queueMessage: d.queueMessage || ''
           };
           try {
             localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(sett));
@@ -1355,7 +1379,10 @@ export function subscribeToProgramSettings(callback) {
         callback({
           isRegistrationOpen: parsed.isRegistrationOpen !== false,
           closedNotice: parsed.closedNotice || '',
-          whatsappLink: parsed.whatsappLink || ''
+          whatsappLink: parsed.whatsappLink || '',
+          isQueueEnabled: Boolean(parsed.isQueueEnabled),
+          queueWaitSeconds: Number(parsed.queueWaitSeconds) || 60,
+          queueMessage: parsed.queueMessage || ''
         });
       } catch (err) {}
     }
@@ -1367,7 +1394,10 @@ export function subscribeToProgramSettings(callback) {
       callback({
         isRegistrationOpen: e.detail.isRegistrationOpen !== false,
         closedNotice: e.detail.closedNotice || '',
-        whatsappLink: e.detail.whatsappLink || ''
+        whatsappLink: e.detail.whatsappLink || '',
+        isQueueEnabled: Boolean(e.detail.isQueueEnabled),
+        queueWaitSeconds: Number(e.detail.queueWaitSeconds) || 60,
+        queueMessage: e.detail.queueMessage || ''
       });
     }
   };

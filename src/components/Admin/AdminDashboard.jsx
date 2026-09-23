@@ -137,7 +137,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     };
   });
   const [closedNoticeDraft, setClosedNoticeDraft] = useState('');
+  const [queueMsgDraft, setQueueMsgDraft] = useState('');
+  const [queueWaitDraft, setQueueWaitDraft] = useState(60);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingQueue, setIsUpdatingQueue] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
 
   // Search & Filters
@@ -241,6 +244,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         setSettings(latestSettings);
         if (latestSettings.closedNotice !== undefined) {
           setClosedNoticeDraft(latestSettings.closedNotice);
+        }
+        if (latestSettings.queueMessage !== undefined) {
+          setQueueMsgDraft(latestSettings.queueMessage);
+        }
+        if (latestSettings.queueWaitSeconds !== undefined) {
+          setQueueWaitDraft(Number(latestSettings.queueWaitSeconds) || 60);
         }
       }
     });
@@ -361,6 +370,54 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       }
     } catch (err) {
       showNotification('Failed to save notice message.');
+    }
+  };
+
+  // Toggle Queue Mode
+  const handleToggleQueueMode = async (enableQueue) => {
+    if (isUpdatingQueue) return;
+    setIsUpdatingQueue(true);
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        isQueueEnabled: enableQueue,
+        queueWaitSeconds: queueWaitDraft,
+        queueMessage: queueMsgDraft
+      });
+      if (res.success) {
+        setSettings(prev => ({ ...prev, isQueueEnabled: enableQueue }));
+        showNotification(`Virtual Queue is now ${enableQueue ? 'ENABLED (Surge Mode)' : 'DISABLED (Direct Access)'}.`);
+      }
+    } catch (err) {
+      showNotification('Failed to update queue mode.');
+    } finally {
+      setIsUpdatingQueue(false);
+    }
+  };
+
+  // Save Queue Configuration (duration & custom message)
+  const handleSaveQueueConfig = async (e) => {
+    e?.preventDefault();
+    const clampedSeconds = Math.max(2, Math.min(240, Number(queueWaitDraft) || 60));
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        queueWaitSeconds: clampedSeconds,
+        queueMessage: queueMsgDraft.trim()
+      });
+      if (res.success) {
+        setSettings(prev => ({
+          ...prev,
+          queueWaitSeconds: clampedSeconds,
+          queueMessage: queueMsgDraft.trim()
+        }));
+        setQueueWaitDraft(clampedSeconds);
+        const mins = Math.floor(clampedSeconds / 60);
+        const secs = clampedSeconds % 60;
+        showNotification(`Queue timer saved: ${mins > 0 ? `${mins}m ` : ''}${secs}s (${clampedSeconds} seconds total).`);
+      }
+    } catch (err) {
+      showNotification('Failed to save queue settings.');
     }
   };
 
@@ -1323,6 +1380,170 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                     </button>
                   </div>
                 </form>
+
+                {/* Traffic Surge & Virtual Waiting Room Controls */}
+                <div className="p-4 rounded-2xl bg-white border border-cream-200 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cream-100 pb-3">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-saffron-600" />
+                        <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                          Traffic Surge Control &amp; Virtual Waiting Room
+                        </h3>
+                      </div>
+                      <p className="text-xs text-temple-600">
+                        When enabled, visitors are held in an orderly queue with a countdown timer before accessing Step 1.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleQueueMode(false)}
+                        disabled={isUpdatingQueue || !settings.isQueueEnabled}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          !settings.isQueueEnabled
+                            ? 'bg-emerald-600 text-white shadow-soft'
+                            : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
+                        }`}
+                      >
+                        Direct Access (Off)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleQueueMode(true)}
+                        disabled={isUpdatingQueue || settings.isQueueEnabled}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          settings.isQueueEnabled
+                            ? 'bg-saffron-600 text-white shadow-soft ring-2 ring-saffron-500/20'
+                            : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
+                        }`}
+                      >
+                        Queue Mode (Active)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Queue Wait Duration & Message Form */}
+                  <form onSubmit={handleSaveQueueConfig} className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                      {/* Granular Wait Duration Selector (Minutes + Seconds + Direct Input) */}
+                      <div className="lg:col-span-6 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                            Queue Wait Duration (Max 4 Minutes)
+                          </label>
+                          <span className="text-[10px] font-bold text-saffron-800 bg-saffron-100/80 px-2 py-0.5 rounded-md">
+                            {Math.floor(queueWaitDraft / 60)}m {queueWaitDraft % 60}s ({queueWaitDraft}s)
+                          </span>
+                        </div>
+
+                        {/* Dual Minutes & Seconds Pickers */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-[10px] text-temple-500 font-medium block mb-1">Minutes (0 - 4)</span>
+                            <div className="relative">
+                              <select
+                                value={Math.floor(queueWaitDraft / 60)}
+                                onChange={(e) => {
+                                  const m = Number(e.target.value);
+                                  const s = m === 4 ? 0 : (queueWaitDraft % 60);
+                                  const total = Math.max(2, Math.min(240, m * 60 + s));
+                                  setQueueWaitDraft(total);
+                                }}
+                                className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium"
+                              >
+                                <option value="0">0 Minutes</option>
+                                <option value="1">1 Minute</option>
+                                <option value="2">2 Minutes</option>
+                                <option value="3">3 Minutes</option>
+                                <option value="4">4 Minutes (Max)</option>
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-temple-500" />
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-temple-500 font-medium block mb-1">Seconds (0 - 59)</span>
+                            <div className="relative">
+                              <select
+                                value={queueWaitDraft >= 240 ? 0 : (queueWaitDraft % 60)}
+                                disabled={Math.floor(queueWaitDraft / 60) >= 4}
+                                onChange={(e) => {
+                                  const m = Math.floor(queueWaitDraft / 60);
+                                  const s = Number(e.target.value);
+                                  const total = Math.max(2, Math.min(240, m * 60 + s));
+                                  setQueueWaitDraft(total);
+                                }}
+                                className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium disabled:opacity-50"
+                              >
+                                {Array.from({ length: 60 }, (_, idx) => (
+                                  <option key={idx} value={idx}>
+                                    {String(idx).padStart(2, '0')} Seconds
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-temple-500" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {[
+                            { label: '3s (Test)', val: 3 },
+                            { label: '10s', val: 10 },
+                            { label: '30s', val: 30 },
+                            { label: '1m 05s', val: 65 },
+                            { label: '2m', val: 120 },
+                            { label: '3m 50s', val: 230 },
+                            { label: '4m (Max)', val: 240 },
+                          ].map((preset) => (
+                            <button
+                              key={preset.val}
+                              type="button"
+                              onClick={() => setQueueWaitDraft(preset.val)}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer ${
+                                queueWaitDraft === preset.val
+                                  ? 'bg-saffron-600 text-white border-saffron-600 shadow-2xs'
+                                  : 'bg-cream-100 text-temple-700 border-cream-300 hover:bg-cream-200'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Custom Queue Guidance Message */}
+                      <div className="lg:col-span-6 space-y-2">
+                        <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                          Custom Queue Guidance (Optional)
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={queueMsgDraft}
+                          onChange={(e) => setQueueMsgDraft(e.target.value)}
+                          placeholder="e.g. Due to exceptionally high traffic, registrations are being admitted in an orderly queue to guarantee your spot."
+                          className="w-full px-3 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-cream-100">
+                      <span className="text-[11px] text-temple-500">
+                        Limits: Minimum 2 seconds &bull; Maximum 4 minutes (240s)
+                      </span>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all cursor-pointer"
+                      >
+                        Save Queue Settings
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
 

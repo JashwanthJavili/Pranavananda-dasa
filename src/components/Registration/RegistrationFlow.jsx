@@ -5,6 +5,7 @@ import StepPersonal from './StepPersonal';
 import StepContact from './StepContact';
 import StepReview from './StepReview';
 import StepSuccess from './StepSuccess';
+import WaitingRoomQueue from './WaitingRoomQueue';
 import { 
   saveRegistration, 
   getNextRegistrationId, 
@@ -58,6 +59,21 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
     return 1;
   });
 
+  // Session Pass Check for High-Traffic Virtual Queue
+  const [isQueuePassed, setIsQueuePassed] = useState(() => {
+    try {
+      const pass = sessionStorage.getItem('ga_queue_pass');
+      if (pass) {
+        const passTime = Number(pass);
+        // Valid for 30 minutes
+        if (Date.now() - passTime < 30 * 60 * 1000) {
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  });
+
   const [formData, setFormData] = useState(() => {
     try {
       const completed = localStorage.getItem('gita_amrita_completed_reg');
@@ -98,7 +114,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
       const cached = localStorage.getItem('gita_amrita_cached_settings');
       if (cached) return JSON.parse(cached);
     } catch (e) {}
-    return { isRegistrationOpen: true, closedNotice: '' };
+    return { isRegistrationOpen: true, closedNotice: '', isQueueEnabled: false, queueWaitSeconds: 60, queueMessage: '' };
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -426,6 +442,14 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard }) {
                 ISKCON Adilabad &bull; Sri Sri Radha Govinda Mandir
               </div>
             </div>
+          ) : settings.isQueueEnabled && currentStep < 4 && !isQueuePassed ? (
+            /* High Traffic Virtual Queue State */
+            <WaitingRoomQueue
+              waitSeconds={settings.queueWaitSeconds || 60}
+              customMessage={settings.queueMessage || ''}
+              onAdmitted={() => setIsQueuePassed(true)}
+              onBackToHome={onBackToHome}
+            />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
