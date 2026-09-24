@@ -203,7 +203,10 @@ export default function WaitingRoomQueue({
 
         {/* Gita for Youth Clean Header */}
         <div className="flex flex-col items-center">
-          <span className="text-lg sm:text-xl font-bold tracking-tight text-temple-900 font-serif leading-tight">
+          <span 
+            className="font-bold tracking-tight text-temple-900 font-serif leading-tight"
+            style={liveSettings.courseNameFontSize ? { fontSize: `${liveSettings.courseNameFontSize}px` } : undefined}
+          >
             {liveSettings.courseName || 'Gita for Youth'}
           </span>
           {liveSettings.courseSubtitle && (

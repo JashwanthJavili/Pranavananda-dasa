@@ -12,6 +12,7 @@ import {
   Plus, 
   X, 
   Check, 
+  RotateCcw,
   AlertTriangle,
   Power,
   SlidersHorizontal,
@@ -152,6 +153,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const [queueWaitDraft, setQueueWaitDraft] = useState(60);
   const [courseNameDraft, setCourseNameDraft] = useState('Gita for Youth');
   const [courseSubtitleDraft, setCourseSubtitleDraft] = useState('');
+  const [courseNameFontSizeDraft, setCourseNameFontSizeDraft] = useState(18);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdatingQueue, setIsUpdatingQueue] = useState(false);
   const [isUpdatingBranding, setIsUpdatingBranding] = useState(false);
@@ -270,6 +272,9 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         }
         if (latestSettings.courseSubtitle !== undefined) {
           setCourseSubtitleDraft(latestSettings.courseSubtitle);
+        }
+        if (latestSettings.courseNameFontSize !== undefined) {
+          setCourseNameFontSizeDraft(Number(latestSettings.courseNameFontSize) || 18);
         }
       }
     });
@@ -469,28 +474,40 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     setIsUpdatingBranding(true);
     const cleanCourseName = courseNameDraft.trim() || 'Gita for Youth';
     const cleanSubtitle = courseSubtitleDraft.trim();
+    const cleanFontSize = Math.max(12, Math.min(48, Number(courseNameFontSizeDraft) || 18));
 
     try {
       const res = await updateProgramSettings({
         ...settings,
         courseName: cleanCourseName,
-        courseSubtitle: cleanSubtitle
+        courseSubtitle: cleanSubtitle,
+        courseNameFontSize: cleanFontSize
       });
       if (res.success) {
         setSettings(prev => ({
           ...prev,
           courseName: cleanCourseName,
-          courseSubtitle: cleanSubtitle
+          courseSubtitle: cleanSubtitle,
+          courseNameFontSize: cleanFontSize
         }));
         setCourseNameDraft(cleanCourseName);
         setCourseSubtitleDraft(cleanSubtitle);
-        showNotification(`Course name updated to "${cleanCourseName}" across the entire website.`);
+        setCourseNameFontSizeDraft(cleanFontSize);
+        showNotification(`Course name and font size (${cleanFontSize}px) updated across the entire website.`);
       }
     } catch (err) {
-      showNotification('Failed to save course name.');
+      showNotification('Failed to save course branding.');
     } finally {
       setIsUpdatingBranding(false);
     }
+  };
+
+  // Reset Course Branding & Font Size to Default / Present
+  const handleResetBrandingDraft = () => {
+    setCourseNameDraft('Gita for Youth');
+    setCourseSubtitleDraft('');
+    setCourseNameFontSizeDraft(18);
+    showNotification('Reset values to standard defaults (18px). Click "Save" to apply.');
   };
 
   // Add / Grant Admin Access
@@ -1408,15 +1425,15 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               </div>
 
               <div className="space-y-5">
-                {/* 1. Global Website Course Name & Subtitle Card */}
+                {/* 1. Global Website Course Name, Subtitle & Font Size Card */}
                 <form onSubmit={handleSaveCourseTitle} className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-4 shadow-2xs">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cream-100 pb-3">
                     <div>
                       <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
-                        Global Course Name &amp; Header Title
+                        Global Course Name &amp; Header Branding
                       </h3>
                       <p className="text-xs text-temple-600">
-                        Changing this updates the brand name, headers, and course titles across public registration and waiting pages.
+                        Changing this updates the brand name, headers, font size, and titles across the entire website.
                       </p>
                     </div>
                   </div>
@@ -1450,14 +1467,78 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                     </div>
                   </div>
 
+                  {/* Font Size Configuration */}
+                  <div className="space-y-2 pt-1 border-t border-cream-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                        Course Name Font Size (px)
+                      </label>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-temple-400 font-medium">Presets:</span>
+                        {[
+                          { label: 'Compact (15px)', size: 15 },
+                          { label: 'Default (18px)', size: 18 },
+                          { label: 'Medium (22px)', size: 22 },
+                          { label: 'Large (26px)', size: 26 },
+                          { label: 'Extra Large (32px)', size: 32 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => setCourseNameFontSizeDraft(preset.size)}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${
+                              Number(courseNameFontSizeDraft) === preset.size
+                                ? 'bg-saffron-500 text-white border-saffron-600 shadow-2xs'
+                                : 'bg-cream-100 hover:bg-cream-200 text-temple-700 border-cream-300/80'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="relative max-w-xs">
+                      <input
+                        type="number"
+                        min="12"
+                        max="48"
+                        placeholder="18"
+                        value={courseNameFontSizeDraft || ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          setCourseNameFontSizeDraft(val);
+                        }}
+                        className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all shadow-2xs"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-temple-400 pointer-events-none">
+                        px
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Header Live Preview */}
                   <div className="p-3 rounded-xl bg-cream-100/60 border border-cream-200/80 flex items-center justify-between">
                     <span className="text-[11px] text-temple-500 font-medium">Public Header Live Preview:</span>
-                    <BrandLogo title={courseNameDraft || 'Gita for Youth'} subtitle={courseSubtitleDraft || ''} />
+                    <BrandLogo 
+                      title={courseNameDraft || 'Gita for Youth'} 
+                      subtitle={courseSubtitleDraft || ''} 
+                      fontSize={courseNameFontSizeDraft || 18} 
+                    />
                   </div>
 
-                  {/* Save Button for Course Name Card */}
-                  <div className="flex justify-end pt-1">
+                  {/* Action Buttons: Reset to Defaults & Save */}
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={handleResetBrandingDraft}
+                      className="px-3 py-2 rounded-xl bg-cream-100 hover:bg-cream-200 active:bg-cream-300 text-temple-700 font-semibold text-xs border border-cream-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                      title="Reset values back to defaults"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-temple-500" />
+                      <span>Reset to Present / Default</span>
+                    </button>
+
                     <button
                       type="submit"
                       disabled={isUpdatingBranding}
@@ -1471,7 +1552,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                       ) : (
                         <>
                           <Check className="w-3.5 h-3.5" />
-                          <span>Save Course Name &amp; Title</span>
+                          <span>Save Course Name &amp; Font Size</span>
                         </>
                       )}
                     </button>

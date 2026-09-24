@@ -32,12 +32,13 @@ export function Logo({
 export default function BrandLogo({
   title,
   subtitle,
+  fontSize,
   badge,
   logoSrc = APP_LOGO_SRC,
   iconContainerClassName = 'w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-transparent flex-shrink-0',
   logoClassName = 'w-full h-full object-contain',
   className = 'flex items-center gap-2.5 sm:gap-3 text-left p-0.5 min-w-0',
-  titleClassName = 'text-sm sm:text-lg font-bold text-temple-900 leading-tight block truncate',
+  titleClassName = 'font-bold text-temple-900 leading-tight block truncate',
   subtitleClassName = 'text-[10px] sm:text-xs text-temple-500 block truncate',
   onClick,
 }) {
@@ -46,7 +47,7 @@ export default function BrandLogo({
       const cached = localStorage.getItem('gita_amrita_cached_settings');
       if (cached) return JSON.parse(cached);
     } catch (e) {}
-    return { courseName: 'Gita for Youth', courseSubtitle: '' };
+    return { courseName: 'Gita for Youth', courseSubtitle: '', courseNameFontSize: 18 };
   });
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function BrandLogo({
 
   const displayTitle = title !== undefined ? title : (liveSettings.courseName || 'Gita for Youth');
   const displaySubtitle = subtitle !== undefined ? subtitle : (liveSettings.courseSubtitle || '');
+  const activeFontSize = fontSize !== undefined ? fontSize : (liveSettings.courseNameFontSize || 18);
 
   return (
     <div className={className} onClick={onClick}>
@@ -66,7 +68,12 @@ export default function BrandLogo({
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={titleClassName}>{displayTitle}</span>
+          <span 
+            className={titleClassName}
+            style={activeFontSize ? { fontSize: `${activeFontSize}px` } : undefined}
+          >
+            {displayTitle}
+          </span>
           {badge}
         </div>
         {displaySubtitle && <span className={subtitleClassName}>{displaySubtitle}</span>}

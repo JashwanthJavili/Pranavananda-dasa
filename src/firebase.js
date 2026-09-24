@@ -1265,6 +1265,7 @@ export async function fetchProgramSettings() {
           showLandingPage: data.showLandingPage !== false,
           courseName: data.courseName || 'Gita for Youth',
           courseSubtitle: data.courseSubtitle || '',
+          courseNameFontSize: Number(data.courseNameFontSize) || 18,
           successLogoType: data.successLogoType || 'tick', // 'tick' | 'krishna'
           successLogoWidth: Number(data.successLogoWidth) || 80,
           successLogoHeight: Number(data.successLogoHeight) || 80
@@ -1293,6 +1294,7 @@ export async function fetchProgramSettings() {
         showLandingPage: data.showLandingPage !== false,
         courseName: data.courseName || 'Gita for Youth',
         courseSubtitle: data.courseSubtitle || '',
+        courseNameFontSize: Number(data.courseNameFontSize) || 18,
         successLogoType: data.successLogoType || 'tick',
         successLogoWidth: Number(data.successLogoWidth) || 80,
         successLogoHeight: Number(data.successLogoHeight) || 80
@@ -1310,6 +1312,7 @@ export async function fetchProgramSettings() {
     showLandingPage: true,
     courseName: 'Gita for Youth',
     courseSubtitle: '',
+    courseNameFontSize: 18,
     successLogoType: 'tick',
     successLogoWidth: 80,
     successLogoHeight: 80
@@ -1326,6 +1329,7 @@ export async function updateProgramSettings(settings) {
   const showLandingPage = settings.showLandingPage !== false;
   const courseName = sanitizeText(settings.courseName !== undefined ? settings.courseName : 'Gita for Youth', 100);
   const courseSubtitle = sanitizeText(settings.courseSubtitle !== undefined ? settings.courseSubtitle : '', 100);
+  const courseNameFontSize = Math.max(12, Math.min(48, Number(settings.courseNameFontSize) || 18));
   const successLogoType = settings.successLogoType === 'tick' ? 'tick' : 'krishna';
   const successLogoWidth = Math.max(40, Math.min(300, Number(settings.successLogoWidth) || 80));
   const successLogoHeight = Math.max(40, Math.min(300, Number(settings.successLogoHeight) || 80));
@@ -1340,6 +1344,7 @@ export async function updateProgramSettings(settings) {
     showLandingPage,
     courseName,
     courseSubtitle,
+    courseNameFontSize,
     successLogoType,
     successLogoWidth,
     successLogoHeight,
@@ -1358,6 +1363,7 @@ export async function updateProgramSettings(settings) {
     showLandingPage,
     courseName,
     courseSubtitle,
+    courseNameFontSize,
     successLogoType,
     successLogoWidth,
     successLogoHeight
@@ -1389,6 +1395,7 @@ export async function updateProgramSettings(settings) {
     showLandingPage,
     courseName,
     courseSubtitle,
+    courseNameFontSize,
     successLogoType,
     successLogoWidth,
     successLogoHeight
@@ -1409,6 +1416,7 @@ export function subscribeToProgramSettings(callback) {
     showLandingPage: d.showLandingPage !== false,
     courseName: d.courseName || 'Gita for Youth',
     courseSubtitle: d.courseSubtitle || '',
+    courseNameFontSize: Number(d.courseNameFontSize) || 18,
     successLogoType: d.successLogoType || 'krishna',
     successLogoWidth: Number(d.successLogoWidth) || 112,
     successLogoHeight: Number(d.successLogoHeight) || 112
