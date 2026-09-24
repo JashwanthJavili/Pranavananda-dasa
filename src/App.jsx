@@ -6,7 +6,7 @@ import LoginModal from './components/LoginModal';
 import { Logo } from './components/BrandLogo';
 import { subscribeToProgramSettings } from './firebase';
 
-const RegistrationFlow = React.lazy(() => import('./components/Registration/RegistrationFlow'));
+import RegistrationFlow from './components/Registration/RegistrationFlow';
 const AdminDashboard = React.lazy(() => import('./components/Admin/AdminDashboard'));
 const AdminLogin = React.lazy(() => import('./components/Admin/AdminLogin'));
 const StudentDashboard = React.lazy(() => import('./components/Student/StudentDashboard'));
@@ -32,6 +32,9 @@ export default function App() {
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed && parsed.showLandingPage === false) {
+            try {
+              window.history.replaceState(null, '', '#register');
+            } catch (e) {}
             return 'register';
           }
           if (parsed && parsed.showLandingPage !== false) {
@@ -71,7 +74,10 @@ export default function App() {
   const [showLandingPage, setShowLandingPage] = useState(() => {
     try {
       const cached = localStorage.getItem('gita_amrita_cached_settings');
-      if (cached) return JSON.parse(cached).showLandingPage !== false;
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.showLandingPage !== undefined) return parsed.showLandingPage;
+      }
     } catch (e) {}
     return true;
   });
@@ -110,6 +116,13 @@ export default function App() {
 
           if (!shouldShowLanding) {
             if (prev === 'loading' || prev === 'landing' || !hash || hash === '#' || hash === '#home') {
+              if (typeof window !== 'undefined') {
+                if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#home') {
+                  try {
+                    window.history.replaceState(null, '', '#register');
+                  } catch (e) {}
+                }
+              }
               return 'register';
             }
           } else {
@@ -239,6 +252,9 @@ export default function App() {
         setLoginModalOpen(true);
       } else if (hash === '' || hash === '#' || hash === '#home') {
         if (!showLandingPage) {
+          try {
+            window.history.replaceState(null, '', '#register');
+          } catch (e) {}
           setCurrentView('register');
         } else {
           setCurrentView('landing');
@@ -269,27 +285,18 @@ export default function App() {
   if (currentView === 'register') {
     return (
       <>
-        <React.Suspense fallback={
-          <div className="min-h-screen bg-cream-100 flex items-center justify-center font-poppins text-temple-700">
-            <div className="text-center space-y-3">
-              <div className="w-10 h-10 border-2 border-saffron-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-sm font-medium">Loading registration...</p>
-            </div>
-          </div>
-        }>
-          <RegistrationFlow 
-            onBackToHome={goToHome} 
-            onGoToDashboard={(user) => {
-              if (user && user.fullName) {
-                handleStudentLoginSuccess(user);
-              } else {
-                openLogin();
-              }
-            }} 
-            initialSettings={programSettings}
-            showLandingPage={showLandingPage}
-          />
-        </React.Suspense>
+        <RegistrationFlow 
+          onBackToHome={goToHome} 
+          onGoToDashboard={(user) => {
+            if (user && user.fullName) {
+              handleStudentLoginSuccess(user);
+            } else {
+              openLogin();
+            }
+          }} 
+          initialSettings={programSettings}
+          showLandingPage={showLandingPage}
+        />
         <LoginModal 
           isOpen={loginModalOpen} 
           onClose={closeLogin} 
