@@ -423,50 +423,9 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
               onBackToHome={showLandingPage !== false && settings.showLandingPage !== false ? onBackToHome : null}
             />
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-              {/* Left Column (Desktop Spiritual Companion) */}
-              {currentStep < 5 && (
-                <div className="hidden lg:block lg:col-span-4 sticky top-28 space-y-4 animate-fadeIn">
-                  <div className="rounded-3xl overflow-hidden border border-amber-300/80 shadow-soft-lg bg-cream-100 aspect-[4/3] relative group">
-                    <img
-                      src="/assets/Krishna-Arjuna.jpg"
-                      alt="Lord Krishna and Arjuna"
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-temple-950/60 via-transparent to-transparent flex items-end p-4">
-                      <span className="text-xs font-bold text-white tracking-wide drop-shadow">
-                        Bhagavad Gita Wisdom
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-5 rounded-3xl bg-cream-50 border border-cream-200/90 shadow-soft space-y-3 text-left">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-saffron-700 bg-saffron-50 px-2.5 py-0.5 rounded-full border border-saffron-200">
-                        Sacred Program
-                      </span>
-                      <h3 className="text-base font-bold text-temple-900 mt-1.5">
-                        Gita for Youth
-                      </h3>
-                    </div>
-                    <p className="text-xs text-temple-600 leading-relaxed font-normal">
-                      A structured, transformative journey through the Bhagavad Gita to bring clarity, devotion, and peace to daily living.
-                    </p>
-                    <div className="pt-2 border-t border-cream-100 flex items-center justify-between text-xs">
-                      <span className="font-semibold text-emerald-700 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        Free Registration
-                      </span>
-                      <span className="text-[11px] text-temple-400 font-medium">Youth &amp; Adults</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Right Column: Active Step Card */}
-              <div className={`w-full ${currentStep < 5 ? 'lg:col-span-8' : 'lg:col-span-12 max-w-md mx-auto'}`}>
-                <div className="bg-cream-50 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft-lg w-full overflow-hidden">
+            <div className="max-w-2xl mx-auto w-full">
+              {/* Active Step Card */}
+              <div className="bg-cream-50 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft-lg w-full overflow-hidden">
                   
                   {/* Step Progress Indicator (Steps 1 to 4) */}
                   {currentStep <= 4 && (
@@ -529,8 +488,6 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
 
                 </div>
               </div>
-
-            </div>
           )}
 
         </div>
