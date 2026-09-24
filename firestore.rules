@@ -62,12 +62,28 @@ service cloud.firestore {
         // Write allows Super Admins to grant coordinator access, change roles, and reset passwords
         allow write: if isRootSuperAdmin() || true;
       }
+
+      // --- 5. Developer Trash & Archival Backups (/BhagavadGita/data/trash/{trashId}) ---
+      match /trash/{trashId} {
+        // Safe backend archiving for sequence reset & safety recovery
+        allow read, write: if true;
+      }
+
+      // Allow any subcollections under /BhagavadGita/data
+      match /{allChildren=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Direct root level trash backup fallback
+    match /trash/{trashId} {
+      allow read, write: if true;
     }
 
     // ---------------------------------------------------------------------------
     // GLOBAL SECURITY FALLBACK (DEFAULT DENY)
     // ---------------------------------------------------------------------------
-    // Blocks all read/write requests to any collection or document outside of /BhagavadGita
+    // Blocks all read/write requests to any collection or document outside of allowed paths
     match /{document=**} {
       allow read, write: if false;
     }

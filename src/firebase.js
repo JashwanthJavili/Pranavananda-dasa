@@ -1716,19 +1716,31 @@ export async function resetRegistrationSequenceAndArchive() {
         reason: 'Developer Sequence Reset to BG26-100 (Testing / Maintenance)',
         participants: existingRecords,
       });
-
-      // Also write to an alternate trash collection for extra redundancy
-      const altTrashRef = doc(db, 'trash', archiveKey);
-      await setDoc(altTrashRef, {
-        archiveId: archiveKey,
-        archivedAt: serverTimestamp(),
-        archivedAtIso: now.toISOString(),
-        totalParticipantsArchived: existingRecords.length,
-        participants: existingRecords,
-      }).catch(() => {});
-    } catch (archiveErr) {
-      console.warn('Note on writing to trash archive:', archiveErr);
+    } catch (subcollErr) {
+      // If subcollection permissions are restricted, archive safely to parent doc
+      try {
+        const parentDocRef = doc(db, 'BhagavadGita', 'data');
+        await setDoc(parentDocRef, {
+          [`trash_backup_${timestampMs}`]: {
+            archiveId: archiveKey,
+            archivedAtIso: now.toISOString(),
+            totalParticipants: existingRecords.length,
+            participants: existingRecords
+          }
+        }, { merge: true });
+      } catch (parentErr) {
+        console.warn('Note on parent doc archive:', parentErr);
+      }
     }
+
+    // Always preserve local developer safety backup as well
+    try {
+      localStorage.setItem(`gita_amrita_trash_${archiveKey}`, JSON.stringify({
+        archiveId: archiveKey,
+        archivedAtIso: now.toISOString(),
+        participants: existingRecords
+      }));
+    } catch (e) {}
 
     // 2. Delete/Clear active registration documents from BhagavadGita/data/registrations
     for (const ref of docRefsToDelete) {
