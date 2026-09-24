@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "pranavananda-dasa",
+    "site": "pranavanandadas-gitaforyouth",
     "public": "dist",
     "ignore": [
       "firebase.json",
