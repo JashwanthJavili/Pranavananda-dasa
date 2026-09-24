@@ -1254,7 +1254,7 @@ export async function fetchProgramSettings() {
     const snap = await getDoc(dataRef);
     if (snap.exists()) {
       const data = snap.data();
-      if (data.isRegistrationOpen !== undefined || data.whatsappLink !== undefined || data.isQueueEnabled !== undefined || data.showLandingPage !== undefined) {
+      if (data.isRegistrationOpen !== undefined || data.whatsappLink !== undefined || data.isQueueEnabled !== undefined || data.showLandingPage !== undefined || data.courseName !== undefined) {
         const result = {
           isRegistrationOpen: data.isRegistrationOpen !== false,
           closedNotice: data.closedNotice || '',
@@ -1262,7 +1262,12 @@ export async function fetchProgramSettings() {
           isQueueEnabled: Boolean(data.isQueueEnabled),
           queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
           queueMessage: data.queueMessage || '',
-          showLandingPage: data.showLandingPage !== false
+          showLandingPage: data.showLandingPage !== false,
+          courseName: data.courseName || 'Gita Amrita',
+          courseSubtitle: data.courseSubtitle || 'Bhagavad Gita',
+          successLogoType: data.successLogoType || 'tick', // 'tick' | 'krishna'
+          successLogoWidth: Number(data.successLogoWidth) || 80,
+          successLogoHeight: Number(data.successLogoHeight) || 80
         };
         try {
           localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(result));
@@ -1285,7 +1290,12 @@ export async function fetchProgramSettings() {
         isQueueEnabled: Boolean(data.isQueueEnabled),
         queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
         queueMessage: data.queueMessage || '',
-        showLandingPage: data.showLandingPage !== false
+        showLandingPage: data.showLandingPage !== false,
+        courseName: data.courseName || 'Gita Amrita',
+        courseSubtitle: data.courseSubtitle || 'Bhagavad Gita',
+        successLogoType: data.successLogoType || 'tick',
+        successLogoWidth: Number(data.successLogoWidth) || 80,
+        successLogoHeight: Number(data.successLogoHeight) || 80
       };
     }
   } catch (e) {}
@@ -1297,7 +1307,12 @@ export async function fetchProgramSettings() {
     isQueueEnabled: false,
     queueWaitSeconds: 60,
     queueMessage: '',
-    showLandingPage: true
+    showLandingPage: true,
+    courseName: 'Gita Amrita',
+    courseSubtitle: 'Bhagavad Gita',
+    successLogoType: 'tick',
+    successLogoWidth: 80,
+    successLogoHeight: 80
   };
 }
 
@@ -1309,6 +1324,11 @@ export async function updateProgramSettings(settings) {
   const queueWaitSeconds = Math.max(2, Math.min(240, Number(settings.queueWaitSeconds) || 60));
   const queueMessage = sanitizeText(settings.queueMessage !== undefined ? settings.queueMessage : '', 300);
   const showLandingPage = settings.showLandingPage !== false;
+  const courseName = sanitizeText(settings.courseName !== undefined ? settings.courseName : 'Gita Amrita', 100);
+  const courseSubtitle = sanitizeText(settings.courseSubtitle !== undefined ? settings.courseSubtitle : 'Bhagavad Gita', 100);
+  const successLogoType = settings.successLogoType === 'tick' ? 'tick' : 'krishna';
+  const successLogoWidth = Math.max(40, Math.min(300, Number(settings.successLogoWidth) || 80));
+  const successLogoHeight = Math.max(40, Math.min(300, Number(settings.successLogoHeight) || 80));
 
   const payload = {
     isRegistrationOpen,
@@ -1318,9 +1338,14 @@ export async function updateProgramSettings(settings) {
     queueWaitSeconds,
     queueMessage,
     showLandingPage,
+    courseName,
+    courseSubtitle,
+    successLogoType,
+    successLogoWidth,
+    successLogoHeight,
     lastUpdated: serverTimestamp(),
-    programName: 'Gita Amrita',
-    organization: 'Gita Amrita'
+    programName: courseName,
+    organization: courseName
   };
 
   const localPayload = {
@@ -1330,7 +1355,12 @@ export async function updateProgramSettings(settings) {
     isQueueEnabled,
     queueWaitSeconds,
     queueMessage,
-    showLandingPage
+    showLandingPage,
+    courseName,
+    courseSubtitle,
+    successLogoType,
+    successLogoWidth,
+    successLogoHeight
   };
 
   try {
@@ -1348,26 +1378,47 @@ export async function updateProgramSettings(settings) {
     console.warn('Error saving settings to BhagavadGita/data:', err);
   }
 
-  return { success: true, isRegistrationOpen, closedNotice, whatsappLink, isQueueEnabled, queueWaitSeconds, queueMessage, showLandingPage };
+  return { 
+    success: true, 
+    isRegistrationOpen, 
+    closedNotice, 
+    whatsappLink, 
+    isQueueEnabled, 
+    queueWaitSeconds, 
+    queueMessage, 
+    showLandingPage,
+    courseName,
+    courseSubtitle,
+    successLogoType,
+    successLogoWidth,
+    successLogoHeight
+  };
 }
 
 /**
  * Real-time listener for Registration Settings
  */
 export function subscribeToProgramSettings(callback) {
+  const mapSettings = (d) => ({
+    isRegistrationOpen: d.isRegistrationOpen !== false,
+    closedNotice: d.closedNotice || '',
+    whatsappLink: d.whatsappLink || '',
+    isQueueEnabled: Boolean(d.isQueueEnabled),
+    queueWaitSeconds: Number(d.queueWaitSeconds) || 60,
+    queueMessage: d.queueMessage || '',
+    showLandingPage: d.showLandingPage !== false,
+    courseName: d.courseName || 'Gita Amrita',
+    courseSubtitle: d.courseSubtitle || 'Bhagavad Gita',
+    successLogoType: d.successLogoType || 'krishna',
+    successLogoWidth: Number(d.successLogoWidth) || 112,
+    successLogoHeight: Number(d.successLogoHeight) || 112
+  });
+
   try {
     const cached = localStorage.getItem('gita_amrita_cached_settings');
     if (cached) {
       const parsed = JSON.parse(cached);
-      callback({
-        isRegistrationOpen: parsed.isRegistrationOpen !== false,
-        closedNotice: parsed.closedNotice || '',
-        whatsappLink: parsed.whatsappLink || '',
-        isQueueEnabled: Boolean(parsed.isQueueEnabled),
-        queueWaitSeconds: Number(parsed.queueWaitSeconds) || 60,
-        queueMessage: parsed.queueMessage || '',
-        showLandingPage: parsed.showLandingPage !== false
-      });
+      callback(mapSettings(parsed));
     }
   } catch (e) {}
 
@@ -1376,25 +1427,16 @@ export function subscribeToProgramSettings(callback) {
     const dataRef = doc(db, 'BhagavadGita', 'data');
     unsubData = onSnapshot(dataRef, (snap) => {
       if (snap.exists()) {
-        const d = snap.data();
-        if (d.isRegistrationOpen !== undefined || d.whatsappLink !== undefined || d.isQueueEnabled !== undefined || d.showLandingPage !== undefined) {
-          const sett = {
-            isRegistrationOpen: d.isRegistrationOpen !== false,
-            closedNotice: d.closedNotice || '',
-            whatsappLink: d.whatsappLink || '',
-            isQueueEnabled: Boolean(d.isQueueEnabled),
-            queueWaitSeconds: Number(d.queueWaitSeconds) || 60,
-            queueMessage: d.queueMessage || '',
-            showLandingPage: d.showLandingPage !== false
-          };
-          try {
-            localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(sett));
-          } catch (e) {}
-          callback(sett);
-        }
+        const data = snap.data();
+        const res = mapSettings(data);
+        try {
+          localStorage.setItem('gita_amrita_cached_settings', JSON.stringify(res));
+          window.dispatchEvent(new CustomEvent('gita_amrita_settings_changed', { detail: res }));
+        } catch (e) {}
+        callback(res);
       }
     }, (err) => {
-      console.warn('Realtime settings listener note:', err);
+      console.warn('subscribeToProgramSettings snapshot note:', err);
     });
   } catch (err) {}
 
@@ -1402,15 +1444,7 @@ export function subscribeToProgramSettings(callback) {
     if (e.key === 'gita_amrita_cached_settings' && e.newValue) {
       try {
         const parsed = JSON.parse(e.newValue);
-        callback({
-          isRegistrationOpen: parsed.isRegistrationOpen !== false,
-          closedNotice: parsed.closedNotice || '',
-          whatsappLink: parsed.whatsappLink || '',
-          isQueueEnabled: Boolean(parsed.isQueueEnabled),
-          queueWaitSeconds: Number(parsed.queueWaitSeconds) || 60,
-          queueMessage: parsed.queueMessage || '',
-          showLandingPage: parsed.showLandingPage !== false
-        });
+        callback(mapSettings(parsed));
       } catch (err) {}
     }
   };
@@ -1418,15 +1452,7 @@ export function subscribeToProgramSettings(callback) {
 
   const handleCustom = (e) => {
     if (e.detail) {
-      callback({
-        isRegistrationOpen: e.detail.isRegistrationOpen !== false,
-        closedNotice: e.detail.closedNotice || '',
-        whatsappLink: e.detail.whatsappLink || '',
-        isQueueEnabled: Boolean(e.detail.isQueueEnabled),
-        queueWaitSeconds: Number(e.detail.queueWaitSeconds) || 60,
-        queueMessage: e.detail.queueMessage || '',
-        showLandingPage: e.detail.showLandingPage !== false
-      });
+      callback(mapSettings(e.detail));
     }
   };
   window.addEventListener('gita_amrita_settings_changed', handleCustom);

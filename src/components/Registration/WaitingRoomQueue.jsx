@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, CheckCircle2, Lock, Sparkles } from 'lucide-react';
+import { subscribeToProgramSettings } from '../../firebase';
 
 // Generates gentle randomized falling flower petals
 const PETALS_COUNT = 14;
@@ -10,6 +11,20 @@ export default function WaitingRoomQueue({
   onAdmitted, 
   onBackToHome 
 }) {
+  const [liveSettings, setLiveSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('gita_amrita_cached_settings');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return { courseName: 'Gita Amrita', courseSubtitle: 'Bhagavad Gita' };
+  });
+
+  useEffect(() => {
+    const unsub = subscribeToProgramSettings((latest) => {
+      if (latest) setLiveSettings(latest);
+    });
+    return () => unsub();
+  }, []);
   // Synchronously compute total duration from session or props
   const totalDuration = useMemo(() => {
     try {
@@ -189,10 +204,10 @@ export default function WaitingRoomQueue({
         {/* Gita Amrita Clean Header */}
         <div className="flex flex-col items-center">
           <span className="text-lg sm:text-xl font-bold tracking-tight text-temple-900 font-serif leading-tight">
-            Gita Amrita
+            {liveSettings.courseName || 'Gita Amrita'}
           </span>
           <span className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-saffron-700">
-            Bhagavad Gita
+            {liveSettings.courseSubtitle || 'Bhagavad Gita'}
           </span>
         </div>
 

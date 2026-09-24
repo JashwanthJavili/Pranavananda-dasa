@@ -43,8 +43,12 @@ import {
   Info,
   Globe,
   Layout,
-  ArrowRightCircle
+  ArrowRightCircle,
+  Palette,
+  CheckCircle2,
+  Image as ImageIcon
 } from 'lucide-react';
+import BrandLogo, { KRISHNA_ICON_SRC } from '../BrandLogo';
 import * as XLSX from 'xlsx';
 import { 
   fetchAllRegistrations, 
@@ -78,6 +82,10 @@ const ALL_COLUMNS = [
   { id: 'gender', label: 'Gender', default: false },
   { id: 'education', label: 'Qualification', default: false },
   { id: 'occupation', label: 'Occupation', default: false },
+  { id: 'inspiration', label: 'Inspiration to Join', default: false },
+  { id: 'takeaway', label: 'Course Learnings', default: false },
+  { id: 'question', label: 'Question for HG Pranavananda Prabhu', default: false },
+  { id: 'discovery', label: 'Source of Discovery', default: false },
   { id: 'date', label: 'Registration Date', default: false },
   { id: 'actions', label: 'Actions', default: true },
 ];
@@ -142,8 +150,14 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const [closedNoticeDraft, setClosedNoticeDraft] = useState('');
   const [queueMsgDraft, setQueueMsgDraft] = useState('');
   const [queueWaitDraft, setQueueWaitDraft] = useState(60);
+  const [courseNameDraft, setCourseNameDraft] = useState('Gita Amrita');
+  const [courseSubtitleDraft, setCourseSubtitleDraft] = useState('Bhagavad Gita');
+  const [successLogoTypeDraft, setSuccessLogoTypeDraft] = useState('krishna');
+  const [successLogoWidthDraft, setSuccessLogoWidthDraft] = useState(112);
+  const [successLogoHeightDraft, setSuccessLogoHeightDraft] = useState(112);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdatingQueue, setIsUpdatingQueue] = useState(false);
+  const [isUpdatingBranding, setIsUpdatingBranding] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
 
   // Search & Filters
@@ -253,6 +267,21 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         }
         if (latestSettings.queueWaitSeconds !== undefined) {
           setQueueWaitDraft(Number(latestSettings.queueWaitSeconds) || 60);
+        }
+        if (latestSettings.courseName !== undefined) {
+          setCourseNameDraft(latestSettings.courseName);
+        }
+        if (latestSettings.courseSubtitle !== undefined) {
+          setCourseSubtitleDraft(latestSettings.courseSubtitle);
+        }
+        if (latestSettings.successLogoType !== undefined) {
+          setSuccessLogoTypeDraft(latestSettings.successLogoType);
+        }
+        if (latestSettings.successLogoWidth !== undefined) {
+          setSuccessLogoWidthDraft(Number(latestSettings.successLogoWidth) || 112);
+        }
+        if (latestSettings.successLogoHeight !== undefined) {
+          setSuccessLogoHeightDraft(Number(latestSettings.successLogoHeight) || 112);
         }
       }
     });
@@ -442,6 +471,111 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       }
     } catch (err) {
       showNotification('Failed to save queue settings.');
+    }
+  };
+
+  // Save Website Course Name & Subtitle Branding
+  const handleSaveCourseTitle = async (e) => {
+    e?.preventDefault();
+    if (isUpdatingBranding) return;
+    setIsUpdatingBranding(true);
+    const cleanCourseName = courseNameDraft.trim() || 'Gita Amrita';
+    const cleanSubtitle = courseSubtitleDraft.trim() || 'Bhagavad Gita';
+
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        courseName: cleanCourseName,
+        courseSubtitle: cleanSubtitle
+      });
+      if (res.success) {
+        setSettings(prev => ({
+          ...prev,
+          courseName: cleanCourseName,
+          courseSubtitle: cleanSubtitle
+        }));
+        setCourseNameDraft(cleanCourseName);
+        setCourseSubtitleDraft(cleanSubtitle);
+        showNotification(`Course name updated to "${cleanCourseName}" across the entire website.`);
+      }
+    } catch (err) {
+      showNotification('Failed to save course name.');
+    } finally {
+      setIsUpdatingBranding(false);
+    }
+  };
+
+  // Save Registration Success Screen Logo & Dimensions
+  const handleSaveSuccessLogo = async (e) => {
+    e?.preventDefault();
+    if (isUpdatingBranding) return;
+    setIsUpdatingBranding(true);
+    const clampedW = Math.max(40, Math.min(300, Number(successLogoWidthDraft) || 112));
+    const clampedH = Math.max(40, Math.min(300, Number(successLogoHeightDraft) || 112));
+
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        successLogoType: successLogoTypeDraft,
+        successLogoWidth: clampedW,
+        successLogoHeight: clampedH
+      });
+      if (res.success) {
+        setSettings(prev => ({
+          ...prev,
+          successLogoType: successLogoTypeDraft,
+          successLogoWidth: clampedW,
+          successLogoHeight: clampedH
+        }));
+        setSuccessLogoWidthDraft(clampedW);
+        setSuccessLogoHeightDraft(clampedH);
+        showNotification(`Success screen logo updated (${successLogoTypeDraft === 'tick' ? 'Checkmark Badge' : 'Krishna Logo'} ${clampedW}x${clampedH}px).`);
+      }
+    } catch (err) {
+      showNotification('Failed to save logo settings.');
+    } finally {
+      setIsUpdatingBranding(false);
+    }
+  };
+
+  // Save All Website Branding & Success Logo Settings
+  const handleSaveBranding = async (e) => {
+    e?.preventDefault();
+    if (isUpdatingBranding) return;
+    setIsUpdatingBranding(true);
+    const clampedW = Math.max(40, Math.min(300, Number(successLogoWidthDraft) || 112));
+    const clampedH = Math.max(40, Math.min(300, Number(successLogoHeightDraft) || 112));
+    const cleanCourseName = courseNameDraft.trim() || 'Gita Amrita';
+    const cleanSubtitle = courseSubtitleDraft.trim() || 'Bhagavad Gita';
+
+    try {
+      const res = await updateProgramSettings({
+        ...settings,
+        courseName: cleanCourseName,
+        courseSubtitle: cleanSubtitle,
+        successLogoType: successLogoTypeDraft,
+        successLogoWidth: clampedW,
+        successLogoHeight: clampedH
+      });
+      if (res.success) {
+        setSettings(prev => ({
+          ...prev,
+          courseName: cleanCourseName,
+          courseSubtitle: cleanSubtitle,
+          successLogoType: successLogoTypeDraft,
+          successLogoWidth: clampedW,
+          successLogoHeight: clampedH
+        }));
+        setCourseNameDraft(cleanCourseName);
+        setCourseSubtitleDraft(cleanSubtitle);
+        setSuccessLogoWidthDraft(clampedW);
+        setSuccessLogoHeightDraft(clampedH);
+        showNotification('Branding & Success Screen Logo settings saved successfully!');
+      }
+    } catch (err) {
+      showNotification('Failed to save branding settings.');
+    } finally {
+      setIsUpdatingBranding(false);
     }
   };
 
@@ -665,7 +799,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         const matchId = (item.registrationId || item.id || '').toLowerCase().includes(q);
         const matchCity = (item.currentResidence || item.city || '').toLowerCase().includes(q);
         const matchOcc = (item.occupation || '').toLowerCase().includes(q);
-        if (!matchName && !matchMobile && !matchEmail && !matchId && !matchCity && !matchOcc) {
+        const matchInsp = (item.inspirationToJoin || '').toLowerCase().includes(q);
+        const matchTakeaway = (item.takeawayAspiration || '').toLowerCase().includes(q);
+        const matchQuest = (item.questionForPranavanandaPrabhu || '').toLowerCase().includes(q);
+        const matchDisc = (item.sourceOfDiscovery || '').toLowerCase().includes(q);
+        if (!matchName && !matchMobile && !matchEmail && !matchId && !matchCity && !matchOcc && !matchInsp && !matchTakeaway && !matchQuest && !matchDisc) {
           return false;
         }
       }
@@ -743,10 +881,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         'Pincode': p.pincode || '',
         'Qualification': p.education || '—',
         'Occupation': p.occupation || '',
-        'Question for Pranavananda Prabhu': p.questionForPranavanandaPrabhu || '—',
         'Inspiration to Join': p.inspirationToJoin || '—',
-        'Course Takeaway': p.takeawayAspiration || '—',
-        'Source of Discovery': p.sourceOfDiscovery === 'Other' && p.sourceOfDiscoveryOther ? `Other (${p.sourceOfDiscoveryOther})` : (p.sourceOfDiscovery || '—'),
+        'Course Takeaway / Learnings': p.takeawayAspiration || '—',
+        'Question for HG Pranavananda Prabhu': p.questionForPranavanandaPrabhu || '—',
+        'Source of Discovery': (p.sourceOfDiscovery === 'Others' || p.sourceOfDiscovery === 'Other') && p.sourceOfDiscoveryOther ? `Other (${p.sourceOfDiscoveryOther})` : (p.sourceOfDiscovery || '—'),
         'Registration Date': p.createdAtFormatted || p.date || 'Recent'
       }));
 
@@ -853,30 +991,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
           
           {/* Left: Brand */}
-          <div className="flex items-center gap-2.5">
-            <img
-              src="/assets/krishna-logo1.webp"
-              alt="Krishna"
-              className="h-8 w-8 object-contain rounded-full border border-saffron-300 shadow-2xs"
-            />
-            <div className="text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-temple-900 leading-tight">
-                  Gita Amrita
-                </span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                  isSuperAdmin 
-                    ? 'text-purple-700 bg-purple-50 border-purple-200' 
-                    : 'text-saffron-700 bg-saffron-50 border-saffron-200'
-                }`}>
-                  {isSuperAdmin ? 'Super Admin' : 'Admin'}
-                </span>
-              </div>
-              <span className="text-[10px] text-temple-500 block">
-                Program Administration
-              </span>
-            </div>
-          </div>
+          <BrandLogo
+            title="Gita Amrita"
+            subtitle="Program Administration"
+          />
 
           {/* Center: Clean Icon Navigation */}
           <div className="flex items-center gap-1 bg-cream-200/80 p-1 rounded-2xl border border-cream-300">
@@ -910,11 +1028,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
           {/* Right: Coordinator Details & Logout */}
           <div className="flex items-center gap-2">
             <div className="text-right hidden sm:block">
-              <span className="text-xs font-semibold text-temple-800 block truncate max-w-[140px]">
+              <span className="text-xs font-semibold text-temple-800 block truncate max-w-[150px]">
                 {adminUser?.name || 'Coordinator'}
               </span>
-              <span className="text-[10px] text-temple-500 block truncate max-w-[140px]">
-                {adminUser?.email || ''}
+              <span className="text-[10px] text-temple-500 block truncate max-w-[150px]">
+                {isSuperAdmin ? 'Super Admin' : 'Admin'} &bull; {adminUser?.email || ''}
               </span>
             </div>
             
@@ -945,8 +1063,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 <span className="text-xs font-semibold text-saffron-700 tracking-wide block">
                   Hare Krishna 🙏
                 </span>
-                <h2 className="text-lg sm:text-xl font-bold text-temple-900 tracking-tight">
-                  Welcome, {adminUser?.name || 'Coordinator'}
+                <h2 className="text-lg sm:text-xl font-bold text-temple-900 tracking-tight flex items-center gap-2">
+                  <span>Welcome, {adminUser?.name || 'Coordinator'}</span>
+                  <span className="text-xs font-medium text-temple-500">
+                    &bull; {isSuperAdmin ? 'Super Administrator' : 'Administrator'}
+                  </span>
                 </h2>
               </div>
               <div className="text-[11px] text-temple-500">
@@ -1133,6 +1254,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                       {columnVisibility.gender && <th className="py-2.5 px-3">Gender</th>}
                       {columnVisibility.education && <th className="py-2.5 px-3">Qualification</th>}
                       {columnVisibility.occupation && <th className="py-2.5 px-3">Occupation</th>}
+                      {columnVisibility.inspiration && <th className="py-2.5 px-3">Inspiration</th>}
+                      {columnVisibility.takeaway && <th className="py-2.5 px-3">Learnings</th>}
+                      {columnVisibility.question && <th className="py-2.5 px-3">Question</th>}
+                      {columnVisibility.discovery && <th className="py-2.5 px-3">Discovery</th>}
                       {columnVisibility.date && <th className="py-2.5 px-3">Date</th>}
                       {columnVisibility.actions && <th className="py-2.5 px-3 text-right">Actions</th>}
                     </tr>
@@ -1140,7 +1265,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   <tbody className="divide-y divide-cream-200/80">
                     {paginatedRegistrations.length === 0 ? (
                       <tr>
-                        <td colSpan={14} className="py-12 text-center text-temple-500">
+                        <td colSpan={18} className="py-12 text-center text-temple-500">
                           <Users className="w-8 h-8 mx-auto text-temple-300 mb-2" />
                           <p className="font-semibold text-sm">No registrations found</p>
                           <p className="text-xs text-temple-400">Try adjusting your search query or sync the database.</p>
@@ -1224,6 +1349,32 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             {columnVisibility.occupation && (
                               <td className="py-3 px-3 text-temple-700 max-w-[120px] truncate" title={item.occupation}>
                                 {item.occupation || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.inspiration && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[150px] truncate" title={item.inspirationToJoin}>
+                                {item.inspirationToJoin || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.takeaway && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[150px] truncate" title={item.takeawayAspiration}>
+                                {item.takeawayAspiration || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.question && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[150px] truncate" title={item.questionForPranavanandaPrabhu}>
+                                {item.questionForPranavanandaPrabhu || '—'}
+                              </td>
+                            )}
+
+                            {columnVisibility.discovery && (
+                              <td className="py-3 px-3 text-temple-700 max-w-[130px] truncate" title={item.sourceOfDiscovery}>
+                                {(item.sourceOfDiscovery === 'Others' || item.sourceOfDiscovery === 'Other') && item.sourceOfDiscoveryOther
+                                  ? `Others (${item.sourceOfDiscoveryOther})`
+                                  : (item.sourceOfDiscovery || '—')}
                               </td>
                             )}
 
@@ -1334,7 +1485,289 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               </div>
             </div>
 
-            {/* SECTION 2: REGISTRATION SETTINGS */}
+            {/* SECTION 2: BRANDING & REGISTRATION SUCCESS SCREEN LOGO */}
+            <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-5">
+              <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
+                <Palette className="w-4 h-4 text-saffron-600" />
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
+                  Website Branding &amp; Success Screen Customization
+                </h2>
+              </div>
+
+              <div className="space-y-5">
+                {/* 1. Global Website Course Name & Subtitle Card */}
+                <form onSubmit={handleSaveCourseTitle} className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-4 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cream-100 pb-3">
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                        Global Course Name &amp; Header Title
+                      </h3>
+                      <p className="text-xs text-temple-600">
+                        Changing this updates the brand name, headers, and course titles across public registration and waiting pages.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                        Course / Website Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Gita Amrita"
+                        value={courseNameDraft}
+                        onChange={(e) => setCourseNameDraft(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                        Header Subtitle
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Bhagavad Gita"
+                        value={courseSubtitleDraft}
+                        onChange={(e) => setCourseSubtitleDraft(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Header Live Preview */}
+                  <div className="p-3 rounded-xl bg-cream-100/60 border border-cream-200/80 flex items-center justify-between">
+                    <span className="text-[11px] text-temple-500 font-medium">Public Header Live Preview:</span>
+                    <BrandLogo title={courseNameDraft || 'Gita Amrita'} subtitle={courseSubtitleDraft || 'Bhagavad Gita'} />
+                  </div>
+
+                  {/* Save Button for Course Name Card */}
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={isUpdatingBranding}
+                      className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isUpdatingBranding ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Course Name &amp; Title</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {/* 2. Registration Success Screen Logo & Size Card */}
+                <form onSubmit={handleSaveSuccessLogo} className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-4 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cream-100 pb-3">
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
+                        Registration Success Screen Logo &amp; Dimensions
+                      </h3>
+                      <p className="text-xs text-temple-600">
+                        Choose between the divine Krishna illustration or the checkmark badge, and type the exact pixel size.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Logo Style Selector */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                      Success Screen Logo Style
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Option A: Krishna Logo */}
+                      <button
+                        type="button"
+                        onClick={() => setSuccessLogoTypeDraft('krishna')}
+                        className={`p-3 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                          successLogoTypeDraft === 'krishna'
+                            ? 'bg-amber-50/80 border-saffron-400 ring-2 ring-saffron-500/20 shadow-2xs'
+                            : 'bg-cream-50/60 border-cream-200 hover:bg-cream-100/70'
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 bg-white border border-amber-200 p-1">
+                          <img src={KRISHNA_ICON_SRC} alt="Krishna Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-temple-900 block">
+                            Krishna Divine Logo
+                          </span>
+                          <span className="text-[10px] text-temple-500 block">
+                            Present illustration image
+                          </span>
+                        </div>
+                        {successLogoTypeDraft === 'krishna' && (
+                          <Check className="w-4 h-4 text-saffron-600 ml-auto flex-shrink-0" />
+                        )}
+                      </button>
+
+                      {/* Option B: Devotional Tick Mark */}
+                      <button
+                        type="button"
+                        onClick={() => setSuccessLogoTypeDraft('tick')}
+                        className={`p-3 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                          successLogoTypeDraft === 'tick'
+                            ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-500/20 shadow-2xs'
+                            : 'bg-cream-50/60 border-cream-200 hover:bg-cream-100/70'
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                          <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-temple-900 block">
+                            Checkmark Badge
+                          </span>
+                          <span className="text-[10px] text-temple-500 block">
+                            Classic verified tick icon
+                          </span>
+                        </div>
+                        {successLogoTypeDraft === 'tick' && (
+                          <Check className="w-4 h-4 text-emerald-600 ml-auto flex-shrink-0" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dimensions: Width & Height Textboxes */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    {/* Width Textbox */}
+                    <div className="space-y-1.5 bg-cream-50/60 p-3.5 rounded-xl border border-cream-200/80">
+                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                        Logo Width (px)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="40"
+                          max="400"
+                          placeholder="112"
+                          value={successLogoWidthDraft || ''}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : Number(e.target.value);
+                            setSuccessLogoWidthDraft(val);
+                          }}
+                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all shadow-2xs"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-temple-400 pointer-events-none">
+                          px
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Height Textbox */}
+                    <div className="space-y-1.5 bg-cream-50/60 p-3.5 rounded-xl border border-cream-200/80">
+                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                        Logo Height (px)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="40"
+                          max="400"
+                          placeholder="112"
+                          value={successLogoHeightDraft || ''}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : Number(e.target.value);
+                            setSuccessLogoHeightDraft(val);
+                          }}
+                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all shadow-2xs"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-temple-400 pointer-events-none">
+                          px
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <span className="text-[11px] text-temple-500 font-medium">Presets:</span>
+                    {[
+                      { label: 'Compact (80px)', size: 80 },
+                      { label: 'Standard (112px)', size: 112 },
+                      { label: 'Medium (128px)', size: 128 },
+                      { label: 'Large (160px)', size: 160 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          setSuccessLogoWidthDraft(preset.size);
+                          setSuccessLogoHeightDraft(preset.size);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-cream-100 hover:bg-cream-200 text-temple-700 border border-cream-300/80 transition-colors cursor-pointer"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Live Success Screen Preview Box */}
+                  <div className="p-4 rounded-2xl bg-cream-100/70 border border-cream-200/90 text-center space-y-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-temple-400 block mb-1">
+                      Success Screen Live Visual Preview
+                    </span>
+                    <div className="flex justify-center items-center py-2">
+                      {successLogoTypeDraft === 'tick' ? (
+                        <div 
+                          style={{ width: `${successLogoWidthDraft || 112}px`, height: `${successLogoHeightDraft || 112}px` }}
+                          className="bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto border border-emerald-200 shadow-soft ring-8 ring-emerald-500/10 transition-all"
+                        >
+                          <CheckCircle2 
+                            style={{ width: `${Math.round((successLogoWidthDraft || 112) * 0.55)}px`, height: `${Math.round((successLogoHeightDraft || 112) * 0.55)}px` }}
+                            className="stroke-[2.2]" 
+                          />
+                        </div>
+                      ) : (
+                        <img
+                          src={KRISHNA_ICON_SRC}
+                          alt="Krishna Preview"
+                          style={{ width: `${successLogoWidthDraft || 112}px`, height: `${successLogoHeightDraft || 112}px` }}
+                          className="object-contain drop-shadow-sm transition-all mx-auto"
+                        />
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-temple-900">Registration Successful</p>
+                    <p className="text-[11px] text-temple-600">
+                      Thank you for registering for the <span className="font-semibold text-temple-800">{courseNameDraft || 'Gita Amrita'}</span> Course.
+                    </p>
+                  </div>
+
+                  {/* Save Button for Success Logo Card */}
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={isUpdatingBranding}
+                      className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isUpdatingBranding ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Logo &amp; Dimensions</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* SECTION 3: REGISTRATION SETTINGS */}
             <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
               <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
                 <Power className="w-4 h-4 text-saffron-600" />
@@ -2125,6 +2558,34 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 <span className="text-temple-500 block text-[10px] uppercase">Registration Date</span>
                 <span className="font-semibold">{detailParticipant.createdAtFormatted || detailParticipant.date || 'Recent'}</span>
               </div>
+              {detailParticipant.inspirationToJoin && (
+                <div className="col-span-2 p-2.5 rounded-xl bg-cream-50 border border-cream-200">
+                  <span className="text-temple-500 block text-[10px] uppercase font-semibold">Inspiration to Join</span>
+                  <p className="text-temple-800 text-xs mt-0.5 whitespace-pre-wrap">{detailParticipant.inspirationToJoin}</p>
+                </div>
+              )}
+              {detailParticipant.takeawayAspiration && (
+                <div className="col-span-2 p-2.5 rounded-xl bg-cream-50 border border-cream-200">
+                  <span className="text-temple-500 block text-[10px] uppercase font-semibold">Course Takeaway / Learnings</span>
+                  <p className="text-temple-800 text-xs mt-0.5 whitespace-pre-wrap">{detailParticipant.takeawayAspiration}</p>
+                </div>
+              )}
+              {detailParticipant.questionForPranavanandaPrabhu && (
+                <div className="col-span-2 p-2.5 rounded-xl bg-cream-50 border border-cream-200">
+                  <span className="text-temple-500 block text-[10px] uppercase font-semibold">Question for HG Pranavananda Prabhu</span>
+                  <p className="text-temple-800 text-xs mt-0.5 whitespace-pre-wrap">{detailParticipant.questionForPranavanandaPrabhu}</p>
+                </div>
+              )}
+              {detailParticipant.sourceOfDiscovery && (
+                <div className="col-span-2 p-2.5 rounded-xl bg-cream-50 border border-cream-200">
+                  <span className="text-temple-500 block text-[10px] uppercase font-semibold">Source of Discovery</span>
+                  <span className="font-semibold text-temple-800">
+                    {(detailParticipant.sourceOfDiscovery === 'Others' || detailParticipant.sourceOfDiscovery === 'Other') && detailParticipant.sourceOfDiscoveryOther
+                      ? `Others (${detailParticipant.sourceOfDiscoveryOther})`
+                      : detailParticipant.sourceOfDiscovery}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="pt-2 flex justify-end">

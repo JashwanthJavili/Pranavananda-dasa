@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 
 export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdmin, studentUser, isRegistrationOpen = true }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,23 +29,9 @@ export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdm
           {/* Left: Brand & Title */}
           <a
             href="#"
-            className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-lg p-1"
+            className="group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-lg p-1"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden border border-amber-300 shadow-2xs flex items-center justify-center bg-cream-50 flex-shrink-0 transition-transform group-hover:scale-105">
-              <img
-                src="/assets/krishna-logo1.webp"
-                alt="Sri Krishna"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-base sm:text-lg font-bold tracking-tight text-temple-900 leading-tight">
-                Gita Amrita
-              </span>
-              <span className="text-[10px] sm:text-xs text-temple-500 block">
-                Bhagavad Gita
-              </span>
-            </div>
+            <BrandLogo />
           </a>
 
           {/* Right: Actions */}

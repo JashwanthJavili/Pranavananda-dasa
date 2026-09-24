@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Copy, 
-  Check, 
-  LogOut, 
+import {
+  MapPin,
+  Phone,
+  Mail,
+  Copy,
+  Check,
+  LogOut,
   HelpCircle,
   Award,
   Briefcase,
   GraduationCap
 } from 'lucide-react';
+import BrandLogo from '../BrandLogo';
 
 export default function StudentDashboard({ studentUser, onLogout }) {
   const [copied, setCopied] = useState(false);
@@ -30,12 +31,12 @@ export default function StudentDashboard({ studentUser, onLogout }) {
   const otherOccupation = participant.otherOccupation || '';
   const status = participant.status || 'Confirmed';
 
-  const displayEducation = education === 'Other' && otherEducation 
-    ? `Other (${otherEducation})` 
+  const displayEducation = education === 'Other' && otherEducation
+    ? `Other (${otherEducation})`
     : education;
 
-  const displayOccupation = occupation === 'Other' && otherOccupation 
-    ? `Other (${otherOccupation})` 
+  const displayOccupation = occupation === 'Other' && otherOccupation
+    ? `Other (${otherOccupation})`
     : occupation;
 
   const handleCopyId = () => {
@@ -48,27 +49,13 @@ export default function StudentDashboard({ studentUser, onLogout }) {
 
   return (
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900 animate-fadeIn">
-      
+
       {/* Header */}
       <header className="sticky top-0 z-30 bg-cream-50/95 backdrop-blur-md border-b border-cream-200 shadow-soft">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-          
+
           {/* Brand */}
-          <div className="flex items-center gap-2.5">
-            <img
-              src="/assets/krishna-logo1.webp"
-              alt="Krishna"
-              className="h-8 w-8 object-contain rounded-full border border-saffron-300 shadow-2xs"
-            />
-            <div className="text-left">
-              <span className="text-sm font-bold text-temple-900 leading-tight block">
-                Gita Amrita
-              </span>
-              <span className="text-[10px] text-temple-500 block">
-                Participant Portal
-              </span>
-            </div>
-          </div>
+          <BrandLogo subtitle="Participant Portal" />
 
           {/* Logout Button */}
           <button
@@ -85,7 +72,7 @@ export default function StudentDashboard({ studentUser, onLogout }) {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 text-left">
-        
+
         {/* Welcome Card */}
         <div className="bg-cream-50 rounded-2xl p-5 sm:p-6 border border-cream-200 shadow-soft">
           <div className="space-y-1">
@@ -224,7 +211,7 @@ export default function StudentDashboard({ studentUser, onLogout }) {
       {/* Logout Confirmation Modal */}
       {logoutConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
-          <div 
+          <div
             className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-soft-lg text-center space-y-4"
             onClick={(e) => e.stopPropagation()}
           >

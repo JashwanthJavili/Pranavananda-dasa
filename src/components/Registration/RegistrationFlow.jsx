@@ -7,6 +7,7 @@ import StepReflections from './StepReflections';
 import StepReview from './StepReview';
 import StepSuccess from './StepSuccess';
 import WaitingRoomQueue from './WaitingRoomQueue';
+import BrandLogo from '../BrandLogo';
 import { 
   saveRegistration, 
   getNextRegistrationId, 
@@ -33,8 +34,6 @@ const INITIAL_FORM_DATA = {
   countryCode: '+91',
   mobile: '',
   email: '',
-  password: '',
-  confirmPassword: '',
   currentResidence: '',
   fullAddress: '',
   pincode: '',
@@ -234,18 +233,6 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
         }
       }
 
-      // Password validation
-      if (!formData.password || formData.password.length < 6) {
-        errs.password = 'Password must be at least 6 characters.';
-      }
-
-      // Confirm Password validation
-      if (!formData.confirmPassword) {
-        errs.confirmPassword = 'Please confirm your password.';
-      } else if (formData.password !== formData.confirmPassword) {
-        errs.confirmPassword = 'Passwords do not match.';
-      }
-
       // Address fields validation (fullAddress and pincode are optional)
       if (!formData.currentResidence || formData.currentResidence.trim().length < 2) {
         errs.currentResidence = 'Please enter your current residence city / town.';
@@ -366,23 +353,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
         <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between">
           
           {/* Left: Brand & Title */}
-          <div className="flex items-center gap-2 sm:gap-3 text-left p-0.5 sm:p-1 min-w-0">
-            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl overflow-hidden border border-amber-300 shadow-soft flex items-center justify-center bg-cream-50 flex-shrink-0">
-              <img
-                src="/assets/krishna-logo1.webp"
-                alt="Sri Krishna"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="min-w-0">
-              <span className="text-sm sm:text-lg font-bold text-temple-900 leading-tight block truncate">
-                Gita Amrita
-              </span>
-              <span className="text-[10px] sm:text-xs text-temple-500 block truncate">
-                Bhagavad Gita
-              </span>
-            </div>
-          </div>
+          <BrandLogo />
 
           {/* Right: Back to Home Button (Hidden if landing page is disabled) */}
           {showLandingPage !== false && settings.showLandingPage !== false && onBackToHome ? (
@@ -551,9 +522,8 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                     <StepSuccess
                       registrationId={generatedId}
                       formData={formData}
-                      onBackToHome={onBackToHome}
-                      onGoToDashboard={() => onGoToDashboard && onGoToDashboard({ ...formData, registrationId: generatedId })}
                       onRegisterAnother={handleRegisterAnother}
+                      initialSettings={settings}
                     />
                   )}
 

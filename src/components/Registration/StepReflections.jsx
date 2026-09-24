@@ -2,10 +2,10 @@ import React from 'react';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 
 const DISCOVERY_SOURCES = [
-  'Yuva Setu',
-  'Friends / Devotees',
-  'Instagram / Social Media',
-  'Other',
+  'Yuva setu',
+  'Friends',
+  'Social media',
+  'Others',
 ];
 
 export default function StepReflections({
@@ -28,33 +28,13 @@ export default function StepReflections({
   return (
     <form onSubmit={handleSubmit} className="space-y-5 animate-fadeIn text-left w-full">
       <div className="space-y-5">
-        {/* Question 1: Question for Pranavananda Prabhu */}
-        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-          <label
-            htmlFor="questionForPranavanandaPrabhu"
-            className="block text-xs font-semibold text-temple-800 leading-snug"
-          >
-            If you could ask one question to Pranavananda Prabhu, what would it be? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
-          </label>
-          <textarea
-            id="questionForPranavanandaPrabhu"
-            rows={3}
-            maxLength={500}
-            placeholder="Enter your answer..."
-            value={data.questionForPranavanandaPrabhu || ''}
-            onFocus={handleInputFocus}
-            onChange={(e) => onChange('questionForPranavanandaPrabhu', e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-sm focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all shadow-2xs resize-none"
-          />
-        </div>
-
-        {/* Question 2: What inspires you to join Bhagavad Gita course? */}
+        {/* Question 1: What inspires you to join the Bhagavad Gita course? */}
         <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
           <label
             htmlFor="inspirationToJoin"
             className="block text-xs font-semibold text-temple-800 leading-snug"
           >
-            What inspires you to join Bhagavad Gita course? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
+            What inspires you to join the Bhagavad Gita course? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
           </label>
           <textarea
             id="inspirationToJoin"
@@ -68,13 +48,13 @@ export default function StepReflections({
           />
         </div>
 
-        {/* Question 3: At the end of this course, what would you like to take back with you? */}
+        {/* Question 2: What would you like to learn or gain from this course? */}
         <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
           <label
             htmlFor="takeawayAspiration"
             className="block text-xs font-semibold text-temple-800 leading-snug"
           >
-            At the end of this course, what would you like to take back with you? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
+            What would you like to learn or gain from this course? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
           </label>
           <textarea
             id="takeawayAspiration"
@@ -88,10 +68,30 @@ export default function StepReflections({
           />
         </div>
 
-        {/* Question 4: How did you come to know about the Bhagavad gita course? */}
+        {/* Question 3: If you could ask one question to HG Pranavananda Prabhu, what would it be? */}
+        <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
+          <label
+            htmlFor="questionForPranavanandaPrabhu"
+            className="block text-xs font-semibold text-temple-800 leading-snug"
+          >
+            If you could ask one question to HG Pranavananda Prabhu, what would it be? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
+          </label>
+          <textarea
+            id="questionForPranavanandaPrabhu"
+            rows={3}
+            maxLength={500}
+            placeholder="Enter your answer..."
+            value={data.questionForPranavanandaPrabhu || ''}
+            onFocus={handleInputFocus}
+            onChange={(e) => onChange('questionForPranavanandaPrabhu', e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-sm focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all shadow-2xs resize-none"
+          />
+        </div>
+
+        {/* Question 4: How did you hear about the Bhagavad Gita course? */}
         <div className="space-y-2">
           <label className="block text-xs font-semibold text-temple-800 leading-snug">
-            How did you come to know about the Bhagavad gita course? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
+            How did you hear about the Bhagavad Gita course? <span className="text-[10px] text-temple-400 font-normal lowercase">(optional)</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             {DISCOVERY_SOURCES.map((source) => {
@@ -112,8 +112,8 @@ export default function StepReflections({
             })}
           </div>
 
-          {/* If "Other" is chosen */}
-          {data.sourceOfDiscovery === 'Other' && (
+          {/* If "Others" is chosen */}
+          {(data.sourceOfDiscovery === 'Others' || data.sourceOfDiscovery === 'Other') && (
             <div className="space-y-1 pt-1 animate-fadeIn scroll-mt-24 scroll-mb-36">
               <label
                 htmlFor="sourceOfDiscoveryOther"

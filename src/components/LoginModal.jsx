@@ -318,7 +318,7 @@ export default function LoginModal({
                 autoCapitalize="none"
                 spellCheck="false"
                 required
-                placeholder="Enter mobile number or email"
+                placeholder="Enter your mobile number or email"
                 value={identifier}
                 onFocus={() => {
                   if (!manuallyDismissed) {
@@ -462,7 +462,7 @@ export default function LoginModal({
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 required
-                placeholder="Enter password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);

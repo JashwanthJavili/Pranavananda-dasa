@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, AlertCircle, Eye, EyeOff, Lock, ChevronDown, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, AlertCircle, ChevronDown } from 'lucide-react';
 
 const COUNTRY_CODES = [
   { code: '+91', label: '+91 (IN)' },
@@ -8,13 +8,6 @@ const COUNTRY_CODES = [
   { code: '+44', label: '+44 (UK)' },
   { code: '+65', label: '+65 (SG)' },
   { code: '+61', label: '+61 (AU)' },
-];
-
-const DISCOVERY_SOURCES = [
-  'Yuva Setu',
-  'Friends / Devotees',
-  'Instagram / Social Media',
-  'Other',
 ];
 
 export default function StepContact({
@@ -27,8 +20,6 @@ export default function StepContact({
   onClearDuplicateWarning
 }) {
   const [checking, setChecking] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Focus handler to smoothly bring active inputs into center view on mobile keyboard pop-up
   const handleInputFocus = (e) => {
@@ -65,7 +56,7 @@ export default function StepContact({
           Contact Details
         </h2>
         <p className="text-xs sm:text-sm text-temple-600 font-normal">
-          Enter your contact information, residence, and participant login password.
+          Enter your contact information and residential address.
         </p>
       </div>
 
@@ -236,81 +227,6 @@ export default function StepContact({
             />
             {errors.pincode && (
               <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.pincode}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 3: Account Security */}
-      <div className="space-y-3 pt-2 border-t border-cream-200/80">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Create Password */}
-          <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-            <label
-              htmlFor="password"
-              className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
-            >
-              Create Password <span className="text-saffron-600">*</span>
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Min 6 characters"
-                value={data.password || ''}
-                onFocus={handleInputFocus}
-                onChange={(e) => onChange('password', e.target.value)}
-                className={`w-full pl-4 pr-10 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.password
-                  ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
-                  : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-                  }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer p-1"
-                aria-label="Toggle password visibility"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.password}</p>
-            )}
-          </div>
-
-          {/* Confirm Password */}
-          <div className="space-y-1.5 scroll-mt-24 scroll-mb-36">
-            <label
-              htmlFor="confirmPassword"
-              className="block text-xs font-semibold uppercase tracking-wider text-temple-700"
-            >
-              Confirm Password <span className="text-saffron-600">*</span>
-            </label>
-            <div className="relative">
-              <input
-                id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Re-enter password"
-                value={data.confirmPassword || ''}
-                onFocus={handleInputFocus}
-                onChange={(e) => onChange('confirmPassword', e.target.value)}
-                className={`w-full pl-4 pr-10 py-3 rounded-xl border bg-white text-temple-900 placeholder:text-temple-400 text-sm sm:text-base focus:outline-none focus:ring-2 transition-all shadow-2xs ${errors.confirmPassword
-                  ? 'border-red-300 focus:border-red-400 focus:ring-red-400/20'
-                  : 'border-cream-300 focus:border-saffron-500 focus:ring-saffron-500/20'
-                  }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer p-1"
-                aria-label="Toggle confirm password visibility"
-              >
-                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <p className="text-[11px] text-red-500 font-normal pt-0.5">{errors.confirmPassword}</p>
             )}
           </div>
         </div>

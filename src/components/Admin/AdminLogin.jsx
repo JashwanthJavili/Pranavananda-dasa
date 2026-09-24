@@ -264,7 +264,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
                 autoCapitalize="none"
                 spellCheck="false"
                 required
-                placeholder="e.g. coordinator@gitaamrita.org"
+                placeholder="Enter your email or username"
                 value={username}
                 onFocus={() => {
                   if (!manuallyDismissed) {
@@ -279,7 +279,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
                     setShowSuggestions(true);
                   }
                 }}
-                className="w-full px-4 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-sm focus:outline-none focus:ring-4 focus:ring-saffron-500/10 focus:border-saffron-500 transition-all shadow-2xs"
               />
             </div>
 
@@ -408,13 +408,13 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 required
-                placeholder="Enter admin password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   setError('');
                 }}
-                className="w-full pl-4 pr-11 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                className="w-full pl-4 pr-11 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-sm focus:outline-none focus:ring-4 focus:ring-saffron-500/10 focus:border-saffron-500 transition-all shadow-2xs"
               />
               <button
                 type="button"
