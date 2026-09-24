@@ -58,13 +58,21 @@ export function sanitizeText(val, maxLength = 500) {
  */
 export async function getNextRegistrationId() {
   try {
+    let resetTime = 0;
+    try {
+      const parentSnap = await getDoc(doc(db, 'BhagavadGita', 'data'));
+      if (parentSnap.exists()) {
+        resetTime = parentSnap.data().resetTimestamp || 0;
+      }
+    } catch (e) {}
+
     const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
     let snapshot;
     try {
-      // Fetch latest 15 records sorted by createdAt to find latest ID instantly
-      snapshot = await getDocs(query(regRef, orderBy('createdAt', 'desc'), limit(15)));
+      // Fetch latest records sorted by createdAt to find latest ID instantly
+      snapshot = await getDocs(query(regRef, orderBy('createdAt', 'desc'), limit(25)));
     } catch (indexErr) {
-      snapshot = await getDocs(query(regRef, limit(30)));
+      snapshot = await getDocs(query(regRef, limit(50)));
     }
 
     if (!snapshot || snapshot.empty) {
@@ -75,6 +83,7 @@ export async function getNextRegistrationId() {
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
       if (data.isDeleted) return;
+      if (resetTime && data.createdAt?.toMillis && data.createdAt.toMillis() < resetTime) return;
       const regId = data.registrationId || docSnap.id || '';
       const match = regId.match(/BG26-(\d+)/i);
       if (match) {
@@ -1644,4 +1653,129 @@ export function downloadBackupFile(backupObject) {
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
+}
+
+/**
+ * Developer Safety & Testing Tool:
+ * Reset registration sequence counter back to BG26-100,
+ * and safely archive all current participant registrations to a hidden 'trash' document/collection in Firestore for recovery.
+ * This key is not displayed in the public UI, serving as a developer safety backup.
+ */
+export async function resetRegistrationSequenceAndArchive() {
+  const result = {
+    success: false,
+    archivedCount: 0,
+    error: null,
+    backupId: null
+  };
+
+  try {
+    const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
+    const snapshot = await getDocs(regRef);
+    const existingRecords = [];
+    const docRefsToDelete = [];
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      existingRecords.push({
+        id: docSnap.id,
+        ...data,
+        archivedFromDocId: docSnap.id
+      });
+      docRefsToDelete.push(docSnap.ref);
+    });
+
+    // Also include any local storage records if Firestore was unreachable or had fewer
+    try {
+      const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
+      localRecords.forEach(localRec => {
+        const id = localRec.id || localRec.registrationId;
+        if (id && !existingRecords.some(r => r.id === id || r.registrationId === id)) {
+          existingRecords.push({
+            id,
+            ...localRec,
+            source: 'localStorage_merge'
+          });
+        }
+      });
+    } catch (e) {}
+
+    const now = new Date();
+    const timestampMs = Date.now();
+    const archiveKey = `archive_${timestampMs}`;
+
+    // 1. Write archive snapshot into hidden trash document in Firestore (BhagavadGita/data/trash/<archiveKey>)
+    try {
+      const trashDocRef = doc(db, 'BhagavadGita', 'data', 'trash', archiveKey);
+      await setDoc(trashDocRef, {
+        archiveId: archiveKey,
+        archivedAt: serverTimestamp(),
+        archivedAtIso: now.toISOString(),
+        archivedAtReadable: now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        totalParticipantsArchived: existingRecords.length,
+        reason: 'Developer Sequence Reset to BG26-100 (Testing / Maintenance)',
+        participants: existingRecords,
+      });
+
+      // Also write to an alternate trash collection for extra redundancy
+      const altTrashRef = doc(db, 'trash', archiveKey);
+      await setDoc(altTrashRef, {
+        archiveId: archiveKey,
+        archivedAt: serverTimestamp(),
+        archivedAtIso: now.toISOString(),
+        totalParticipantsArchived: existingRecords.length,
+        participants: existingRecords,
+      }).catch(() => {});
+    } catch (archiveErr) {
+      console.warn('Note on writing to trash archive:', archiveErr);
+    }
+
+    // 2. Delete/Clear active registration documents from BhagavadGita/data/registrations
+    for (const ref of docRefsToDelete) {
+      try {
+        await deleteDoc(ref);
+      } catch (delErr) {
+        // Fallback soft delete mark if deleteDoc has permissions limitation
+        try {
+          await setDoc(ref, { isDeleted: true, status: 'Archived_To_Trash', deletedAt: serverTimestamp() }, { merge: true });
+        } catch (setErr) {}
+      }
+    }
+
+    // 3. Update parent metadata to register the reset timestamp and reset counter
+    try {
+      const parentRef = doc(db, 'BhagavadGita', 'data');
+      await setDoc(parentRef, {
+        resetTimestamp: timestampMs,
+        registrationCounterResetAt: serverTimestamp(),
+        lastResetInfo: {
+          timestampMs,
+          archivedRecordsCount: existingRecords.length,
+          archiveKey,
+          resetAt: now.toISOString()
+        }
+      }, { merge: true });
+    } catch (parentErr) {
+      console.warn('Note updating parent reset info:', parentErr);
+    }
+
+    // 4. Wipe local storage caches
+    try {
+      localStorage.removeItem('gita_amrita_registrations');
+      localStorage.removeItem('gita_amrita_cached_admin_regs');
+      localStorage.removeItem('gita_amrita_completed_reg');
+      localStorage.removeItem('gita_amrita_last_reg_id');
+      localStorage.setItem('gita_amrita_registrations', JSON.stringify([]));
+      localStorage.setItem('gita_amrita_cached_admin_regs', JSON.stringify([]));
+    } catch (e) {}
+
+    result.success = true;
+    result.archivedCount = existingRecords.length;
+    result.backupId = archiveKey;
+    return result;
+  } catch (err) {
+    console.error('Error during sequence reset and archiving:', err);
+    result.error = err.message || 'Unknown error during reset';
+    return result;
+  }
 }

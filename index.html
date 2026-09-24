@@ -1,32 +1,36 @@
 <!doctype html>
 <html lang="en" class="scroll-smooth">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/assets/Krishna-arjuna-logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-    <title>Gita for Youth | Bhagavad Gita Classes</title>
-    <meta name="description" content="A humble journey to understand the timeless wisdom of the Bhagavad Gita and bring its teachings into our daily lives." />
-    
-    <!-- Instant Route Redirection -->
-    <script>
-      (function() {
-        try {
-          var hash = window.location.hash;
-          if (!hash || hash === '#' || hash === '#home') {
-            var cached = localStorage.getItem('gita_amrita_cached_settings');
-            if (cached) {
-              var s = JSON.parse(cached);
-              if (s && s.showLandingPage === false) {
-                window.location.replace('#register');
-              }
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/assets/Krishna-arjuna-logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+  <title>Gita for Youth</title>
+  <meta name="description"
+    content="A humble journey to understand the timeless wisdom of the Bhagavad Gita and bring its teachings into our daily lives." />
+
+  <!-- Instant Route Redirection -->
+  <script>
+    (function () {
+      try {
+        var hash = window.location.hash;
+        if (!hash || hash === '#' || hash === '#home') {
+          var cached = localStorage.getItem('gita_amrita_cached_settings');
+          if (cached) {
+            var s = JSON.parse(cached);
+            if (s && s.showLandingPage === false) {
+              window.location.replace('#register');
             }
           }
-        } catch (e) {}
-      })();
-    </script>
-  </head>
-  <body class="font-poppins bg-cream-100 text-temple-900 antialiased selection:bg-saffron-100 selection:text-saffron-900">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+        }
+      } catch (e) { }
+    })();
+  </script>
+</head>
+
+<body class="font-poppins bg-cream-100 text-temple-900 antialiased selection:bg-saffron-100 selection:text-saffron-900">
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>

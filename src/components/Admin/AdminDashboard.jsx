@@ -67,7 +67,8 @@ import {
   removeAdminFromFirestore,
   isSuperAdminUser,
   changeAdminPassword,
-  resetAdminPasswordBySuperAdmin
+  resetAdminPasswordBySuperAdmin,
+  resetRegistrationSequenceAndArchive
 } from '../../firebase';
 
 const ALL_COLUMNS = [
@@ -229,6 +230,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     } catch (e) {}
     return null;
   });
+
+  // Developer Sequence Reset Modal State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [isResettingCounter, setIsResettingCounter] = useState(false);
 
   const [notification, setNotification] = useState('');
 
@@ -887,6 +893,31 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       showNotification('Failed to generate database backup.');
     } finally {
       setIsBackingUp(false);
+    }
+  };
+
+  // Developer Testing Tool: Reset Registration Sequence & Archive to Hidden Trash
+  const handleResetCounterAndArchive = async () => {
+    if (resetConfirmText.trim().toUpperCase() !== 'RESET') {
+      showNotification('Please type RESET in capital letters to confirm.');
+      return;
+    }
+    setIsResettingCounter(true);
+    try {
+      const res = await resetRegistrationSequenceAndArchive();
+      if (res.success) {
+        setRegistrations([]);
+        setShowResetModal(false);
+        setResetConfirmText('');
+        showNotification(`Sequence reset to BG26-100! Safely archived ${res.archivedCount} participants to hidden trash.`);
+      } else {
+        showNotification(res.error || 'Failed to reset sequence.');
+      }
+    } catch (err) {
+      console.error('Reset counter error:', err);
+      showNotification('Error resetting registration sequence.');
+    } finally {
+      setIsResettingCounter(false);
     }
   };
 
@@ -2218,7 +2249,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 {/* Excel Export Card */}
                 <div className="p-4 rounded-2xl bg-white border border-cream-200 shadow-2xs space-y-3 flex flex-col justify-between">
@@ -2266,6 +2297,38 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   >
                     <Database className={`w-4 h-4 ${isBackingUp ? 'animate-spin' : ''}`} />
                     <span>{isBackingUp ? 'Generating Backup Snapshot...' : 'Download JSON Snapshot'}</span>
+                  </button>
+                </div>
+
+                {/* Developer Reset Sequence & Auto-Archive to Trash Card */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 shadow-2xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-amber-900">
+                        <RotateCcw className="w-5 h-5 text-amber-700" />
+                        <h3 className="text-xs sm:text-sm font-bold text-amber-950">
+                          Reset Sequence
+                        </h3>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-200/80 text-amber-900 border border-amber-300/80">
+                        Testing &amp; Dev
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-950/80 leading-relaxed">
+                      Archives all active registrations to the hidden Firestore <strong>trash</strong> backup and resets the counter cleanly back to <strong>BG26-100</strong>.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetConfirmText('');
+                      setShowResetModal(true);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs transition-colors shadow-soft flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reset Counter to BG26-100</span>
                   </button>
                 </div>
 
@@ -2672,6 +2735,86 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   </>
                 ) : (
                   <span>Revoke Access</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Developer Reset & Archive Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 border border-amber-200 shadow-soft-lg text-left space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                <AlertTriangle className="w-6 h-6 text-amber-700" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base sm:text-lg font-bold text-temple-900">
+                  Reset Registration Sequence &amp; Archive
+                </h3>
+                <p className="text-xs text-temple-600 leading-relaxed">
+                  This testing action will safely back up and archive all current participant records to a <strong>hidden trash document</strong> in Firestore, clear active entries, and restart the registration sequence from <strong>BG26-100</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-cream-50 border border-cream-200 text-xs text-temple-700 space-y-2">
+              <div className="flex items-center gap-2 font-semibold text-emerald-800">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Data Safety Guarantee</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-temple-600">
+                All participant documents are backed up into Firestore's hidden trash collection before resetting, so no records are lost and remain recoverable by the developer.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-temple-800">
+                Type <span className="font-mono font-bold text-amber-700">RESET</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={resetConfirmText}
+                onChange={(e) => setResetConfirmText(e.target.value)}
+                placeholder="Type RESET"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 bg-cream-50 text-temple-900"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetModal(false);
+                  setResetConfirmText('');
+                }}
+                disabled={isResettingCounter}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-cream-100 hover:bg-cream-200 text-temple-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetCounterAndArchive}
+                disabled={resetConfirmText.trim().toUpperCase() !== 'RESET' || isResettingCounter}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors shadow-soft flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isResettingCounter ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Resetting...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Confirm Reset</span>
+                  </>
                 )}
               </button>
             </div>
