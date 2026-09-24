@@ -162,7 +162,7 @@ export async function checkDuplicateRegistration(mobile, email) {
           return {
             isDuplicate: true,
             field: res.type,
-            message: `This ${res.type === 'mobile' ? 'mobile number' : 'email address'} is already registered for Gita Amrita.`
+            message: `This ${res.type === 'mobile' ? 'mobile number' : 'email address'} is already registered for Gita for Youth.`
           };
         }
       }
@@ -264,8 +264,8 @@ export async function saveRegistration(registrationData) {
     authUid,
     status: 'Confirmed',
     createdAt: serverTimestamp(),
-    program: 'Gita Amrita',
-    center: 'Gita Amrita Study Circle',
+    program: 'Gita for Youth',
+    center: 'Gita for Youth Study Circle',
   };
 
   try {
@@ -280,8 +280,8 @@ export async function saveRegistration(registrationData) {
     const parentRef = doc(db, 'BhagavadGita', 'data');
     await setDoc(parentRef, {
       lastUpdated: serverTimestamp(),
-      programName: 'Gita Amrita',
-      organization: 'Gita Amrita',
+      programName: 'Gita for Youth',
+      organization: 'Gita for Youth',
     }, { merge: true });
 
     try {
@@ -985,7 +985,7 @@ export async function signInWithGoogleUnified() {
       notRegistered: true,
       email: cleanEmail,
       displayName: googleUser.displayName || '',
-      error: `No Gita Amrita registration found for ${cleanEmail}. Please complete your registration or contact an administrator.`
+      error: `No Gita for Youth registration found for ${cleanEmail}. Please complete your registration or contact an administrator.`
     };
   } catch (error) {
     if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
@@ -1263,8 +1263,8 @@ export async function fetchProgramSettings() {
           queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
           queueMessage: data.queueMessage || '',
           showLandingPage: data.showLandingPage !== false,
-          courseName: data.courseName || 'Gita Amrita',
-          courseSubtitle: data.courseSubtitle || 'Bhagavad Gita',
+          courseName: data.courseName || 'Gita for Youth',
+          courseSubtitle: data.courseSubtitle || '',
           successLogoType: data.successLogoType || 'tick', // 'tick' | 'krishna'
           successLogoWidth: Number(data.successLogoWidth) || 80,
           successLogoHeight: Number(data.successLogoHeight) || 80
@@ -1291,8 +1291,8 @@ export async function fetchProgramSettings() {
         queueWaitSeconds: Number(data.queueWaitSeconds) || 60,
         queueMessage: data.queueMessage || '',
         showLandingPage: data.showLandingPage !== false,
-        courseName: data.courseName || 'Gita Amrita',
-        courseSubtitle: data.courseSubtitle || 'Bhagavad Gita',
+        courseName: data.courseName || 'Gita for Youth',
+        courseSubtitle: data.courseSubtitle || '',
         successLogoType: data.successLogoType || 'tick',
         successLogoWidth: Number(data.successLogoWidth) || 80,
         successLogoHeight: Number(data.successLogoHeight) || 80
@@ -1308,8 +1308,8 @@ export async function fetchProgramSettings() {
     queueWaitSeconds: 60,
     queueMessage: '',
     showLandingPage: true,
-    courseName: 'Gita Amrita',
-    courseSubtitle: 'Bhagavad Gita',
+    courseName: 'Gita for Youth',
+    courseSubtitle: '',
     successLogoType: 'tick',
     successLogoWidth: 80,
     successLogoHeight: 80
@@ -1324,8 +1324,8 @@ export async function updateProgramSettings(settings) {
   const queueWaitSeconds = Math.max(2, Math.min(240, Number(settings.queueWaitSeconds) || 60));
   const queueMessage = sanitizeText(settings.queueMessage !== undefined ? settings.queueMessage : '', 300);
   const showLandingPage = settings.showLandingPage !== false;
-  const courseName = sanitizeText(settings.courseName !== undefined ? settings.courseName : 'Gita Amrita', 100);
-  const courseSubtitle = sanitizeText(settings.courseSubtitle !== undefined ? settings.courseSubtitle : 'Bhagavad Gita', 100);
+  const courseName = sanitizeText(settings.courseName !== undefined ? settings.courseName : 'Gita for Youth', 100);
+  const courseSubtitle = sanitizeText(settings.courseSubtitle !== undefined ? settings.courseSubtitle : '', 100);
   const successLogoType = settings.successLogoType === 'tick' ? 'tick' : 'krishna';
   const successLogoWidth = Math.max(40, Math.min(300, Number(settings.successLogoWidth) || 80));
   const successLogoHeight = Math.max(40, Math.min(300, Number(settings.successLogoHeight) || 80));
@@ -1407,8 +1407,8 @@ export function subscribeToProgramSettings(callback) {
     queueWaitSeconds: Number(d.queueWaitSeconds) || 60,
     queueMessage: d.queueMessage || '',
     showLandingPage: d.showLandingPage !== false,
-    courseName: d.courseName || 'Gita Amrita',
-    courseSubtitle: d.courseSubtitle || 'Bhagavad Gita',
+    courseName: d.courseName || 'Gita for Youth',
+    courseSubtitle: d.courseSubtitle || '',
     successLogoType: d.successLogoType || 'krishna',
     successLogoWidth: Number(d.successLogoWidth) || 112,
     successLogoHeight: Number(d.successLogoHeight) || 112
@@ -1603,12 +1603,12 @@ export async function generateFullDatabaseBackup() {
   const backupObject = {
     metadata: {
       version: '1.0',
-      program: 'Gita Amrita',
-      organization: 'Gita Amrita',
+      program: 'Gita for Youth',
+      organization: 'Gita for Youth',
       backupDate: new Date().toISOString(),
       totalParticipants: registrations.length,
       totalAnnouncements: announcements.length,
-      system: 'Gita Amrita Cloud Backup Engine v1.0'
+      system: 'Gita for Youth Cloud Backup Engine v1.0'
     },
     settings,
     participants: registrations,

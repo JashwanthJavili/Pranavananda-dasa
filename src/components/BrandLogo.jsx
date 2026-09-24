@@ -10,7 +10,7 @@ export const KRISHNA_ICON_SRC = '/assets/krishna-logo 1.png';
  */
 export function Logo({
   src = APP_LOGO_SRC,
-  alt = 'Gita Amrita',
+  alt = 'Gita for Youth',
   className = 'w-full h-full object-contain',
   ...props
 }) {
@@ -46,7 +46,7 @@ export default function BrandLogo({
       const cached = localStorage.getItem('gita_amrita_cached_settings');
       if (cached) return JSON.parse(cached);
     } catch (e) {}
-    return { courseName: 'Gita Amrita', courseSubtitle: 'Bhagavad Gita' };
+    return { courseName: 'Gita for Youth', courseSubtitle: '' };
   });
 
   useEffect(() => {
@@ -56,8 +56,8 @@ export default function BrandLogo({
     return () => unsub();
   }, []);
 
-  const displayTitle = title !== undefined ? title : (liveSettings.courseName || 'Gita Amrita');
-  const displaySubtitle = subtitle !== undefined ? subtitle : (liveSettings.courseSubtitle || 'Bhagavad Gita');
+  const displayTitle = title !== undefined ? title : (liveSettings.courseName || 'Gita for Youth');
+  const displaySubtitle = subtitle !== undefined ? subtitle : (liveSettings.courseSubtitle || '');
 
   return (
     <div className={className} onClick={onClick}>

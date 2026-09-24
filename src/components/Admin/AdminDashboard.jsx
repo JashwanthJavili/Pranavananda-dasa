@@ -144,17 +144,14 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     } catch (e) {}
     return {
       isRegistrationOpen: true,
-      closedNotice: 'Registrations for Gita Amrita are currently paused. Please contact program coordinators for upcoming schedules.'
+      closedNotice: 'Registrations for Gita for Youth are currently paused. Please contact program coordinators for upcoming schedules.'
     };
   });
   const [closedNoticeDraft, setClosedNoticeDraft] = useState('');
   const [queueMsgDraft, setQueueMsgDraft] = useState('');
   const [queueWaitDraft, setQueueWaitDraft] = useState(60);
-  const [courseNameDraft, setCourseNameDraft] = useState('Gita Amrita');
-  const [courseSubtitleDraft, setCourseSubtitleDraft] = useState('Bhagavad Gita');
-  const [successLogoTypeDraft, setSuccessLogoTypeDraft] = useState('krishna');
-  const [successLogoWidthDraft, setSuccessLogoWidthDraft] = useState(112);
-  const [successLogoHeightDraft, setSuccessLogoHeightDraft] = useState(112);
+  const [courseNameDraft, setCourseNameDraft] = useState('Gita for Youth');
+  const [courseSubtitleDraft, setCourseSubtitleDraft] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdatingQueue, setIsUpdatingQueue] = useState(false);
   const [isUpdatingBranding, setIsUpdatingBranding] = useState(false);
@@ -273,15 +270,6 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         }
         if (latestSettings.courseSubtitle !== undefined) {
           setCourseSubtitleDraft(latestSettings.courseSubtitle);
-        }
-        if (latestSettings.successLogoType !== undefined) {
-          setSuccessLogoTypeDraft(latestSettings.successLogoType);
-        }
-        if (latestSettings.successLogoWidth !== undefined) {
-          setSuccessLogoWidthDraft(Number(latestSettings.successLogoWidth) || 112);
-        }
-        if (latestSettings.successLogoHeight !== undefined) {
-          setSuccessLogoHeightDraft(Number(latestSettings.successLogoHeight) || 112);
         }
       }
     });
@@ -479,8 +467,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     e?.preventDefault();
     if (isUpdatingBranding) return;
     setIsUpdatingBranding(true);
-    const cleanCourseName = courseNameDraft.trim() || 'Gita Amrita';
-    const cleanSubtitle = courseSubtitleDraft.trim() || 'Bhagavad Gita';
+    const cleanCourseName = courseNameDraft.trim() || 'Gita for Youth';
+    const cleanSubtitle = courseSubtitleDraft.trim();
 
     try {
       const res = await updateProgramSettings({
@@ -500,80 +488,6 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       }
     } catch (err) {
       showNotification('Failed to save course name.');
-    } finally {
-      setIsUpdatingBranding(false);
-    }
-  };
-
-  // Save Registration Success Screen Logo & Dimensions
-  const handleSaveSuccessLogo = async (e) => {
-    e?.preventDefault();
-    if (isUpdatingBranding) return;
-    setIsUpdatingBranding(true);
-    const clampedW = Math.max(40, Math.min(300, Number(successLogoWidthDraft) || 112));
-    const clampedH = Math.max(40, Math.min(300, Number(successLogoHeightDraft) || 112));
-
-    try {
-      const res = await updateProgramSettings({
-        ...settings,
-        successLogoType: successLogoTypeDraft,
-        successLogoWidth: clampedW,
-        successLogoHeight: clampedH
-      });
-      if (res.success) {
-        setSettings(prev => ({
-          ...prev,
-          successLogoType: successLogoTypeDraft,
-          successLogoWidth: clampedW,
-          successLogoHeight: clampedH
-        }));
-        setSuccessLogoWidthDraft(clampedW);
-        setSuccessLogoHeightDraft(clampedH);
-        showNotification(`Success screen logo updated (${successLogoTypeDraft === 'tick' ? 'Checkmark Badge' : 'Krishna Logo'} ${clampedW}x${clampedH}px).`);
-      }
-    } catch (err) {
-      showNotification('Failed to save logo settings.');
-    } finally {
-      setIsUpdatingBranding(false);
-    }
-  };
-
-  // Save All Website Branding & Success Logo Settings
-  const handleSaveBranding = async (e) => {
-    e?.preventDefault();
-    if (isUpdatingBranding) return;
-    setIsUpdatingBranding(true);
-    const clampedW = Math.max(40, Math.min(300, Number(successLogoWidthDraft) || 112));
-    const clampedH = Math.max(40, Math.min(300, Number(successLogoHeightDraft) || 112));
-    const cleanCourseName = courseNameDraft.trim() || 'Gita Amrita';
-    const cleanSubtitle = courseSubtitleDraft.trim() || 'Bhagavad Gita';
-
-    try {
-      const res = await updateProgramSettings({
-        ...settings,
-        courseName: cleanCourseName,
-        courseSubtitle: cleanSubtitle,
-        successLogoType: successLogoTypeDraft,
-        successLogoWidth: clampedW,
-        successLogoHeight: clampedH
-      });
-      if (res.success) {
-        setSettings(prev => ({
-          ...prev,
-          courseName: cleanCourseName,
-          courseSubtitle: cleanSubtitle,
-          successLogoType: successLogoTypeDraft,
-          successLogoWidth: clampedW,
-          successLogoHeight: clampedH
-        }));
-        setCourseNameDraft(cleanCourseName);
-        setCourseSubtitleDraft(cleanSubtitle);
-        setSuccessLogoWidthDraft(clampedW);
-        setSuccessLogoHeightDraft(clampedH);
-        showNotification('Branding & Success Screen Logo settings saved successfully!');
-      }
-    } catch (err) {
-      showNotification('Failed to save branding settings.');
     } finally {
       setIsUpdatingBranding(false);
     }
@@ -890,7 +804,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Gita_Amrita_Participants');
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Gita_for_Youth_Participants');
 
       const colWidths = [
         { wch: 6 },
@@ -914,7 +828,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       worksheet['!cols'] = colWidths;
 
       const dateStr = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(workbook, `Gita_Amrita_Participants_${dateStr}.xlsx`);
+      XLSX.writeFile(workbook, `Gita_for_Youth_Participants_${dateStr}.xlsx`);
 
       const backupMeta = {
         type: 'Excel (.xlsx)',
@@ -992,8 +906,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
           
           {/* Left: Brand */}
           <BrandLogo
-            title="Gita Amrita"
-            subtitle="Program Administration"
+            title="Gita for Youth"
           />
 
           {/* Center: Clean Icon Navigation */}
@@ -1071,7 +984,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 </h2>
               </div>
               <div className="text-[11px] text-temple-500">
-                Dedicated service to Sri Sri Radha Govinda &bull; Gita Amrita
+                Dedicated service to Sri Sri Radha Govinda &bull; Gita for Youth
               </div>
             </div>
             
@@ -1516,7 +1429,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Gita Amrita"
+                        placeholder="e.g. Gita for Youth"
                         value={courseNameDraft}
                         onChange={(e) => setCourseNameDraft(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
@@ -1529,7 +1442,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. Bhagavad Gita"
+                        placeholder="Optional tagline/subtitle"
                         value={courseSubtitleDraft}
                         onChange={(e) => setCourseSubtitleDraft(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
@@ -1540,7 +1453,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   {/* Header Live Preview */}
                   <div className="p-3 rounded-xl bg-cream-100/60 border border-cream-200/80 flex items-center justify-between">
                     <span className="text-[11px] text-temple-500 font-medium">Public Header Live Preview:</span>
-                    <BrandLogo title={courseNameDraft || 'Gita Amrita'} subtitle={courseSubtitleDraft || 'Bhagavad Gita'} />
+                    <BrandLogo title={courseNameDraft || 'Gita for Youth'} subtitle={courseSubtitleDraft || ''} />
                   </div>
 
                   {/* Save Button for Course Name Card */}
@@ -1559,206 +1472,6 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         <>
                           <Check className="w-3.5 h-3.5" />
                           <span>Save Course Name &amp; Title</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-
-                {/* 2. Registration Success Screen Logo & Size Card */}
-                <form onSubmit={handleSaveSuccessLogo} className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-4 shadow-2xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cream-100 pb-3">
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
-                        Registration Success Screen Logo &amp; Dimensions
-                      </h3>
-                      <p className="text-xs text-temple-600">
-                        Choose between the divine Krishna illustration or the checkmark badge, and type the exact pixel size.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Logo Style Selector */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                      Success Screen Logo Style
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Option A: Krishna Logo */}
-                      <button
-                        type="button"
-                        onClick={() => setSuccessLogoTypeDraft('krishna')}
-                        className={`p-3 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
-                          successLogoTypeDraft === 'krishna'
-                            ? 'bg-amber-50/80 border-saffron-400 ring-2 ring-saffron-500/20 shadow-2xs'
-                            : 'bg-cream-50/60 border-cream-200 hover:bg-cream-100/70'
-                        }`}
-                      >
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 bg-white border border-amber-200 p-1">
-                          <img src={KRISHNA_ICON_SRC} alt="Krishna Logo" className="w-full h-full object-contain" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-temple-900 block">
-                            Krishna Divine Logo
-                          </span>
-                          <span className="text-[10px] text-temple-500 block">
-                            Present illustration image
-                          </span>
-                        </div>
-                        {successLogoTypeDraft === 'krishna' && (
-                          <Check className="w-4 h-4 text-saffron-600 ml-auto flex-shrink-0" />
-                        )}
-                      </button>
-
-                      {/* Option B: Devotional Tick Mark */}
-                      <button
-                        type="button"
-                        onClick={() => setSuccessLogoTypeDraft('tick')}
-                        className={`p-3 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
-                          successLogoTypeDraft === 'tick'
-                            ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-500/20 shadow-2xs'
-                            : 'bg-cream-50/60 border-cream-200 hover:bg-cream-100/70'
-                        }`}
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 border border-emerald-200">
-                          <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-temple-900 block">
-                            Checkmark Badge
-                          </span>
-                          <span className="text-[10px] text-temple-500 block">
-                            Classic verified tick icon
-                          </span>
-                        </div>
-                        {successLogoTypeDraft === 'tick' && (
-                          <Check className="w-4 h-4 text-emerald-600 ml-auto flex-shrink-0" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dimensions: Width & Height Textboxes */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                    {/* Width Textbox */}
-                    <div className="space-y-1.5 bg-cream-50/60 p-3.5 rounded-xl border border-cream-200/80">
-                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                        Logo Width (px)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="40"
-                          max="400"
-                          placeholder="112"
-                          value={successLogoWidthDraft || ''}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? '' : Number(e.target.value);
-                            setSuccessLogoWidthDraft(val);
-                          }}
-                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all shadow-2xs"
-                        />
-                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-temple-400 pointer-events-none">
-                          px
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Height Textbox */}
-                    <div className="space-y-1.5 bg-cream-50/60 p-3.5 rounded-xl border border-cream-200/80">
-                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                        Logo Height (px)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="40"
-                          max="400"
-                          placeholder="112"
-                          value={successLogoHeightDraft || ''}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? '' : Number(e.target.value);
-                            setSuccessLogoHeightDraft(val);
-                          }}
-                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all shadow-2xs"
-                        />
-                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-temple-400 pointer-events-none">
-                          px
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Preset Buttons */}
-                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    <span className="text-[11px] text-temple-500 font-medium">Presets:</span>
-                    {[
-                      { label: 'Compact (80px)', size: 80 },
-                      { label: 'Standard (112px)', size: 112 },
-                      { label: 'Medium (128px)', size: 128 },
-                      { label: 'Large (160px)', size: 160 },
-                    ].map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => {
-                          setSuccessLogoWidthDraft(preset.size);
-                          setSuccessLogoHeightDraft(preset.size);
-                        }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-cream-100 hover:bg-cream-200 text-temple-700 border border-cream-300/80 transition-colors cursor-pointer"
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Live Success Screen Preview Box */}
-                  <div className="p-4 rounded-2xl bg-cream-100/70 border border-cream-200/90 text-center space-y-2">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-temple-400 block mb-1">
-                      Success Screen Live Visual Preview
-                    </span>
-                    <div className="flex justify-center items-center py-2">
-                      {successLogoTypeDraft === 'tick' ? (
-                        <div 
-                          style={{ width: `${successLogoWidthDraft || 112}px`, height: `${successLogoHeightDraft || 112}px` }}
-                          className="bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto border border-emerald-200 shadow-soft ring-8 ring-emerald-500/10 transition-all"
-                        >
-                          <CheckCircle2 
-                            style={{ width: `${Math.round((successLogoWidthDraft || 112) * 0.55)}px`, height: `${Math.round((successLogoHeightDraft || 112) * 0.55)}px` }}
-                            className="stroke-[2.2]" 
-                          />
-                        </div>
-                      ) : (
-                        <img
-                          src={KRISHNA_ICON_SRC}
-                          alt="Krishna Preview"
-                          style={{ width: `${successLogoWidthDraft || 112}px`, height: `${successLogoHeightDraft || 112}px` }}
-                          className="object-contain drop-shadow-sm transition-all mx-auto"
-                        />
-                      )}
-                    </div>
-                    <p className="text-xs font-bold text-temple-900">Registration Successful</p>
-                    <p className="text-[11px] text-temple-600">
-                      Thank you for registering for the <span className="font-semibold text-temple-800">{courseNameDraft || 'Gita Amrita'}</span> Course.
-                    </p>
-                  </div>
-
-                  {/* Save Button for Success Logo Card */}
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="submit"
-                      disabled={isUpdatingBranding}
-                      className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {isUpdatingBranding ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Save Logo &amp; Dimensions</span>
                         </>
                       )}
                     </button>
@@ -1876,7 +1589,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                     rows={3}
                     value={closedNoticeDraft}
                     onChange={(e) => setClosedNoticeDraft(e.target.value)}
-                    placeholder="e.g. Registrations for Gita Amrita are currently paused. Please contact program coordinators for upcoming schedules."
+                    placeholder="e.g. Registrations for Gita for Youth are currently paused. Please contact program coordinators for upcoming schedules."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none leading-relaxed"
                   />
 

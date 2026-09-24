@@ -67,7 +67,7 @@ export default function RegisterModal({ isOpen, onClose }) {
                 Sacred Wisdom Program
               </span>
               <h3 className="text-2xl font-bold text-temple-900 mt-1">
-                Register for Gita Amrita
+                Register for Gita for Youth
               </h3>
               <p className="text-xs sm:text-sm text-temple-600 mt-1">
                 Join the upcoming Bhagavad Gita learning batch

@@ -255,11 +255,10 @@ export default function App() {
       <div className="min-h-screen bg-cream-100 flex flex-col items-center justify-center p-4 font-poppins text-temple-900">
         <div className="text-center space-y-4 animate-fadeIn">
           <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-2xl overflow-hidden border-2 border-amber-300 shadow-soft bg-cream-50 flex items-center justify-center p-1">
-            <Logo alt="Gita Amrita" className="w-full h-full object-contain" />
+            <Logo alt="Gita for Youth" className="w-full h-full object-contain" />
           </div>
           <div className="space-y-0.5">
-            <h1 className="text-base sm:text-lg font-bold text-temple-900">Gita Amrita</h1>
-            <p className="text-xs text-temple-500">Bhagavad Gita Wisdom</p>
+            <h1 className="text-base sm:text-lg font-bold text-temple-900">Gita for Youth</h1>
           </div>
           <div className="w-6 h-6 border-2 border-saffron-500 border-t-transparent rounded-full animate-spin mx-auto mt-2" />
         </div>

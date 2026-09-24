@@ -16,7 +16,7 @@ export default function WaitingRoomQueue({
       const cached = localStorage.getItem('gita_amrita_cached_settings');
       if (cached) return JSON.parse(cached);
     } catch (e) {}
-    return { courseName: 'Gita Amrita', courseSubtitle: 'Bhagavad Gita' };
+    return { courseName: 'Gita for Youth', courseSubtitle: '' };
   });
 
   useEffect(() => {
@@ -201,14 +201,16 @@ export default function WaitingRoomQueue({
           <div className="w-10 h-10" />
         )}
 
-        {/* Gita Amrita Clean Header */}
+        {/* Gita for Youth Clean Header */}
         <div className="flex flex-col items-center">
           <span className="text-lg sm:text-xl font-bold tracking-tight text-temple-900 font-serif leading-tight">
-            {liveSettings.courseName || 'Gita Amrita'}
+            {liveSettings.courseName || 'Gita for Youth'}
           </span>
-          <span className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-saffron-700">
-            {liveSettings.courseSubtitle || 'Bhagavad Gita'}
-          </span>
+          {liveSettings.courseSubtitle && (
+            <span className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-saffron-700">
+              {liveSettings.courseSubtitle}
+            </span>
+          )}
         </div>
 
         {/* Right Spacer for Center Balance */}

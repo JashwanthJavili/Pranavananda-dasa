@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, UserPlus, CheckCircle2 } from 'lucide-react';
-import { Logo, KRISHNA_ICON_SRC } from '../BrandLogo';
 import { subscribeToProgramSettings } from '../../firebase';
 
 export default function StepSuccess({
@@ -17,10 +16,7 @@ export default function StepSuccess({
       if (cached) return JSON.parse(cached);
     } catch (e) {}
     return {
-      courseName: 'Gita Amrita',
-      successLogoType: 'tick',
-      successLogoWidth: 80,
-      successLogoHeight: 80
+      courseName: 'Gita for Youth'
     };
   });
 
@@ -31,10 +27,7 @@ export default function StepSuccess({
     return () => unsub();
   }, []);
 
-  const logoType = settings?.successLogoType || 'tick';
-  const logoWidth = Number(settings?.successLogoWidth) || 80;
-  const logoHeight = Number(settings?.successLogoHeight) || 80;
-  const courseName = settings?.courseName || 'Bhagavad Gita';
+  const courseName = settings?.courseName || 'Gita for Youth';
 
   const handleCopyId = () => {
     if (registrationId && navigator.clipboard) {
@@ -46,26 +39,11 @@ export default function StepSuccess({
 
   return (
     <div className="text-center space-y-4 sm:space-y-5 animate-fadeIn py-1 sm:py-3 max-w-lg mx-auto">
-      {/* Devotional Checkmark Badge / Logo */}
+      {/* Devotional Checkmark Badge */}
       <div className="flex justify-center -mb-1 items-center">
-        {logoType === 'krishna' ? (
-          <Logo
-            src={KRISHNA_ICON_SRC}
-            alt="Krishna"
-            style={{ width: `${logoWidth}px`, height: `${logoHeight}px` }}
-            className="object-contain drop-shadow-sm transition-all"
-          />
-        ) : (
-          <div 
-            style={{ width: `${logoWidth}px`, height: `${logoHeight}px` }}
-            className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto border border-emerald-200 shadow-soft ring-8 ring-emerald-500/10 transition-all"
-          >
-            <CheckCircle2 
-              style={{ width: `${Math.round(logoWidth * 0.55)}px`, height: `${Math.round(logoHeight * 0.55)}px` }}
-              className="stroke-[2.2]" 
-            />
-          </div>
-        )}
+        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto border border-emerald-200 shadow-soft ring-8 ring-emerald-500/10 transition-all">
+          <CheckCircle2 className="w-9 h-9 sm:w-11 sm:h-11 stroke-[2.2]" />
+        </div>
       </div>
 
       {/* Headings & Devotional Message */}

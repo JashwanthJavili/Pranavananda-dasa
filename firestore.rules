@@ -1,4 +1,4 @@
-// FIRESTORE SECURITY RULES - GITA AMRITA PORTAL
+// FIRESTORE SECURITY RULES - GITA FOR YOUTH PORTAL
 
 // Use Firestore Security Rules Version 2 (enables modern syntax & granular controls)
 rules_version = '2';
@@ -24,7 +24,7 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------------
-    // GITA AMRITA ROOT PATH (/BhagavadGita/data)
+    // GITA FOR YOUTH ROOT PATH (/BhagavadGita/data)
     // ---------------------------------------------------------------------------
     match /BhagavadGita/data {
 

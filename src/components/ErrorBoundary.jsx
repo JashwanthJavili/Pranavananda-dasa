@@ -32,7 +32,7 @@ export default class ErrorBoundary extends React.Component {
 
             <div className="space-y-1.5">
               <h2 className="text-xl font-bold text-temple-900">
-                Gita Amrita
+                Gita for Youth
               </h2>
               <p className="text-xs text-temple-600 leading-relaxed">
                 A temporary connection or interface hiccup occurred. Your data is safe in the database.

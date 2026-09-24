@@ -272,7 +272,7 @@ export default function LoginModal({
             Sign In
           </h3>
           <p className="text-xs sm:text-sm text-temple-600 font-normal">
-            Access your Gita Amrita participant or coordinator account.
+            Access your Gita for Youth participant or coordinator account.
           </p>
         </div>
 

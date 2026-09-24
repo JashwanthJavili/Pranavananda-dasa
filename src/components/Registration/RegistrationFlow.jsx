@@ -393,7 +393,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                 </h2>
                 <p className="text-xs sm:text-sm text-temple-600 leading-relaxed font-normal">
                   {settings.closedNotice ||
-                    'New registrations for the Gita Amrita program are currently paused. Please contact program coordinators for upcoming schedules.'}
+                    'New registrations for the Gita for Youth program are currently paused. Please contact program coordinators for upcoming schedules.'}
                 </p>
               </div>
 
@@ -411,7 +411,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
 
               {/* Footer Stamp */}
               <div className="pt-2 border-t border-cream-200 text-[11px] text-temple-500">
-                Gita Amrita &bull; Sri Sri Radha Govinda Mandir
+                Gita for Youth &bull; Sri Sri Radha Govinda Mandir
               </div>
             </div>
           ) : settings.isQueueEnabled && currentStep < 5 && !isQueuePassed ? (
@@ -447,7 +447,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                         Sacred Program
                       </span>
                       <h3 className="text-base font-bold text-temple-900 mt-1.5">
-                        Gita Amrita
+                        Gita for Youth
                       </h3>
                     </div>
                     <p className="text-xs text-temple-600 leading-relaxed font-normal">

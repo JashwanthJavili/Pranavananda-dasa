@@ -24,14 +24,11 @@ export default function Hero({ onOpenRegister }) {
               </span>
             </div>
 
-            {/* Main Title and Subtitle */}
+            {/* Main Title */}
             <div className="space-y-2">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-temple-900 leading-[1.15]">
-                Gita Amrita
+                Gita for Youth
               </h1>
-              <p className="text-xl sm:text-2xl font-medium text-saffron-600 tracking-tight">
-                Bhagavad Gita Wisdom Sessions
-              </p>
             </div>
 
             {/* Humble Description */}

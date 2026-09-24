@@ -55,7 +55,7 @@ export default function StudentDashboard({ studentUser, onLogout }) {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
 
           {/* Brand */}
-          <BrandLogo subtitle="Participant Portal" />
+          <BrandLogo />
 
           {/* Logout Button */}
           <button
@@ -77,7 +77,7 @@ export default function StudentDashboard({ studentUser, onLogout }) {
         <div className="bg-cream-50 rounded-2xl p-5 sm:p-6 border border-cream-200 shadow-soft">
           <div className="space-y-1">
             <span className="text-[11px] sm:text-xs text-temple-500 font-medium block">
-              Gita Amrita 2026
+              Gita for Youth 2026
             </span>
             <h1 className="text-xl sm:text-2xl font-bold text-temple-900 tracking-tight">
               Welcome, {name}

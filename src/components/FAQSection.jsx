@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 
 const faqs = [
   {
-    question: 'Who can join the Gita Amrita program?',
+    question: 'Who can join the Gita for Youth program?',
     answer: 'Anyone who sincerely wishes to learn and understand the Bhagavad Gita can join. No previous knowledge is required unless mentioned for a specific batch.',
   },
   {

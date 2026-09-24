@@ -37,7 +37,7 @@ export default function AboutSection() {
             Bhagavad Gita is a timeless guide that helps us understand life, our duties, our challenges and our relationship with the Supreme.
           </p>
           <p className="text-temple-900 font-medium">
-            Gita Amrita is a humble effort to share the teachings of the Bhagavad Gita in a simple and practical way, so that everyone can understand them and apply them in daily life.
+            Gita for Youth is a humble effort to share the teachings of the Bhagavad Gita in a simple and practical way, so that everyone can understand them and apply them in daily life.
           </p>
         </div>
 

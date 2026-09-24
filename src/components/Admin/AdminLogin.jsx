@@ -217,7 +217,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
               Admin Portal
             </h2>
             <p className="text-xs sm:text-sm text-temple-600">
-              Gita Amrita Management Portal
+              Gita for Youth Management Portal
             </p>
           </div>
         </div>
@@ -465,7 +465,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
       </div>
 
       <p className="text-xs text-temple-500 mt-6 text-center">
-        Hare Krishna &bull; Dedicated to Sri Sri Radha Govinda &bull; Gita Amrita
+        Hare Krishna &bull; Dedicated to Sri Sri Radha Govinda &bull; Gita for Youth
       </p>
 
     </div>
