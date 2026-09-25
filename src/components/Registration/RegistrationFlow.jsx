@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import StepIndicator from './StepIndicator';
 import StepPersonal from './StepPersonal';
 import StepContact from './StepContact';
@@ -355,15 +355,14 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
           {/* Left: Brand & Title */}
           <BrandLogo />
 
-          {/* Right: Back to Home Button (Hidden if landing page is disabled) */}
-          {showLandingPage !== false && settings.showLandingPage !== false && onBackToHome ? (
-            <button
-              onClick={onBackToHome}
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none cursor-pointer flex-shrink-0"
+          {/* Right: Home Link Button (Hidden on StepSuccess screen) */}
+          {currentStep !== 5 ? (
+            <a
+              href="https://pranavanandadas.com/home"
+              className="inline-flex items-center justify-center px-4 sm:px-5 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 cursor-pointer flex-shrink-0"
             >
-              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-saffron-600" />
-              <span>Home</span>
-            </button>
+              Home
+            </a>
           ) : (
             <div className="w-6" />
           )}
@@ -399,14 +398,12 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
 
               {/* Action Button */}
               <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={onBackToHome}
-                  className="w-full py-3 sm:py-3.5 px-5 rounded-2xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                <a
+                  href="https://pranavanandadas.com/home"
+                  className="w-full py-3 sm:py-3.5 px-5 rounded-2xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all flex items-center justify-center cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Home</span>
-                </button>
+                  Home
+                </a>
               </div>
 
               {/* Footer Stamp */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, CheckCircle2, Lock, Sparkles } from 'lucide-react';
+import { CheckCircle2, Lock, Sparkles } from 'lucide-react';
 import { subscribeToProgramSettings } from '../../firebase';
 
 // Generates gentle randomized falling flower petals
@@ -186,20 +186,13 @@ export default function WaitingRoomQueue({
 
       {/* Top Header Bar */}
       <header className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 flex items-center justify-between">
-        {/* Top Back Icon ONLY (without text) */}
-        {onBackToHome ? (
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="w-10 h-10 rounded-2xl bg-white/85 hover:bg-white border border-amber-200/70 text-temple-700 hover:text-saffron-600 shadow-2xs hover:shadow-soft transition-all flex items-center justify-center cursor-pointer active:scale-95"
-            title="Return to Home"
-            aria-label="Back to Home"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-        ) : (
-          <div className="w-10 h-10" />
-        )}
+        {/* Top Home Link */}
+        <a
+          href="https://pranavanandadas.com/home"
+          className="inline-flex items-center justify-center px-4 sm:px-5 py-1.5 rounded-full bg-white/85 hover:bg-white border border-amber-200/70 text-temple-700 hover:text-saffron-700 font-medium text-xs sm:text-sm shadow-2xs hover:shadow-soft transition-all cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50"
+        >
+          Home
+        </a>
 
         {/* Gita for Youth Clean Header */}
         <div className="flex flex-col items-center">
