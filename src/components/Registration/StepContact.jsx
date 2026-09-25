@@ -111,7 +111,7 @@ export default function StepContact({
               type="tel"
               inputMode="numeric"
               maxLength={10}
-              placeholder="10-digit mobile number"
+              placeholder="Enter 10-digit mobile number"
               value={data.mobile || ''}
               onFocus={handleInputFocus}
               onChange={handleMobileChange}
@@ -197,7 +197,7 @@ export default function StepContact({
             <input
               id="fullAddress"
               type="text"
-              placeholder="Flat/House No., Street, Area"
+              placeholder="Enter flat/house no., street, area"
               value={data.fullAddress || ''}
               onFocus={handleInputFocus}
               onChange={(e) => onChange('fullAddress', e.target.value)}
@@ -216,7 +216,7 @@ export default function StepContact({
               id="pincode"
               type="tel"
               maxLength={6}
-              placeholder="6-digit pincode"
+              placeholder="Enter 6-digit pincode"
               value={data.pincode || ''}
               onFocus={handleInputFocus}
               onChange={handlePincodeChange}

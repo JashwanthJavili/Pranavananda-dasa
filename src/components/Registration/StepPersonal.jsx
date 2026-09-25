@@ -27,7 +27,7 @@ export default function StepPersonal({ data, onChange, onNext, errors }) {
 
   const ageNum = parseInt(data.age, 10);
   const isNameValid = Boolean(data.fullName && data.fullName.trim().length >= 2);
-  const isAgeValid = Boolean(data.age && !isNaN(ageNum) && ageNum >= 16 && ageNum <= 30);
+  const isAgeValid = Boolean(data.age && !isNaN(ageNum) && ageNum >= 18 && ageNum <= 30);
   const isAgeInvalid = Boolean(data.age && data.age.trim() !== '' && !isAgeValid);
   const isGenderValid = Boolean(data.gender === 'Male' || data.gender === 'Female');
   const isEducationValid = Boolean(data.education && data.education.trim().length >= 2);
@@ -90,14 +90,14 @@ export default function StepPersonal({ data, onChange, onNext, errors }) {
               >
                 Age <span className="text-saffron-600">*</span>
               </label>
-              <span className="text-[10px] text-temple-400 font-medium">16 - 30 yrs</span>
+              <span className="text-[10px] text-temple-400 font-medium">18 - 30 yrs</span>
             </div>
             <input
               id="age"
               type="text"
               inputMode="numeric"
               maxLength={3}
-              placeholder="e.g. 21"
+              placeholder="Enter your age"
               value={data.age || ''}
               onFocus={handleInputFocus}
               onChange={(e) => {
@@ -111,7 +111,7 @@ export default function StepPersonal({ data, onChange, onNext, errors }) {
             />
             {(errors.age || isAgeInvalid) && (
               <p className="text-[11px] text-red-500 font-normal pt-0.5 animate-fadeIn">
-                {errors.age || 'Age must be between 16 and 30 years.'}
+                {errors.age || 'Age must be between 18 and 30 years.'}
               </p>
             )}
           </div>
@@ -156,7 +156,7 @@ export default function StepPersonal({ data, onChange, onNext, errors }) {
           <input
             id="education"
             type="text"
-            placeholder="e.g. B.Tech, Degree, Intermediate, MBA, Diploma"
+            placeholder="Enter your educational qualification"
             value={data.education || ''}
             onFocus={handleInputFocus}
             onChange={(e) => onChange('education', e.target.value)}
@@ -184,12 +184,20 @@ export default function StepPersonal({ data, onChange, onNext, errors }) {
                   type="button"
                   key={occ}
                   onClick={() => onChange('occupation', occ)}
-                  className={`py-2.5 px-2 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer flex items-center justify-center min-h-[46px] ${isSelected
-                      ? 'border-saffron-500 bg-saffron-50 text-saffron-800 font-semibold ring-1 ring-saffron-500/25 shadow-soft'
+                  className={`py-2.5 px-2 rounded-xl text-xs sm:text-sm font-semibold border text-center transition-all cursor-pointer flex items-center justify-center min-h-[46px] ${isSelected
+                      ? 'border-saffron-500 bg-saffron-50 text-saffron-800 ring-1 ring-saffron-500/25 shadow-soft'
                       : 'border-cream-300 bg-white text-temple-700 hover:bg-cream-100/70 shadow-2xs'
                     }`}
                 >
-                  <span className="leading-tight text-center">{occ}</span>
+                  <span className="leading-tight text-center">
+                    {occ === 'Business / Self-employed' ? (
+                      <>
+                        Business /<br />Self-employed
+                      </>
+                    ) : (
+                      occ
+                    )}
+                  </span>
                 </button>
               );
             })}

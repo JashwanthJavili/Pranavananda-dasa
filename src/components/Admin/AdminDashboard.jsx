@@ -93,17 +93,29 @@ const ALL_COLUMNS = [
 ];
 
 export default function AdminDashboard({ adminUser, onLogout }) {
-  // Navigation: 'participants' | 'settings'
+  // Determine if current logged in user has Super Admin role
+  const isSuperAdmin = useMemo(() => {
+    return isSuperAdminUser(adminUser);
+  }, [adminUser]);
+
+  // Navigation: 'participants' | 'settings' (Settings restricted exclusively to Super Admin)
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.toLowerCase();
-      if (hash === '#settings' || hash === '#admin-settings') return 'settings';
+      if ((hash === '#settings' || hash === '#admin-settings') && isSuperAdminUser(adminUser)) {
+        return 'settings';
+      }
     }
     return 'participants';
   });
 
-  // Sync tab changes with URL hash
+  // Sync tab changes with URL hash (Block non-Super Admins from settings)
   const switchTab = (tab) => {
+    if (tab === 'settings' && !isSuperAdmin) {
+      setActiveTab('participants');
+      window.location.hash = 'admin';
+      return;
+    }
     setActiveTab(tab);
     if (tab === 'settings') {
       window.location.hash = 'settings';
@@ -115,15 +127,25 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.toLowerCase();
-      if (hash === '#settings' || hash === '#admin-settings') {
+      if ((hash === '#settings' || hash === '#admin-settings') && isSuperAdmin) {
         setActiveTab('settings');
-      } else if (hash === '#admin' || hash === '#admin-dashboard') {
+      } else {
         setActiveTab('participants');
       }
     };
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
+  }, [isSuperAdmin]);
+
+  // If role changes or is normal Admin, enforce fallback to participants view
+  useEffect(() => {
+    if (!isSuperAdmin && activeTab === 'settings') {
+      setActiveTab('participants');
+      try {
+        window.history.replaceState(null, '', '#admin');
+      } catch (e) {}
+    }
+  }, [isSuperAdmin, activeTab]);
 
   // Registrations state
   const [registrations, setRegistrations] = useState(() => {
@@ -243,10 +265,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     setTimeout(() => setNotification(''), 3500);
   };
 
-  // Determine if current logged in user has Super Admin role
-  const isSuperAdmin = useMemo(() => {
-    return isSuperAdminUser(adminUser);
-  }, [adminUser]);
+  // Change Password Modal for Current Coordinator
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   // Close column dropdown on outside click
   useEffect(() => {
@@ -921,12 +941,17 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     }
   };
 
-  // Delete participant
+  // Delete participant (Super Admin only)
   const handleConfirmDelete = async () => {
     if (!deleteConfirmId || isDeletingParticipant) return;
+    if (!isSuperAdmin) {
+      showNotification('Access Denied: Only Super Administrators can delete participants.');
+      setDeleteConfirmId(null);
+      return;
+    }
     setIsDeletingParticipant(true);
     try {
-      await deleteParticipant(deleteConfirmId);
+      await deleteParticipant(deleteConfirmId, adminUser);
       setRegistrations(prev => prev.filter(r => r.id !== deleteConfirmId && r.registrationId !== deleteConfirmId));
       setDeleteConfirmId(null);
       showNotification('Participant deleted successfully.');
@@ -940,15 +965,15 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   return (
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900">
       
-      {/* Toast Notification */}
+      {/* Toast Notification (Peaceful Bottom-Center Floating Pill) */}
       {notification && (
-        <div className="fixed bottom-6 right-6 z-50 bg-temple-900 text-cream-50 px-4 py-2.5 rounded-2xl shadow-soft-lg text-xs font-medium flex items-center gap-2 animate-fadeIn border border-saffron-500/30">
-          <Sparkles className="w-3.5 h-3.5 text-saffron-400" />
-          <span>{notification}</span>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-lg w-auto px-5 py-3 rounded-2xl bg-temple-900/95 text-cream-50 text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-2xl backdrop-blur-md border border-saffron-400/40 animate-fadeIn transition-all">
+          <Sparkles className="w-4 h-4 text-saffron-400 flex-shrink-0 animate-pulse" />
+          <span className="leading-snug text-center">{notification}</span>
         </div>
       )}
 
-      {/* Admin Header with Icon-Only Clean Navigation */}
+      {/* Admin Header with Clean Navigation */}
       <header className="sticky top-0 z-30 bg-cream-50/95 backdrop-blur-md border-b border-cream-200/80 shadow-2xs">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
           
@@ -957,36 +982,38 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             title="Gita for Youth"
           />
 
-          {/* Center: Clean Icon Navigation */}
-          <div className="flex items-center gap-1 bg-cream-200/80 p-1 rounded-2xl border border-cream-300">
-            <button
-              onClick={() => switchTab('participants')}
-              className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
-                activeTab === 'participants'
-                  ? 'bg-white text-saffron-700 shadow-soft font-bold'
-                  : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
-              }`}
-              title="Participants Registrations"
-              aria-label="Participants Registrations"
-            >
-              <Users className="w-4 h-4" />
-            </button>
+          {/* Center: Clean Icon Navigation (Super Admin Only) */}
+          {isSuperAdmin && (
+            <div className="flex items-center gap-1 bg-cream-200/80 p-1 rounded-2xl border border-cream-300">
+              <button
+                onClick={() => switchTab('participants')}
+                className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
+                  activeTab === 'participants'
+                    ? 'bg-white text-saffron-700 shadow-soft font-bold'
+                    : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
+                }`}
+                title="Participants Registrations"
+                aria-label="Participants Registrations"
+              >
+                <Users className="w-4 h-4" />
+              </button>
 
-            <button
-              onClick={() => switchTab('settings')}
-              className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
-                activeTab === 'settings'
-                  ? 'bg-white text-saffron-700 shadow-soft font-bold'
-                  : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
-              }`}
-              title="System & Administrative Settings"
-              aria-label="Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          </div>
+              <button
+                onClick={() => switchTab('settings')}
+                className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
+                  activeTab === 'settings'
+                    ? 'bg-white text-saffron-700 shadow-soft font-bold'
+                    : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
+                }`}
+                title="System & Administrative Settings"
+                aria-label="Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-          {/* Right: Coordinator Details & Logout */}
+          {/* Right: Coordinator Details, Password Change & Logout */}
           <div className="flex items-center gap-2">
             <div className="text-right hidden sm:block">
               <span className="text-xs font-semibold text-temple-800 block truncate max-w-[150px]">
@@ -996,6 +1023,23 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {isSuperAdmin ? 'Super Admin' : 'Admin'} &bull; {adminUser?.email || ''}
               </span>
             </div>
+
+            {/* Change Password Button */}
+            <button
+              onClick={() => {
+                setShowChangePasswordModal(true);
+                setPasswordChangeMsg({ type: '', text: '' });
+                setCurrentPasswordInput('');
+                setNewPasswordInput('');
+                setConfirmPasswordInput('');
+              }}
+              className="inline-flex items-center gap-1 p-2 sm:px-3 sm:py-1.5 rounded-xl border border-cream-300 hover:border-saffron-300 bg-white hover:bg-saffron-50 text-temple-700 hover:text-saffron-800 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+              title="Change Account Password"
+              aria-label="Change Password"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-saffron-600" />
+              <span className="hidden md:inline">Password</span>
+            </button>
             
             <button
               onClick={() => setLogoutConfirmOpen(true)}
@@ -1194,6 +1238,18 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   <span>Export Excel</span>
                 </button>
 
+                {/* Quick Database Backup */}
+                <button
+                  type="button"
+                  onClick={handleBackupDatabase}
+                  disabled={isBackingUp}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-saffron-600 hover:bg-saffron-700 active:bg-saffron-800 text-white font-medium text-xs transition-colors shadow-soft cursor-pointer disabled:opacity-50"
+                  title="Download Complete Database Backup Snapshot (.json)"
+                >
+                  <Database className={`w-3.5 h-3.5 ${isBackingUp ? 'animate-spin' : ''}`} />
+                  <span>{isBackingUp ? 'Backing up...' : 'Backup'}</span>
+                </button>
+
               </div>
             </div>
 
@@ -1355,13 +1411,15 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   >
                                     <Eye className="w-3.5 h-3.5" />
                                   </button>
-                                  <button
-                                    onClick={() => setDeleteConfirmId(item.registrationId || item.id)}
-                                    className="p-1.5 rounded-lg hover:bg-red-100 text-temple-400 hover:text-red-700 transition-colors cursor-pointer"
-                                    title="Delete Participant"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  {isSuperAdmin && (
+                                    <button
+                                      onClick={() => setDeleteConfirmId(item.registrationId || item.id)}
+                                      className="p-1.5 rounded-lg hover:bg-red-100 text-temple-400 hover:text-red-700 transition-colors cursor-pointer"
+                                      title="Delete Participant"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             )}
@@ -1446,150 +1504,113 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               </div>
             </div>
 
-            {/* SECTION 2: BRANDING & REGISTRATION SUCCESS SCREEN LOGO */}
-            <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-5">
+            {/* SECTION 2: GLOBAL COURSE & HEADER BRANDING */}
+            <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
               <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
                 <Palette className="w-4 h-4 text-saffron-600" />
                 <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
-                  Website Branding &amp; Success Screen Customization
+                  Header &amp; Course Branding
                 </h2>
               </div>
 
-              <div className="space-y-5">
-                {/* 1. Global Website Course Name, Subtitle & Font Size Card */}
-                <form onSubmit={handleSaveCourseTitle} className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-4 shadow-2xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cream-100 pb-3">
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
-                        Global Course Name &amp; Header Branding
-                      </h3>
-                      <p className="text-xs text-temple-600">
-                        Changing this updates the brand name, headers, font size, and titles across the entire website.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="space-y-1">
-                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                        Course / Website Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Gita for Youth"
-                        value={courseNameDraft}
-                        onChange={(e) => setCourseNameDraft(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                        Header Subtitle
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Optional tagline/subtitle"
-                        value={courseSubtitleDraft}
-                        onChange={(e) => setCourseSubtitleDraft(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Font Size Configuration */}
-                  <div className="space-y-2 pt-1 border-t border-cream-100">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="block text-[11px] font-semibold text-temple-700 uppercase">
-                        Course Name Font Size (px)
-                      </label>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] text-temple-400 font-medium">Presets:</span>
-                        {[
-                          { label: 'Compact (15px)', size: 15 },
-                          { label: 'Default (18px)', size: 18 },
-                          { label: 'Medium (22px)', size: 22 },
-                          { label: 'Large (26px)', size: 26 },
-                          { label: 'Extra Large (32px)', size: 32 },
-                        ].map((preset) => (
-                          <button
-                            key={preset.label}
-                            type="button"
-                            onClick={() => setCourseNameFontSizeDraft(preset.size)}
-                            className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${
-                              Number(courseNameFontSizeDraft) === preset.size
-                                ? 'bg-saffron-500 text-white border-saffron-600 shadow-2xs'
-                                : 'bg-cream-100 hover:bg-cream-200 text-temple-700 border-cream-300/80'
-                            }`}
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="relative max-w-xs">
-                      <input
-                        type="number"
-                        min="12"
-                        max="48"
-                        placeholder="18"
-                        value={courseNameFontSizeDraft || ''}
-                        onChange={(e) => {
-                          const val = e.target.value === '' ? '' : Number(e.target.value);
-                          setCourseNameFontSizeDraft(val);
-                        }}
-                        className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all shadow-2xs"
-                      />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-temple-400 pointer-events-none">
-                        px
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Header Live Preview */}
-                  <div className="p-3 rounded-xl bg-cream-100/60 border border-cream-200/80 flex items-center justify-between">
-                    <span className="text-[11px] text-temple-500 font-medium">Public Header Live Preview:</span>
-                    <BrandLogo 
-                      title={courseNameDraft || 'Gita for Youth'} 
-                      subtitle={courseSubtitleDraft || ''} 
-                      fontSize={courseNameFontSizeDraft || 18} 
+              <form onSubmit={handleSaveCourseTitle} className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-4 shadow-2xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                      Course Name <span className="text-saffron-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Gita for Youth"
+                      value={courseNameDraft}
+                      onChange={(e) => setCourseNameDraft(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
                     />
                   </div>
 
-                  {/* Action Buttons: Reset to Defaults & Save */}
-                  <div className="flex items-center justify-between pt-1">
-                    <button
-                      type="button"
-                      onClick={handleResetBrandingDraft}
-                      className="px-3 py-2 rounded-xl bg-cream-100 hover:bg-cream-200 active:bg-cream-300 text-temple-700 font-semibold text-xs border border-cream-300 transition-all flex items-center gap-1.5 cursor-pointer"
-                      title="Reset values back to defaults"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 text-temple-500" />
-                      <span>Reset to Present / Default</span>
-                    </button>
-
-                    <button
-                      type="submit"
-                      disabled={isUpdatingBranding}
-                      className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {isUpdatingBranding ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Save Course Name &amp; Font Size</span>
-                        </>
-                      )}
-                    </button>
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                      Header Subtitle
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Optional tagline/subtitle"
+                      value={courseSubtitleDraft}
+                      onChange={(e) => setCourseSubtitleDraft(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
+                    />
                   </div>
-                </form>
-              </div>
+                </div>
+
+                {/* Font Size Preset Selector */}
+                <div className="space-y-2 pt-2 border-t border-cream-100">
+                  <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                    Title Font Size
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {[
+                      { label: 'Compact (15px)', size: 15 },
+                      { label: 'Standard (18px)', size: 18 },
+                      { label: 'Medium (22px)', size: 22 },
+                      { label: 'Large (26px)', size: 26 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setCourseNameFontSizeDraft(preset.size)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                          Number(courseNameFontSizeDraft) === preset.size
+                            ? 'bg-saffron-500 text-white border-saffron-600 shadow-2xs'
+                            : 'bg-cream-100 hover:bg-cream-200 text-temple-700 border-cream-300/80'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Header Live Preview */}
+                <div className="p-3.5 rounded-2xl bg-cream-100/60 border border-cream-200/80 flex items-center justify-between">
+                  <span className="text-[11px] text-temple-500 font-medium">Header Live Preview:</span>
+                  <BrandLogo 
+                    title={courseNameDraft || 'Gita for Youth'} 
+                    subtitle={courseSubtitleDraft || ''} 
+                    fontSize={courseNameFontSizeDraft || 18} 
+                  />
+                </div>
+
+                {/* Action Buttons: Reset & Save */}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResetBrandingDraft}
+                    className="px-3.5 py-2 rounded-xl bg-cream-100 hover:bg-cream-200 active:bg-cream-300 text-temple-700 font-semibold text-xs border border-cream-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-temple-500" />
+                    <span>Reset Defaults</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isUpdatingBranding}
+                    className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isUpdatingBranding ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Save Branding</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* SECTION 3: REGISTRATION SETTINGS */}
@@ -2818,6 +2839,155 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal for Current Coordinator */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-temple-900/60 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="w-full max-w-md bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-soft-lg text-left space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-cream-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-saffron-100 text-saffron-700 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-temple-900">
+                    Change Password
+                  </h3>
+                  <p className="text-[11px] text-temple-500">
+                    {adminUser?.email || 'Coordinator'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowChangePasswordModal(false);
+                  setPasswordChangeMsg({ type: '', text: '' });
+                }}
+                className="p-1 rounded-lg text-temple-400 hover:text-temple-700 hover:bg-cream-200 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {passwordChangeMsg.text && (
+              <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                passwordChangeMsg.type === 'success'
+                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
+              }`}>
+                {passwordChangeMsg.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-red-600" />}
+                <span>{passwordChangeMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                  Current Password <span className="text-saffron-600">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPass ? 'text' : 'password'}
+                    required
+                    placeholder="Enter current password"
+                    value={currentPasswordInput}
+                    onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPass(!showCurrentPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                  >
+                    {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                  New Password <span className="text-saffron-600">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    required
+                    placeholder="Min 6 characters"
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                  >
+                    {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                  Confirm New Password <span className="text-saffron-600">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPass ? 'text' : 'password'}
+                    required
+                    placeholder="Re-enter new password"
+                    value={confirmPasswordInput}
+                    onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-temple-400 hover:text-temple-700 cursor-pointer"
+                  >
+                    {showConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowChangePasswordModal(false);
+                    setPasswordChangeMsg({ type: '', text: '' });
+                  }}
+                  className="w-1/2 py-2.5 px-3 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordChangeLoading || !currentPasswordInput || !newPasswordInput || !confirmPasswordInput}
+                  className="w-1/2 py-2.5 px-3 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white text-xs font-semibold shadow-soft cursor-pointer transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {passwordChangeLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Update Password</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

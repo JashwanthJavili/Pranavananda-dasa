@@ -40,7 +40,7 @@ export default function StepReflections({
             id="inspirationToJoin"
             rows={3}
             maxLength={500}
-            placeholder="Enter your answer..."
+            placeholder="Share what inspires you to join this course..."
             value={data.inspirationToJoin || ''}
             onFocus={handleInputFocus}
             onChange={(e) => onChange('inspirationToJoin', e.target.value)}
@@ -60,7 +60,7 @@ export default function StepReflections({
             id="takeawayAspiration"
             rows={3}
             maxLength={500}
-            placeholder="Enter your answer..."
+            placeholder="Share what you hope to learn or gain..."
             value={data.takeawayAspiration || ''}
             onFocus={handleInputFocus}
             onChange={(e) => onChange('takeawayAspiration', e.target.value)}
@@ -80,7 +80,7 @@ export default function StepReflections({
             id="questionForPranavanandaPrabhu"
             rows={3}
             maxLength={500}
-            placeholder="Enter your answer..."
+            placeholder="Type your question here..."
             value={data.questionForPranavanandaPrabhu || ''}
             onFocus={handleInputFocus}
             onChange={(e) => onChange('questionForPranavanandaPrabhu', e.target.value)}
@@ -101,8 +101,8 @@ export default function StepReflections({
                   type="button"
                   key={source}
                   onClick={() => onChange('sourceOfDiscovery', isSelected ? '' : source)}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer flex items-center justify-center min-h-[44px] ${isSelected
-                      ? 'border-saffron-500 bg-saffron-50 text-saffron-800 font-semibold ring-1 ring-saffron-500/25 shadow-soft'
+                  className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold border text-center transition-all cursor-pointer flex items-center justify-center min-h-[44px] ${isSelected
+                      ? 'border-saffron-500 bg-saffron-50 text-saffron-800 ring-1 ring-saffron-500/25 shadow-soft'
                       : 'border-cream-300 bg-white text-temple-700 hover:bg-cream-100/70 shadow-2xs'
                     }`}
                 >
@@ -124,7 +124,7 @@ export default function StepReflections({
               <input
                 id="sourceOfDiscoveryOther"
                 type="text"
-                placeholder="Enter your answer..."
+                placeholder="Enter how you heard about the course"
                 value={data.sourceOfDiscoveryOther || ''}
                 onFocus={handleInputFocus}
                 onChange={(e) => onChange('sourceOfDiscoveryOther', e.target.value)}

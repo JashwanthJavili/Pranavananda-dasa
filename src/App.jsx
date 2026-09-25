@@ -178,8 +178,9 @@ export default function App() {
       localStorage.setItem('gita_amrita_admin_session', JSON.stringify(user));
     } catch (e) {}
     setCurrentView('admin');
+    const isSuper = user && (user.role === 'Super Admin' || user.role === 'Super Administrator');
     const hash = (window.location.hash || '').toLowerCase();
-    if (hash !== '#settings' && hash !== '#admin-settings') {
+    if (!isSuper || (hash !== '#settings' && hash !== '#admin-settings')) {
       window.location.hash = 'admin';
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });

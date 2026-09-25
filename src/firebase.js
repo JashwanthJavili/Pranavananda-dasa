@@ -69,47 +69,59 @@ export async function getNextRegistrationId() {
     const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
     let snapshot;
     try {
-      // Fetch latest records sorted by createdAt to find latest ID instantly
-      snapshot = await getDocs(query(regRef, orderBy('createdAt', 'desc'), limit(25)));
+      snapshot = await getDocs(query(regRef, orderBy('createdAt', 'desc'), limit(50)));
     } catch (indexErr) {
       snapshot = await getDocs(query(regRef, limit(50)));
     }
 
-    if (!snapshot || snapshot.empty) {
+    let maxNum = 99;
+    let foundActive = false;
+
+    if (snapshot && !snapshot.empty) {
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.isDeleted || data.status === 'Deleted' || data.status === 'Archived_To_Trash') return;
+        if (resetTime && data.createdAt?.toMillis && data.createdAt.toMillis() < resetTime) return;
+        const regId = data.registrationId || docSnap.id || '';
+        const match = regId.match(/BG26-(\d+)/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 100) {
+            foundActive = true;
+            if (num > maxNum) {
+              maxNum = num;
+            }
+          }
+        }
+      });
+    }
+
+    // If no active records found in remote query, check local cache fallback
+    if (!foundActive) {
+      try {
+        const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
+        localRecords.forEach(r => {
+          if (r.isDeleted || r.status === 'Deleted' || r.status === 'Archived_To_Trash') return;
+          const id = r.registrationId || r.id || '';
+          const m = id.match(/BG26-(\d+)/i);
+          if (m) {
+            const n = parseInt(m[1], 10);
+            if (!isNaN(n) && n >= 100) {
+              foundActive = true;
+              if (n > maxNum) maxNum = n;
+            }
+          }
+        });
+      } catch (e) {}
+    }
+
+    if (!foundActive || maxNum < 100) {
       return 'BG26-100';
     }
 
-    let maxNum = 99;
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      if (data.isDeleted) return;
-      if (resetTime && data.createdAt?.toMillis && data.createdAt.toMillis() < resetTime) return;
-      const regId = data.registrationId || docSnap.id || '';
-      const match = regId.match(/BG26-(\d+)/i);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (!isNaN(num) && num > maxNum) {
-          maxNum = num;
-        }
-      }
-    });
     return `BG26-${maxNum + 1}`;
   } catch (err) {
-    console.warn('Error fetching Firestore registration IDs, checking local cache:', err);
-    try {
-      const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
-      let localMax = 99;
-      localRecords.forEach(r => {
-        if (r.isDeleted) return;
-        const id = r.registrationId || r.id || '';
-        const m = id.match(/BG26-(\d+)/i);
-        if (m) {
-          const n = parseInt(m[1], 10);
-          if (!isNaN(n) && n > localMax) localMax = n;
-        }
-      });
-      return `BG26-${localMax + 1}`;
-    } catch (e) {}
+    console.warn('Error calculating sequential registration ID (defaulting to BG26-100):', err);
     return 'BG26-100';
   }
 }
@@ -1212,10 +1224,14 @@ export async function updateParticipant(registrationId, updates) {
 }
 
 /**
- * Delete a participant registration permanently from Firestore & local storage
+ * Delete a participant registration permanently from Firestore & local storage (Super Admin only)
  */
-export async function deleteParticipant(registrationId) {
+export async function deleteParticipant(registrationId, callerUser = null) {
   if (!registrationId) return { success: false };
+
+  if (callerUser && !isSuperAdminUser(callerUser)) {
+    return { success: false, error: 'Access Denied: Only Super Administrators can delete participant records.' };
+  }
 
   // 1. Try physical deletion from Firestore
   try {

@@ -199,8 +199,8 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
         errs.fullName = 'Please enter your full name.';
       }
       const ageNum = parseInt(formData.age, 10);
-      if (!formData.age || isNaN(ageNum) || ageNum < 16 || ageNum > 30) {
-        errs.age = 'Age must be between 16 and 30 years.';
+      if (!formData.age || isNaN(ageNum) || ageNum < 18 || ageNum > 30) {
+        errs.age = 'Age must be between 18 and 30 years.';
       }
       if (!formData.gender) {
         errs.gender = 'Please select your gender.';
