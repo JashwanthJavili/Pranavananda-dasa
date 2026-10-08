@@ -69,11 +69,8 @@ export default function CountryCodeSelector({
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
 
-    // Auto-focus search input
+    // Scroll active selected item into view on open without stealing input focus
     const timer = setTimeout(() => {
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
-      }
       if (activeItemRef.current) {
         activeItemRef.current.scrollIntoView({ block: 'nearest' });
       }
