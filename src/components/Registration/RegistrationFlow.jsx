@@ -217,10 +217,17 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
 
     if (step === 2) {
       const cleanMobile = (formData.mobile || '').replace(/\D/g, '');
-      if (!cleanMobile || cleanMobile.length !== 10) {
-        errs.mobile = 'Mobile number must be exactly 10 digits.';
-      } else if (cleanMobile.startsWith('0')) {
-        errs.mobile = 'First digit cannot be 0.';
+      const code = formData.countryCode || '+91';
+      if (code === '+91') {
+        if (!cleanMobile || cleanMobile.length !== 10) {
+          errs.mobile = 'Mobile number must be exactly 10 digits.';
+        } else if (cleanMobile.startsWith('0')) {
+          errs.mobile = 'First digit cannot be 0.';
+        }
+      } else {
+        if (!cleanMobile || cleanMobile.length < 6 || cleanMobile.length > 15) {
+          errs.mobile = 'Please enter a valid mobile number (6–15 digits).';
+        }
       }
 
       // Email validation
@@ -422,7 +429,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
           ) : (
             <div className="max-w-2xl mx-auto w-full">
               {/* Active Step Card */}
-              <div className="bg-cream-50 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft-lg w-full overflow-hidden">
+              <div className="bg-cream-50 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft-lg w-full overflow-visible">
                   
                   {/* Step Progress Indicator (Steps 1 to 4) */}
                   {currentStep <= 4 && (

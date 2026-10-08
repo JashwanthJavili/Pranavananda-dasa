@@ -92,7 +92,9 @@ export default function StepReview({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
             <div>
               <span className="text-temple-400 block text-[10px] uppercase font-semibold tracking-wider">Mobile Number</span>
-              <span className="font-semibold text-temple-900 font-mono sm:font-sans">{data.countryCode || '+91'} {data.mobile}</span>
+              <span className="font-semibold text-temple-900 font-mono sm:font-sans">
+                {data.countryCode || '+91'} {data.mobile}
+              </span>
             </div>
             <div>
               <span className="text-temple-400 block text-[10px] uppercase font-semibold tracking-wider">Email Address</span>

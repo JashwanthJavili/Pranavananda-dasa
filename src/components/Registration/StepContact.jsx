@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, AlertCircle, ChevronDown } from 'lucide-react';
-
-const COUNTRY_CODES = [
-  { code: '+91', label: '+91 (IN)' },
-  { code: '+1', label: '+1 (US)' },
-  { code: '+971', label: '+971 (UAE)' },
-  { code: '+44', label: '+44 (UK)' },
-  { code: '+65', label: '+65 (SG)' },
-  { code: '+61', label: '+61 (AU)' },
-];
+import { ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
+import CountryCodeSelector from './CountryCodeSelector';
 
 export default function StepContact({
   data,
@@ -20,6 +12,7 @@ export default function StepContact({
   onClearDuplicateWarning
 }) {
   const [checking, setChecking] = useState(false);
+  const isIndia = (data.countryCode || '+91') === '+91';
 
   // Focus handler to smoothly bring active inputs into center view on mobile keyboard pop-up
   const handleInputFocus = (e) => {
@@ -30,9 +23,22 @@ export default function StepContact({
 
   const handleMobileChange = (e) => {
     let raw = e.target.value.replace(/\D/g, ''); // only numbers
-    raw = raw.replace(/^0+/, ''); // ignore / strip leading zero(s)
-    raw = raw.slice(0, 10); // strictly maximum 10 digits
+    if (isIndia) {
+      raw = raw.replace(/^0+/, ''); // strip leading zero(s) for India numbers
+      raw = raw.slice(0, 10); // strictly maximum 10 digits
+    } else {
+      raw = raw.slice(0, 15); // international standard max length
+    }
     onChange('mobile', raw);
+    if (onClearDuplicateWarning) onClearDuplicateWarning();
+  };
+
+  const handleCountryCodeChange = (code) => {
+    onChange('countryCode', code);
+    // If switching to India and current number is longer than 10, trim it
+    if (code === '+91' && data.mobile && data.mobile.length > 10) {
+      onChange('mobile', data.mobile.slice(0, 10).replace(/^0+/, ''));
+    }
     if (onClearDuplicateWarning) onClearDuplicateWarning();
   };
 
@@ -49,7 +55,7 @@ export default function StepContact({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 animate-fadeIn text-left w-full overflow-hidden">
+    <form onSubmit={handleSubmit} className="space-y-5 animate-fadeIn text-left w-full overflow-visible">
       {/* Step Header */}
       <div className="space-y-1 text-center sm:text-left border-b border-cream-200/80 pb-3">
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-temple-900">
@@ -86,32 +92,17 @@ export default function StepContact({
             Mobile Number <span className="text-saffron-600">*</span>
           </label>
           <div className="flex gap-2 items-center">
-            <div className="relative flex-shrink-0">
-              <select
-                value={data.countryCode || '+91'}
-                onChange={(e) => {
-                  onChange('countryCode', e.target.value);
-                  if (onClearDuplicateWarning) onClearDuplicateWarning();
-                }}
-                className="appearance-none pl-3 pr-7 py-3 rounded-xl border border-cream-300 bg-white text-temple-900 text-sm sm:text-base focus:outline-none focus:border-saffron-500 focus:ring-2 focus:ring-saffron-500/20 transition-all duration-200 cursor-pointer font-medium min-w-[72px] shadow-2xs"
-              >
-                {COUNTRY_CODES.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.code} ({item.label.split('(')[1] || ''}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-temple-500">
-                <ChevronDown className="w-3.5 h-3.5" />
-              </div>
-            </div>
+            <CountryCodeSelector
+              value={data.countryCode || '+91'}
+              onChange={handleCountryCodeChange}
+            />
 
             <input
               id="mobile"
               type="tel"
               inputMode="numeric"
-              maxLength={10}
-              placeholder="Enter 10-digit mobile number"
+              maxLength={isIndia ? 10 : 15}
+              placeholder="Enter your mobile number"
               value={data.mobile || ''}
               onFocus={handleInputFocus}
               onChange={handleMobileChange}
