@@ -1582,15 +1582,7 @@ export async function fetchWhatsAppSettings() {
     if (snap.exists()) {
       const data = snap.data();
       
-      let rawExcluded = Array.isArray(data.waExcludedSources) ? data.waExcludedSources : [];
-      
-      // Self-healing: if Firestore has legacy default ['Yuva Setu'], clear it from remote DB
-      if (rawExcluded.length === 1 && normalizeReferralSource(rawExcluded[0]) === 'yuva setu') {
-        rawExcluded = [];
-        try {
-          await setDoc(dataRef, { waExcludedSources: [] }, { merge: true });
-        } catch (e) {}
-      }
+      const rawExcluded = Array.isArray(data.waExcludedSources) ? data.waExcludedSources : [];
       
       const settings = {
         waFeatureEnabled: data.waFeatureEnabled === true,
