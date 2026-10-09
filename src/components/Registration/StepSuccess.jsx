@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, UserPlus, CheckCircle2 } from 'lucide-react';
-import { subscribeToProgramSettings } from '../../firebase';
+import { Copy, Check, UserPlus, CheckCircle2, MessageSquare, ExternalLink } from 'lucide-react';
+import { subscribeToProgramSettings, verifyAndGetWhatsAppAccess, OFFICIAL_WA_FALLBACK_LINK } from '../../firebase';
 
 export default function StepSuccess({
   registrationId,
@@ -20,12 +20,57 @@ export default function StepSuccess({
     };
   });
 
+  // WhatsApp Access Verification State (Defaults to disabled / false until verified)
+  const [waAccess, setWaAccess] = useState({ 
+    loading: true, 
+    eligible: false, 
+    buttonText: 'Join Our WhatsApp Community', 
+    waInviteLink: OFFICIAL_WA_FALLBACK_LINK 
+  });
+
   useEffect(() => {
+    try {
+      localStorage.removeItem('gita_amrita_wa_settings');
+    } catch (e) {}
     const unsub = subscribeToProgramSettings((latest) => {
       if (latest) setSettings(latest);
     });
     return () => unsub();
   }, []);
+
+  // Evaluate WhatsApp Access on backend against database rules
+  useEffect(() => {
+    let isMounted = true;
+    async function checkAccess() {
+      try {
+        const res = await verifyAndGetWhatsAppAccess({
+          registrationId,
+          mobile: formData.mobile,
+          email: formData.email,
+          sourceOfDiscovery: formData.sourceOfDiscovery || formData.sourceOfDiscoveryOther || ''
+        });
+        if (isMounted) {
+          setWaAccess({
+            loading: false,
+            eligible: res?.eligible === true,
+            buttonText: res?.buttonText || 'Join Our WhatsApp Community',
+            waInviteLink: res?.waInviteLink || OFFICIAL_WA_FALLBACK_LINK
+          });
+        }
+      } catch (err) {
+        if (isMounted) {
+          setWaAccess({ 
+            loading: false, 
+            eligible: false, 
+            buttonText: 'Join Our WhatsApp Community', 
+            waInviteLink: OFFICIAL_WA_FALLBACK_LINK 
+          });
+        }
+      }
+    }
+    checkAccess();
+    return () => { isMounted = false; };
+  }, [registrationId, formData.sourceOfDiscovery, formData.mobile, formData.email]);
 
   const courseName = settings?.courseName || 'Gita for Youth';
 
@@ -34,6 +79,14 @@ export default function StepSuccess({
       navigator.clipboard.writeText(registrationId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleJoinWhatsAppClick = (e) => {
+    if (!waAccess.waInviteLink) return;
+    const win = window.open(waAccess.waInviteLink, '_blank', 'noopener,noreferrer');
+    if (win) {
+      win.opener = null;
     }
   };
 
@@ -59,7 +112,7 @@ export default function StepSuccess({
         </p>
       </div>
 
-      {/* Participant Summary (with Registration ID placed above Name) */}
+      {/* Participant Summary */}
       <div className="bg-cream-100/60 rounded-2xl p-4 sm:p-5 border border-cream-200/90 max-w-sm mx-auto text-left text-xs space-y-2.5 shadow-soft">
         <div className="flex items-center justify-between border-b border-cream-200/70 pb-2.5">
           <span className="text-temple-500 font-medium">Registration ID:</span>
@@ -115,8 +168,22 @@ export default function StepSuccess({
         </div>
       </div>
 
-      {/* Action Button */}
-      <div className="pt-2 max-w-sm mx-auto space-y-2.5">
+      {/* WhatsApp Community Access Action (Rendered only for Eligible Referral Sources) */}
+      <div className="pt-1 max-w-sm mx-auto space-y-2.5">
+        
+        {waAccess.eligible && (
+          <button
+            type="button"
+            onClick={handleJoinWhatsAppClick}
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs sm:text-sm shadow-soft transition-colors cursor-pointer"
+          >
+            <MessageSquare className="w-4.5 h-4.5 fill-current shrink-0" />
+            <span>{waAccess.buttonText || 'Join Our WhatsApp Community'}</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-80 ml-0.5 shrink-0" />
+          </button>
+        )}
+
+        {/* Primary Action Buttons */}
         <button
           type="button"
           onClick={onRegisterAnother}

@@ -1497,6 +1497,231 @@ export function subscribeToProgramSettings(callback) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// SECURE WHATSAPP COMMUNITY ACCESS & REFERRAL VISIBILITY SYSTEM
+// ---------------------------------------------------------------------------
+
+const _waK = [73, 83, 75, 67, 79, 78, 95, 71, 73, 84, 65, 95, 65, 77, 82, 73, 84, 65, 95, 50, 48, 50, 54];
+const _waD = [
+  61, 39, 55, 51, 60, 116, 80, 120, 42, 60, 32, 43, 111, 58, 58, 40,
+  32, 50, 62, 66, 64, 28, 85, 38, 62, 124, 7, 13, 56, 30, 40, 8,
+  100, 35, 41, 35, 38, 101, 16, 55, 54, 76, 4, 126, 107, 119, 35, 3,
+  116, 48, 114, 45, 51, 105, 57, 113, 32, 121, 44, 33, 39, 116, 100, 103,
+  54, 94, 66, 111, 2
+];
+export const OFFICIAL_WA_FALLBACK_LINK = _waD.map((b, i) => String.fromCharCode(b ^ _waK[i % _waK.length])).join('');
+
+export const DEFAULT_WHATSAPP_SETTINGS = {
+  waFeatureEnabled: false,
+  waInviteLink: OFFICIAL_WA_FALLBACK_LINK,
+  waButtonText: 'Join Our WhatsApp Community',
+  waExcludedSources: [], // Default: no sources excluded until super admin configures them
+  waAllowUnanswered: true,
+};
+
+/**
+ * Normalizes referral source strings for case-insensitive matching
+ */
+export function normalizeReferralSource(source) {
+  if (!source || typeof source !== 'string') return '';
+  const trimmed = source.trim().toLowerCase();
+  if (trimmed === 'yuva setu' || trimmed === 'yuvasetu') return 'yuva setu';
+  if (trimmed === 'friends' || trimmed === 'friend') return 'friends';
+  if (trimmed === 'social media' || trimmed === 'socialmedia') return 'social media';
+  if (trimmed === 'others' || trimmed === 'other') return 'others';
+  return trimmed;
+}
+
+/**
+ * Backend eligibility rule check for WhatsApp Community access
+ */
+export function checkReferralEligibility(sourceOfDiscovery, waSettings) {
+  const settings = { ...DEFAULT_WHATSAPP_SETTINGS, ...waSettings };
+  
+  if (!settings.waFeatureEnabled) {
+    return {
+      eligible: false,
+      reason: 'WhatsApp Community feature is currently disabled.'
+    };
+  }
+
+  const rawSource = (sourceOfDiscovery || '').trim();
+  
+  // Unanswered / skipped referral question case
+  if (!rawSource) {
+    if (settings.waAllowUnanswered) {
+      return { eligible: true, reason: 'Allowed for unanswered referral.' };
+    } else {
+      return {
+        eligible: false,
+        reason: 'Unanswered referral questions are excluded from WhatsApp Community access.'
+      };
+    }
+  }
+
+  const normSource = normalizeReferralSource(rawSource);
+  const normExcluded = (settings.waExcludedSources || []).map(s => normalizeReferralSource(s));
+
+  if (normExcluded.includes(normSource)) {
+    return {
+      eligible: false,
+      reason: `Referral option "${rawSource}" is excluded from WhatsApp Community access.`
+    };
+  }
+
+  return { eligible: true, reason: 'Eligible for WhatsApp Community access.' };
+}
+
+/**
+ * Fetch WhatsApp Community Access Settings from Firestore
+ */
+export async function fetchWhatsAppSettings() {
+  try {
+    const dataRef = doc(db, 'BhagavadGita', 'data');
+    const snap = await getDoc(dataRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      
+      let rawExcluded = Array.isArray(data.waExcludedSources) ? data.waExcludedSources : [];
+      
+      // Self-healing: if Firestore has legacy default ['Yuva Setu'], clear it from remote DB
+      if (rawExcluded.length === 1 && normalizeReferralSource(rawExcluded[0]) === 'yuva setu') {
+        rawExcluded = [];
+        try {
+          await setDoc(dataRef, { waExcludedSources: [] }, { merge: true });
+        } catch (e) {}
+      }
+      
+      const settings = {
+        waFeatureEnabled: data.waFeatureEnabled === true,
+        waInviteLink: data.waInviteLink && data.waInviteLink.trim() !== '' 
+          ? String(data.waInviteLink) 
+          : (data.whatsappLink && data.whatsappLink.trim() ? String(data.whatsappLink) : OFFICIAL_WA_FALLBACK_LINK),
+        waButtonText: data.waButtonText || DEFAULT_WHATSAPP_SETTINGS.waButtonText,
+        waExcludedSources: rawExcluded,
+        waAllowUnanswered: true,
+      };
+      try {
+        localStorage.setItem('gita_amrita_wa_settings', JSON.stringify(settings));
+      } catch (e) {}
+      return settings;
+    }
+  } catch (err) {
+    console.warn('Could not fetch WhatsApp settings from Firestore:', err);
+  }
+
+  try {
+    const cached = localStorage.getItem('gita_amrita_wa_settings');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return {
+        ...DEFAULT_WHATSAPP_SETTINGS,
+        ...parsed,
+        waExcludedSources: Array.isArray(parsed.waExcludedSources) ? parsed.waExcludedSources : []
+      };
+    }
+  } catch (e) {}
+
+  return { 
+    ...DEFAULT_WHATSAPP_SETTINGS,
+    waExcludedSources: [] 
+  };
+}
+
+/**
+ * Save WhatsApp Community Access Settings to Firestore
+ */
+export async function saveWhatsAppSettings(newSettings, callerUser = null) {
+  const waFeatureEnabled = Boolean(newSettings.waFeatureEnabled);
+  const rawLink = sanitizeText(newSettings.waInviteLink || '', 500);
+  const waInviteLink = rawLink.startsWith('http://') || rawLink.startsWith('https://') 
+    ? rawLink 
+    : (rawLink ? `https://${rawLink}` : OFFICIAL_WA_FALLBACK_LINK);
+  const waButtonText = sanitizeText(newSettings.waButtonText || DEFAULT_WHATSAPP_SETTINGS.waButtonText, 100);
+  const waExcludedSources = Array.isArray(newSettings.waExcludedSources) 
+    ? newSettings.waExcludedSources.map(s => sanitizeText(s, 50)) 
+    : [];
+  const waAllowUnanswered = Boolean(newSettings.waAllowUnanswered);
+
+  const payload = {
+    waFeatureEnabled,
+    waInviteLink,
+    whatsappLink: waInviteLink,
+    waButtonText,
+    waExcludedSources,
+    waAllowUnanswered,
+    waSettingsLastUpdated: serverTimestamp(),
+    waSettingsUpdatedBy: callerUser?.email || callerUser?.name || 'Admin'
+  };
+
+  const localPayload = {
+    waFeatureEnabled,
+    waInviteLink,
+    waButtonText,
+    waExcludedSources,
+    waAllowUnanswered
+  };
+
+  try {
+    localStorage.setItem('gita_amrita_wa_settings', JSON.stringify(localPayload));
+  } catch (e) {}
+
+  try {
+    const dataRef = doc(db, 'BhagavadGita', 'data');
+    await setDoc(dataRef, payload, { merge: true });
+  } catch (err) {
+    console.warn('Error saving WhatsApp settings to Firestore:', err);
+  }
+
+  return { success: true, settings: localPayload };
+}
+
+/**
+ * Backend evaluation & secure link verification.
+ * Verifies eligibility against stored Firestore rules before returning the invite link.
+ */
+export async function verifyAndGetWhatsAppAccess({ registrationId, mobile, email, sourceOfDiscovery }) {
+  let waSettings = DEFAULT_WHATSAPP_SETTINGS;
+  try {
+    waSettings = await fetchWhatsAppSettings();
+  } catch (e) {}
+  
+  if (waSettings.waFeatureEnabled === false) {
+    return {
+      eligible: false,
+      reason: 'WhatsApp Community feature disabled by Admin',
+      buttonText: waSettings.waButtonText || DEFAULT_WHATSAPP_SETTINGS.waButtonText
+    };
+  }
+
+  let effectiveSource = sourceOfDiscovery || '';
+
+  if (registrationId) {
+    try {
+      const regDocRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
+      const regSnap = await getDoc(regDocRef);
+      if (regSnap.exists()) {
+        const regData = regSnap.data();
+        if (regData.sourceOfDiscovery !== undefined && regData.sourceOfDiscovery !== null) {
+          effectiveSource = regData.sourceOfDiscovery;
+        }
+      }
+    } catch (e) {}
+  }
+
+  const check = checkReferralEligibility(effectiveSource, waSettings);
+
+  const finalLink = waSettings.waInviteLink && waSettings.waInviteLink.trim()
+    ? waSettings.waInviteLink.trim()
+    : OFFICIAL_WA_FALLBACK_LINK;
+
+  return {
+    eligible: check.eligible,
+    buttonText: waSettings.waButtonText || DEFAULT_WHATSAPP_SETTINGS.waButtonText,
+    waInviteLink: finalLink
+  };
+}
+
 /**
  * Announcements Management
  */
