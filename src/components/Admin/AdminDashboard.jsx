@@ -50,6 +50,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import BrandLogo, { KRISHNA_ICON_SRC } from '../BrandLogo';
+import WhatsAppConfigModule from './WhatsAppConfigModule';
 import * as XLSX from 'xlsx';
 import { 
   fetchAllRegistrations, 
@@ -102,7 +103,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.toLowerCase();
-      if ((hash === '#settings' || hash === '#admin-settings') && isSuperAdminUser(adminUser)) {
+      if ((hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') && isSuperAdminUser(adminUser)) {
         return 'settings';
       }
     }
@@ -127,7 +128,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.toLowerCase();
-      if ((hash === '#settings' || hash === '#admin-settings') && isSuperAdmin) {
+      if ((hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') && isSuperAdmin) {
         setActiveTab('settings');
       } else {
         setActiveTab('participants');
@@ -2367,6 +2368,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* SECTION 6: WHATSAPP COMMUNITY JOINING SETTINGS */}
+            <div className="pt-2">
+              <WhatsAppConfigModule callerUser={adminUser} />
             </div>
 
           </div>

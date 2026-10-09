@@ -10,7 +10,6 @@ import RegistrationFlow from './components/Registration/RegistrationFlow';
 const AdminDashboard = React.lazy(() => import('./components/Admin/AdminDashboard'));
 const AdminLogin = React.lazy(() => import('./components/Admin/AdminLogin'));
 const StudentDashboard = React.lazy(() => import('./components/Student/StudentDashboard'));
-const WhatsAppTestPage = React.lazy(() => import('./components/Admin/WhatsAppTestPage'));
 
 export default function App() {
   const [programSettings, setProgramSettings] = useState(() => {
@@ -24,9 +23,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = (window.location.hash || '').toLowerCase();
-      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') return 'wa-test';
-      if (hash === '#register' || hash === '#registration') return 'register';
-      if (hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config' || hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
       if (hash === '#admin-login') return 'admin-login';
       if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
       try {
@@ -239,13 +236,10 @@ export default function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = (window.location.hash || '').toLowerCase();
-      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
-        setCurrentView('wa-test');
-        setLoginModalOpen(false);
-      } else if (hash === '#register' || hash === '#registration') {
+      if (hash === '#register' || hash === '#registration') {
         setCurrentView('register');
         setLoginModalOpen(false);
-      } else if (hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') {
+      } else if (hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
         setCurrentView('admin');
         setLoginModalOpen(false);
       } else if (hash === '#admin-login') {
@@ -395,24 +389,6 @@ export default function App() {
         <StudentDashboard 
           studentUser={studentUser} 
           onLogout={handleStudentLogout} 
-        />
-      </React.Suspense>
-    );
-  }
-
-  if (currentView === 'wa-test') {
-    return (
-      <React.Suspense fallback={
-        <div className="min-h-screen bg-cream-100 flex items-center justify-center font-poppins text-temple-700">
-          <div className="text-center space-y-3">
-            <div className="w-10 h-10 border-2 border-saffron-500 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-sm font-medium font-semibold">Loading WhatsApp Access Portal...</p>
-          </div>
-        </div>
-      }>
-        <WhatsAppTestPage 
-          onBackToHome={goToHome} 
-          adminUser={adminUser} 
         />
       </React.Suspense>
     );
