@@ -43,7 +43,7 @@ export default function FindRegistration({ onFound, onBack }) {
           Check Your Registration
         </h2>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          Enter your registered mobile number to confirm your registration and get your community link.
+          Enter your registered mobile number to confirm your registration and join our Gita for Youth (YuvaSetu) Community.
         </p>
       </div>
 
