@@ -174,10 +174,186 @@ service cloud.firestore {
         || get(/databases/$(database)/documents/BhagavadGita/data/registrations/$(resource.data.registrationId)).data.get('isDeleted', false) == true;
     }
 
-    // Quizzes are visible to verified students; managed from the Firebase Console for now
+    // ---------------------------------------------------------------------------
+    // WEEKLY QUIZZES
+    //   portalQuizzes/{quizId}               questions + options only (no answers)
+    //   portalQuizKeys/{quizId}              correct answers, hidden until results are due
+    //   quizProgress/{quizId}_{regId}        attempt count per student per quiz (absent = Not Attempted)
+    //   quizAttempts/{quizId}_{regId}_{n}    submitted answers, create-only
+    // Students only ever write answers. Scores are computed from answers + key, so they
+    // cannot be changed by a student.
+    // ---------------------------------------------------------------------------
+
+    // Quiz managers: the Firebase Auth account (same email + password as the admin login) of
+    // an active Super Admin, or of an email listed in quizManagers/{email} (Console only).
+    // NOTE: BhagavadGita/data/admins is still publicly writable (Phase 2), so until that is
+    // locked down, quiz management is only as protected as the admin dashboard itself.
+    // Quiz-access accounts are named <admin doc id>@gfy-quiz.invalid; a real email maps to
+    // the same doc id the admin dashboard uses (non a-z0-9 characters become _).
+    function adminDocId() {
+      let e = request.auth.token.email.lower();
+      return e.matches('^[a-z0-9_]+@gfy-quiz[.]invalid$') ? e.split('@')[0] : e.replace('[^a-z0-9]', '_');
+    }
+
+    function adminRecord() {
+      return get(/databases/$(database)/documents/BhagavadGita/data/admins/$(adminDocId())).data;
+    }
+
+    function isActiveSuperAdmin() {
+      let a = adminRecord();
+      return a.get('role', '') in ['Super Admin', 'Super Administrator']
+        && a.get('isDeleted', false) != true
+        && a.get('status', 'Active') != 'Revoked';
+    }
+
+    function isQuizManager() {
+      return isSignedIn() && request.auth.token.email != null
+        && (exists(/databases/$(database)/documents/quizManagers/$(request.auth.token.email.lower()))
+            || isActiveSuperAdmin());
+    }
+
+    match /quizManagers/{email} {
+      // A signed-in manager may check their own entry, nothing else
+      allow get: if isSignedIn() && request.auth.token.email != null && email == request.auth.token.email.lower();
+      allow list, write: if false;
+    }
+
+    // A verified student whose account is linked to a registration
+    function isLinkedStudent() {
+      return isVerifiedStudent() && exists(/databases/$(database)/documents/portalAccounts/$(request.auth.uid));
+    }
+
+    function myRegistrationId() {
+      return get(/databases/$(database)/documents/portalAccounts/$(request.auth.uid)).data.registrationId;
+    }
+
+    function quizDoc(quizId) {
+      return get(/databases/$(database)/documents/portalQuizzes/$(quizId)).data;
+    }
+
+    function validQuiz(d) {
+      return d.keys().hasOnly(['title', 'weekNumber', 'description', 'instructions', 'opensAt', 'closesAt',
+          'maxAttempts', 'scorePolicy', 'questions', 'questionCount', 'published', 'publishedAt',
+          'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && (d.get('weekNumber', null) == null || d.weekNumber is int)
+        && d.questions is list && d.questions.size() <= 100
+        && d.questionCount == d.questions.size()
+        && d.maxAttempts is int && d.maxAttempts >= 1 && d.maxAttempts <= 5
+        && d.scorePolicy in ['best', 'latest']
+        && d.published is bool
+        && (d.get('opensAt', null) == null || d.opensAt is timestamp)
+        && (d.get('closesAt', null) == null || d.closesAt is timestamp)
+        // A published quiz must have questions and an opening time
+        && (d.published == false || (d.questions.size() > 0 && d.get('opensAt', null) is timestamp))
+        && d.updatedAt == request.time
+        && d.updatedBy == request.auth.token.email.lower();
+    }
+
     match /portalQuizzes/{quizId} {
-      allow read: if isVerifiedStudent();
-      allow write: if false;
+      // Students see published quizzes only; managers see everything (drafts too)
+      allow get, list: if isQuizManager() || (isLinkedStudent() && resource.data.published == true);
+      allow create: if isQuizManager()
+        && validQuiz(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.get('publishedAt', null) == (request.resource.data.published ? request.time : null);
+      allow update: if isQuizManager()
+        && validQuiz(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        // publishedAt records the first publish and never changes after that
+        && (resource.data.get('publishedAt', null) != null
+              ? request.resource.data.get('publishedAt', null) == resource.data.publishedAt
+              : request.resource.data.get('publishedAt', null) == (request.resource.data.published ? request.time : null));
+      // Only drafts that were never published, so no attempt history is ever orphaned
+      allow delete: if isQuizManager() && resource.data.get('publishedAt', null) == null;
+    }
+
+    // Results are due once the student has used every attempt, chose to finish early,
+    // or the quiz has closed.
+    function resultsReleased(quizId) {
+      let quiz = quizDoc(quizId);
+      let progress = get(/databases/$(database)/documents/quizProgress/$(quizId + '_' + myRegistrationId())).data;
+      return progress.uid == request.auth.uid
+        && (progress.finished == true
+            || progress.attempts >= quiz.maxAttempts
+            || (quiz.get('closesAt', null) != null && request.time > quiz.closesAt));
+    }
+
+    match /portalQuizKeys/{quizId} {
+      allow get: if isQuizManager() || (isLinkedStudent() && resultsReleased(quizId));
+      allow list: if isQuizManager();
+      allow create, update: if isQuizManager()
+        && request.resource.data.keys().hasOnly(['answers', 'explanations', 'updatedAt'])
+        && request.resource.data.answers is map
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isQuizManager() && quizDoc(quizId).get('publishedAt', null) == null;
+    }
+
+    function progressPath(pid) {
+      return /databases/$(database)/documents/quizProgress/$(pid);
+    }
+
+    function attemptPath(aid) {
+      return /databases/$(database)/documents/quizAttempts/$(aid);
+    }
+
+    match /quizProgress/{pid} {
+      allow get, list: if isQuizManager() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      // First attempt (written in the same batch as quizAttempts/{pid}_1)
+      allow create: if isLinkedStudent()
+        && request.resource.data.keys().hasOnly(['quizId', 'registrationId', 'uid', 'attempts', 'finished', 'firstSubmittedAt', 'lastSubmittedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.registrationId == myRegistrationId()
+        && pid == request.resource.data.quizId + '_' + request.resource.data.registrationId
+        && request.resource.data.attempts == 1
+        && request.resource.data.finished == false
+        && request.resource.data.firstSubmittedAt == request.time
+        && request.resource.data.lastSubmittedAt == request.time
+        && existsAfter(attemptPath(pid + '_1'));
+      allow update: if isLinkedStudent() && resource.data.uid == request.auth.uid && (
+          // A retake (written in the same batch as its attempt)
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attempts', 'lastSubmittedAt'])
+            && request.resource.data.attempts == resource.data.attempts + 1
+            && request.resource.data.lastSubmittedAt == request.time
+            && resource.data.finished == false
+            && existsAfter(attemptPath(pid + '_' + string(request.resource.data.attempts))))
+          // Finishing early to see results (gives up remaining attempts)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finished'])
+            && request.resource.data.finished == true)
+        );
+      allow delete: if false;
+    }
+
+    match /quizAttempts/{aid} {
+      allow get, list: if isQuizManager() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isLinkedStudent() && attemptAllowed(aid, request.resource.data);
+      allow update, delete: if false;
+    }
+
+    function attemptAllowed(aid, d) {
+      let quiz = quizDoc(d.quizId);
+      let pid = d.quizId + '_' + d.registrationId;
+      return d.keys().hasOnly(['quizId', 'registrationId', 'uid', 'attemptNumber', 'answers', 'submittedAt', 'timeTakenSec'])
+        // Time the student spent answering (reported by their device; up to 30 days)
+        && (d.get('timeTakenSec', null) == null
+          || (d.timeTakenSec is int && d.timeTakenSec >= 0 && d.timeTakenSec <= 2592000))
+        && d.uid == request.auth.uid
+        && d.registrationId == myRegistrationId()
+        && d.attemptNumber is int
+        && d.attemptNumber >= 1
+        && d.attemptNumber <= quiz.maxAttempts
+        && aid == pid + '_' + string(d.attemptNumber)
+        // The progress doc in the same batch counts this attempt (so attempts go 1, 2, 3...)
+        && getAfter(progressPath(pid)).data.attempts == d.attemptNumber
+        && (!exists(progressPath(pid)) || get(progressPath(pid)).data.finished == false)
+        && quiz.published == true
+        && request.time >= quiz.opensAt
+        // Two minutes of grace for a submission sent just before closing
+        && (quiz.get('closesAt', null) == null || request.time <= quiz.closesAt + duration.value(2, 'm'))
+        && d.answers is map
+        && d.answers.size() <= quiz.questionCount
+        && d.submittedAt == request.time;
     }
 
     // Direct root level trash backup fallback

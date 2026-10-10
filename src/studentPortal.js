@@ -357,11 +357,6 @@ export async function fetchMyWhatsAppAccess(profile) {
   });
 }
 
-export async function fetchPublishedQuizzes() {
-  const snap = await getDocs(query(collection(db, 'portalQuizzes'), where('published', '==', true), limit(50)));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
 // ---------------------------------------------------------------------------
 // "Don't remember which email you used?" (first-time setup)
 // ---------------------------------------------------------------------------

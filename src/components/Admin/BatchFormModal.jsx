@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, Calendar, MapPin, Sparkles } from 'lucide-react';
+import { X, Clock, Calendar, MapPin, Sparkles, Video } from 'lucide-react';
+import FancySelect from '../common/FancySelect';
+import DatePicker from '../common/DatePicker';
 
 const HOURS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
@@ -244,14 +246,14 @@ export default function BatchFormModal({
             </div>
             <div>
               <label className="block font-semibold mb-1 text-temple-800">Mode</label>
-              <select
+              <FancySelect
+                size="sm"
+                ariaLabel="Mode"
+                className="w-full"
                 value={mode}
-                onChange={(e) => handleModeChange(e.target.value)}
-                className="w-full p-2 border border-cream-300 rounded-lg bg-white text-xs font-semibold text-temple-800 focus:ring-1 focus:ring-saffron-500 cursor-pointer"
-              >
-                <option value="Offline">Offline</option>
-                <option value="Online">Online</option>
-              </select>
+                onChange={handleModeChange}
+                options={[{ value: 'Offline', label: 'Offline', Icon: MapPin }, { value: 'Online', label: 'Online', Icon: Video }]}
+              />
             </div>
           </div>
 
@@ -264,21 +266,11 @@ export default function BatchFormModal({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <span className="text-[10px] text-temple-600 block mb-0.5 font-medium">From Date (Start):</span>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full p-1.5 border border-cream-300 rounded-lg bg-white text-xs text-temple-900 focus:ring-1 focus:ring-saffron-500 focus:outline-none cursor-pointer"
-                />
+                <DatePicker ariaLabel="Start date" value={startDate} onChange={setStartDate} placeholder="Choose date" />
               </div>
               <div>
                 <span className="text-[10px] text-temple-600 block mb-0.5 font-medium">To Date (End):</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full p-1.5 border border-cream-300 rounded-lg bg-white text-xs text-temple-900 focus:ring-1 focus:ring-saffron-500 focus:outline-none cursor-pointer"
-                />
+                <DatePicker align="right" ariaLabel="End date" value={endDate} onChange={setEndDate} placeholder="Choose date" />
               </div>
             </div>
           </div>
@@ -302,15 +294,14 @@ export default function BatchFormModal({
             {/* Frequency Selection */}
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-medium text-temple-600 w-16 flex-shrink-0">Frequency:</span>
-              <select
+              <FancySelect
+                size="xs"
+                ariaLabel="Frequency"
+                className="flex-1"
                 value={frequency}
-                onChange={(e) => setFrequency(e.target.value)}
-                className="flex-1 p-1.5 rounded-lg border border-cream-300 bg-white text-xs text-temple-800 font-medium focus:ring-1 focus:ring-saffron-500 cursor-pointer"
-              >
-                {FREQUENCIES.map((f) => (
-                  <option key={f.value} value={f.value}>{f.label}</option>
-                ))}
-              </select>
+                onChange={setFrequency}
+                options={FREQUENCIES.map((f) => ({ value: f.value, label: f.label }))}
+              />
             </div>
 
             {/* Start Time Digit Selectors */}
@@ -320,26 +311,22 @@ export default function BatchFormModal({
               </span>
               <div className="flex items-center gap-1">
                 {/* Hours Dropdown */}
-                <select
+                <FancySelect
+                  size="xs"
+                  ariaLabel="Hour"
                   value={startHour}
-                  onChange={(e) => setStartHour(e.target.value)}
-                  className="p-1 px-2 rounded-lg border border-cream-300 bg-white text-xs font-bold text-temple-900 text-center cursor-pointer focus:ring-1 focus:ring-saffron-500"
-                >
-                  {HOURS.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
+                  onChange={setStartHour}
+                  options={HOURS.map((x) => ({ value: x, label: x }))}
+                />
                 <span className="font-bold text-temple-600">:</span>
                 {/* Minutes Dropdown */}
-                <select
+                <FancySelect
+                  size="xs"
+                  ariaLabel="Minute"
                   value={startMinute}
-                  onChange={(e) => setStartMinute(e.target.value)}
-                  className="p-1 px-2 rounded-lg border border-cream-300 bg-white text-xs font-bold text-temple-900 text-center cursor-pointer focus:ring-1 focus:ring-saffron-500"
-                >
-                  {MINUTES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
+                  onChange={setStartMinute}
+                  options={MINUTES.map((x) => ({ value: x, label: x }))}
+                />
                 {/* AM / PM Toggle */}
                 <div className="flex rounded-lg border border-cream-300 overflow-hidden bg-white text-xs font-semibold ml-1">
                   <button
@@ -369,25 +356,21 @@ export default function BatchFormModal({
               <div className="flex items-center gap-2 pt-1 border-t border-cream-200/80">
                 <span className="text-[11px] font-medium text-temple-600 w-16 flex-shrink-0">End Time:</span>
                 <div className="flex items-center gap-1">
-                  <select
+                  <FancySelect
+                    size="xs"
+                    ariaLabel="Hour"
                     value={endHour}
-                    onChange={(e) => setEndHour(e.target.value)}
-                    className="p-1 px-2 rounded-lg border border-cream-300 bg-white text-xs font-bold text-temple-900 text-center cursor-pointer focus:ring-1 focus:ring-saffron-500"
-                  >
-                    {HOURS.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
+                    onChange={setEndHour}
+                    options={HOURS.map((x) => ({ value: x, label: x }))}
+                  />
                   <span className="font-bold text-temple-600">:</span>
-                  <select
+                  <FancySelect
+                    size="xs"
+                    ariaLabel="Minute"
                     value={endMinute}
-                    onChange={(e) => setEndMinute(e.target.value)}
-                    className="p-1 px-2 rounded-lg border border-cream-300 bg-white text-xs font-bold text-temple-900 text-center cursor-pointer focus:ring-1 focus:ring-saffron-500"
-                  >
-                    {MINUTES.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+                    onChange={setEndMinute}
+                    options={MINUTES.map((x) => ({ value: x, label: x }))}
+                  />
                   <div className="flex rounded-lg border border-cream-300 overflow-hidden bg-white text-xs font-semibold ml-1">
                     <button
                       type="button"

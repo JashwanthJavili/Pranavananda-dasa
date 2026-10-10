@@ -40,7 +40,7 @@ export function helpCooldownLeft() {
 export function validateHelpRequest(req) {
   // Same order as the fields on the form.
   if (!HELP_CATEGORIES.includes(req.category)) return 'Please choose what you need help with.';
-  if (!req.message || req.message.trim().length < 10) return 'Please describe the problem in a few words (at least 10 characters).';
+  if (!req.message || req.message.trim().length < 10) return 'Please write a few words about your request (at least 10 characters).';
   if (!req.name || req.name.trim().length < 2) return 'Please enter your name.';
   if (!EMAIL_RE.test((req.email || '').trim())) return 'Please enter a valid email address so we can reply to you.';
   const digits = (req.mobile || '').replace(/\D/g, '');

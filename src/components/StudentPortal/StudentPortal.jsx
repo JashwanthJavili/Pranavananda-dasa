@@ -15,15 +15,16 @@ import {
   studentLogout,
   fetchMyProfile,
   fetchMyWhatsAppAccess,
-  fetchPublishedQuizzes,
   authErrorMessage,
 } from '../../studentPortal';
+import { fetchPublishedQuizzes, fetchMyQuizProgress } from '../../quiz/studentQuizzes';
+import StudentQuizzes, { useQuizSummary } from './quiz/StudentQuizzes';
 import PortalAuth from './PortalAuth';
 import HelpModal from './HelpModal';
 import { OpenHelpContext } from './helpContext';
 import { mobileProblem } from '../../utils/mobile';
 import { ConfirmLinkEmail, ConfirmMobile, CreatePassword } from './Onboarding';
-import { DashboardView, QuizzesView, ProfileView } from './PortalViews';
+import { DashboardView, ProfileView } from './PortalViews';
 import { FullScreenLoader, Notice, PortalCard, PrimaryButton } from './ui';
 
 const TABS = [
@@ -411,8 +412,24 @@ function PortalHome({ user, onLogout, onBackToHome }) {
   const [profile, setProfile] = useState(undefined);
   const [whatsapp, setWhatsapp] = useState(undefined);
   const [quizzes, setQuizzes] = useState(undefined);
+  const [quizProgress, setQuizProgress] = useState(undefined);
   const [quizError, setQuizError] = useState('');
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const quizSummary = useQuizSummary(quizzes, quizProgress);
+
+  const loadQuizzes = useCallback(async () => {
+    try {
+      const [q, p] = await Promise.all([fetchPublishedQuizzes(), fetchMyQuizProgress(user.uid)]);
+      setQuizzes(q);
+      setQuizProgress(p);
+      setQuizError('');
+    } catch (err) {
+      console.warn('Quizzes could not be loaded:', err?.code || err);
+      setQuizzes((prev) => prev || []);
+      setQuizProgress((prev) => prev || {});
+      setQuizError('Quizzes could not be loaded right now. Please check your connection and try again.');
+    }
+  }, [user.uid]);
 
   useEffect(() => {
     let alive = true;
@@ -423,18 +440,16 @@ function PortalHome({ user, onLogout, onBackToHome }) {
         fetchMyWhatsAppAccess(p).then((w) => alive && setWhatsapp(w)).catch(() => alive && setWhatsapp(null));
       })
       .catch(() => alive && setProfile(null));
-    fetchPublishedQuizzes()
-      .then((q) => alive && setQuizzes(q))
-      .catch(() => {
-        if (!alive) return;
-        setQuizzes([]);
-        setQuizError('Quizzes could not be loaded right now.');
-      });
+    loadQuizzes();
     return () => { alive = false; };
-  }, [user]);
+  }, [user, loadQuizzes]);
 
+  // Re-selecting a tab starts it fresh (e.g. Quizzes goes back to the list).
+  const [tabVisit, setTabVisit] = useState(0);
   const open = (key) => {
     setTab(key);
+    setTabVisit((v) => v + 1);
+    if (key === 'quizzes') loadQuizzes();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -484,13 +499,21 @@ function PortalHome({ user, onLogout, onBackToHome }) {
         ) : profile === null ? (
           <div className="max-w-md mx-auto">
             <Notice type="error">
-              We couldn't load your registration details. Please try again later, or contact the Gita for Youth team.
+              We could not load your registration details just now. Kindly try again in a little while, or tap Need help? at the top and we will look into it.
             </Notice>
           </div>
         ) : tab === 'dashboard' ? (
-          <DashboardView profile={profile} whatsapp={whatsapp} quizzes={quizzes} onOpen={open} />
+          <DashboardView profile={profile} whatsapp={whatsapp} quizSummary={quizSummary} onOpen={open} />
         ) : tab === 'quizzes' ? (
-          <QuizzesView quizzes={quizzes} error={quizError} />
+          <StudentQuizzes
+            key={`quizzes-${tabVisit}`}
+            user={user}
+            profile={profile}
+            quizzes={quizzes}
+            progress={quizProgress}
+            error={quizError}
+            onReload={loadQuizzes}
+          />
         ) : (
           <ProfileView profile={profile} />
         )}
@@ -517,7 +540,7 @@ function PortalHome({ user, onLogout, onBackToHome }) {
         <div className="fixed inset-0 z-50 bg-temple-900/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-xs bg-cream-50 rounded-3xl p-6 text-center space-y-4 shadow-soft-lg border border-cream-200">
             <h3 className="font-display text-2xl font-bold">Log out?</h3>
-            <p className="text-sm text-temple-600">You can log back in any time with your email and password.</p>
+            <p className="text-sm text-temple-600">You can log in again any time with your email or mobile number and your password.</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirmLogout(false)} className="w-1/2 py-2.5 rounded-xl border border-cream-300 bg-white text-sm font-medium cursor-pointer">
                 Stay

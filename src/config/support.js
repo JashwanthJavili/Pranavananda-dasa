@@ -12,6 +12,7 @@ export const HELP_CATEGORIES = [
   'Unable to log in',
   'Forgot password / reset not working',
   'Problem with first-time setup',
+  'Edit my profile details',
   'My registration details are wrong',
   'WhatsApp community link',
   'Quizzes',

@@ -33,7 +33,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const hash = (window.location.hash || '').toLowerCase();
       if (isStudentPortalUrl()) return 'portal';
-      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config' || hash === '#admin' || hash === '#admin-help' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config' || hash === '#admin' || hash === '#admin-help' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
       if (hash === '#admin-login') return 'admin-login';
       if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
       try {
@@ -120,7 +120,7 @@ export default function App() {
           const hash = (typeof window !== 'undefined' ? (window.location.hash || '').toLowerCase() : '');
           if (prev === 'portal' || isStudentPortalUrl()) return 'portal';
           if (hash === '#register' || hash === '#registration') return 'register';
-          if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+          if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
           if (hash === '#admin-login') return 'admin-login';
           if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
 
@@ -198,6 +198,8 @@ export default function App() {
 
   const handleAdminLogout = () => {
     setAdminUser(null);
+    // Quiz access ends with the admin session
+    import('./quiz/quizAdmin').then((m) => m.quizManagerSignOut()).catch(() => {});
     try {
       localStorage.removeItem('gita_amrita_admin_session');
     } catch (e) {}
@@ -253,7 +255,7 @@ export default function App() {
       } else if (hash === '#register' || hash === '#registration') {
         setCurrentView('register');
         setLoginModalOpen(false);
-      } else if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
+      } else if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
         setCurrentView('admin');
         setLoginModalOpen(false);
       } else if (hash === '#admin-login') {

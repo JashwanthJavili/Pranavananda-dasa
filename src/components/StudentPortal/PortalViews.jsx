@@ -1,7 +1,47 @@
 import React, { useState } from 'react';
 import {
-  MessageCircle, BookOpen, Copy, Check, User, ChevronRight, Sparkles,
+  MessageCircle, BookOpen, Copy, Check, User, ChevronRight, UserPen,
 } from 'lucide-react';
+import { useOpenHelp } from './helpContext';
+
+export const EDIT_DETAILS_CATEGORY = 'Edit my profile details';
+
+/** "Want to change something?" note with a button that opens Need help, ready to ask for the change. */
+function EditDetailsNote({ compact = false }) {
+  const openHelp = useOpenHelp();
+  const ask = () => openHelp({ category: EDIT_DETAILS_CATEGORY });
+  if (compact) {
+    return (
+      <p className="text-[11px] sm:text-xs text-temple-500 px-1">
+        Would you like to change any of your details?{' '}
+        <button type="button" onClick={ask} className="font-semibold text-saffron-700 hover:underline underline-offset-2 cursor-pointer">
+          Kindly request it through Need help
+        </button>
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-3xl border border-saffron-200 bg-saffron-50/70 px-4 sm:px-5 py-4">
+      <span className="shrink-0 w-10 h-10 rounded-2xl bg-white border border-saffron-200 flex items-center justify-center text-saffron-600">
+        <UserPen className="w-5 h-5" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-temple-900">Want to edit your details?</p>
+        <p className="text-xs text-temple-600 leading-relaxed">
+          Details cannot be changed here directly. Kindly send a request through <strong>Need help</strong> and tell us what
+          should be changed. The Gita for Youth team will update it for you.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={ask}
+        className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-sm font-semibold shadow-soft cursor-pointer"
+      >
+        <UserPen className="w-4 h-4" /> Request an edit
+      </button>
+    </div>
+  );
+}
 
 const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'Seeker';
 
@@ -40,8 +80,16 @@ function RegistrationChip({ id }) {
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
-export function DashboardView({ profile, whatsapp, quizzes, onOpen }) {
-  const quizCount = quizzes?.length || 0;
+export function DashboardView({ profile, whatsapp, quizSummary, onOpen }) {
+  const quizLine = !quizSummary
+    ? 'Loading…'
+    : quizSummary.open
+      ? `${quizSummary.open} quiz${quizSummary.open === 1 ? ' is' : 'zes are'} waiting for you`
+      : quizSummary.completed
+        ? `${quizSummary.completed} completed · thank you 🙏`
+        : quizSummary.total
+          ? 'The next quiz will open soon'
+          : 'The first quiz will appear here soon';
   return (
     <div className="space-y-5 sm:space-y-6 animate-fadeIn">
       {/* Welcome */}
@@ -53,21 +101,48 @@ export function DashboardView({ profile, whatsapp, quizzes, onOpen }) {
             Welcome, {firstName(profile.fullName)}
           </h2>
           <p className="text-sm text-temple-600 max-w-xl leading-relaxed">
-            Your journey with Gita for Youth begins here. Join the community, take part in quizzes and keep your details handy.
+            We are grateful to have you with Gita for Youth. Here you can join our community, take the weekly quiz and see your registration details.
           </p>
           <RegistrationChip id={profile.registrationId} />
         </div>
       </section>
 
       {/* Verse */}
-      <section className="rounded-3xl bg-temple-900 text-cream-100 p-6 sm:p-7 shadow-soft-lg">
-        <p className="font-display text-lg sm:text-xl italic leading-relaxed text-gold-200">
-          “You have a right to perform your prescribed duty, but you are not entitled to the fruits of action.”
-        </p>
-        <p className="mt-3 text-xs tracking-widest uppercase text-gold-400">Bhagavad Gita 2.47</p>
-      </section>
+      <figure className="relative overflow-hidden rounded-2xl border border-gold-200 bg-gradient-to-r from-cream-50 to-saffron-50/70 shadow-soft px-4 py-3 sm:px-5 sm:py-3.5 flex items-start gap-3">
+        <span aria-hidden className="shrink-0 font-display text-4xl leading-[0.8] text-gold-400 select-none">“</span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <blockquote className="font-display text-[16px] italic font-semibold text-temple-900 leading-snug">
+            You have a right to perform your prescribed duty, but you are not entitled to the fruits of action.
+          </blockquote>
+          <figcaption className="text-right text-xs font-medium text-saffron-700" title="Bhagavad Gita, chapter 2, verse 47">— BG 2.47</figcaption>
+        </div>
+      </figure>
 
       <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
+        {/* Quizzes summary */}
+        <button
+          type="button"
+          onClick={() => onOpen('quizzes')}
+          className="text-left rounded-3xl bg-cream-50 border border-cream-200 p-5 sm:p-6 shadow-soft space-y-4 hover:border-gold-300 hover:shadow-soft-md transition cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-saffron-100 border border-saffron-200 flex items-center justify-center text-saffron-700">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-temple-900">Quizzes</h3>
+              <p className="text-xs text-temple-500">{quizLine}</p>
+            </div>
+            {quizSummary?.open > 0 && (
+              <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-saffron-500 text-white text-[11px] font-bold flex items-center justify-center">
+                {quizSummary.open}
+              </span>
+            )}
+            <ChevronRight className="w-5 h-5 text-temple-400" />
+          </div>
+          <p className="text-xs sm:text-sm text-temple-600">A short quiz each week to help you reflect on what you have learnt.</p>
+        </button>
+
         {/* WhatsApp */}
         <section className="rounded-3xl bg-cream-50 border border-cream-200 p-5 sm:p-6 shadow-soft space-y-4">
           <div className="flex items-center gap-3">
@@ -75,8 +150,8 @@ export function DashboardView({ profile, whatsapp, quizzes, onOpen }) {
               <MessageCircle className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-temple-900">Community &amp; Help</h3>
-              <p className="text-xs text-temple-500">Updates, session links and support</p>
+              <h3 className="font-semibold text-temple-900">WhatsApp Community</h3>
+              <p className="text-xs text-temple-500">Session updates and announcements</p>
             </div>
           </div>
           {whatsapp === undefined ? (
@@ -93,80 +168,24 @@ export function DashboardView({ profile, whatsapp, quizzes, onOpen }) {
             </a>
           ) : (
             <p className="text-xs sm:text-sm text-temple-600 bg-cream-100 border border-cream-200 rounded-xl px-3.5 py-3">
-              The community link will appear here once it's available. For help, please reach out to the Gita for Youth team.
+              The community link will appear here soon. If you need anything meanwhile, kindly tap <strong>Need help?</strong> at the top.
             </p>
           )}
         </section>
-
-        {/* Quizzes summary */}
-        <button
-          type="button"
-          onClick={() => onOpen('quizzes')}
-          className="text-left rounded-3xl bg-cream-50 border border-cream-200 p-5 sm:p-6 shadow-soft space-y-4 hover:border-gold-300 hover:shadow-soft-md transition cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-saffron-100 border border-saffron-200 flex items-center justify-center text-saffron-700">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-temple-900">Quizzes</h3>
-              <p className="text-xs text-temple-500">
-                {quizzes === undefined ? 'Loading…' : quizCount ? `${quizCount} available` : 'None available yet'}
-              </p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-temple-400" />
-          </div>
-          <p className="text-xs sm:text-sm text-temple-600">Reflect on what you learn with short quizzes after each session.</p>
-        </button>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onOpen('profile')}
-        className="w-full flex items-center gap-3 rounded-2xl bg-white/70 border border-cream-200 px-4 py-3.5 text-left hover:border-gold-300 transition cursor-pointer"
-      >
-        <User className="w-5 h-5 text-saffron-600" />
-        <span className="flex-1 text-sm font-medium text-temple-800">View your registration details</span>
-        <ChevronRight className="w-4 h-4 text-temple-400" />
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Quizzes
-// ---------------------------------------------------------------------------
-export function QuizzesView({ quizzes, error }) {
-  return (
-    <div className="space-y-5 animate-fadeIn">
-      <SectionTitle>Quizzes</SectionTitle>
-      {error ? (
-        <p className="text-sm text-red-600">{error}</p>
-      ) : quizzes === undefined ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[0, 1].map((i) => <div key={i} className="h-32 rounded-3xl bg-cream-200 animate-pulse" />)}
-        </div>
-      ) : quizzes.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-gold-300 bg-cream-50 px-6 py-12 sm:py-16 text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gold-100 border border-gold-200 flex items-center justify-center text-gold-600">
-            <Sparkles className="w-7 h-7" />
-          </div>
-          <h4 className="font-display text-2xl font-bold text-temple-900">No quizzes available yet</h4>
-          <p className="text-sm text-temple-600 max-w-sm mx-auto">Please check back soon. New quizzes will appear here as the sessions progress.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {quizzes.map((q) => (
-            <article key={q.id} className="rounded-3xl bg-cream-50 border border-cream-200 p-5 shadow-soft space-y-2">
-              <h4 className="font-semibold text-temple-900">{q.title || 'Untitled quiz'}</h4>
-              {q.description && <p className="text-sm text-temple-600">{q.description}</p>}
-              <p className="text-xs text-temple-500">
-                {Array.isArray(q.questions) ? `${q.questions.length} questions` : 'Opens soon'}
-              </p>
-            </article>
-          ))}
-        </div>
-      )}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => onOpen('profile')}
+          className="w-full flex items-center gap-3 rounded-2xl bg-white/70 border border-cream-200 px-4 py-3.5 text-left hover:border-gold-300 transition cursor-pointer"
+        >
+          <User className="w-5 h-5 text-saffron-600" />
+          <span className="flex-1 text-sm font-medium text-temple-800">View my registration details</span>
+          <ChevronRight className="w-4 h-4 text-temple-400" />
+        </button>
+        <EditDetailsNote compact />
+      </div>
     </div>
   );
 }
@@ -210,9 +229,8 @@ export function ProfileView({ profile }) {
   return (
     <div className="space-y-5 animate-fadeIn">
       <SectionTitle>My Profile</SectionTitle>
-      <p className="text-xs sm:text-sm text-temple-500 -mt-2">
-        These are the details from your registration. To correct anything, please contact the Gita for Youth team.
-      </p>
+      <p className="text-xs sm:text-sm text-temple-500 -mt-2">These are the details you shared when you registered.</p>
+      <EditDetailsNote />
       <DetailGroup
         title="Registration"
         rows={[

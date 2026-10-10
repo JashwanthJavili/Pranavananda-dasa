@@ -27,15 +27,17 @@ import {
   updatePassword
 } from 'firebase/auth';
 import { firebaseConfig, APP_ENV } from './config/firebaseConfig';
+import { withEmulatorConfig, connectToEmulators } from './config/emulators';
 
 // Staging and production must not share cached admins in the same browser origin.
 export const ADMIN_CACHE_KEY = APP_ENV === 'staging' ? 'gita_amrita_cached_admins_stg' : 'gita_amrita_cached_admins';
 
 
 // Initialize Firebase App, Auth & Firestore
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(withEmulatorConfig(firebaseConfig));
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+connectToEmulators(auth, db);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -924,13 +926,24 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
     }
   } catch (e) {}
 
-  // 4. Update in Firebase Authentication if currentUser is signed in
+  // 4. Update in Firebase Authentication if this same admin is signed in
+  // (never another account, e.g. a student portal login in the same browser)
   try {
-    if (auth.currentUser) {
+    if (auth.currentUser && (auth.currentUser.email || '').toLowerCase() === targetEmail) {
       await updatePassword(auth.currentUser, newPassword);
     }
   } catch (authErr) {
     console.warn('Firebase Auth updatePassword note:', authErr);
+  }
+
+  // 5. Keep the Super Admin's quiz-manager password the same as the admin password
+  if (isSuperAdminUser(callerUser)) {
+    try {
+      const { syncQuizManagerPassword } = await import('./quiz/quizAdmin');
+      await syncQuizManagerPassword(targetEmail, currentPassword, newPassword);
+    } catch (err) {
+      console.warn('Quiz access password not updated:', err?.code || err);
+    }
   }
 
   return { success: true, message: 'Password updated successfully!' };
@@ -1081,6 +1094,17 @@ export async function signInWithGoogleUnified() {
  * Admin Authentication (Checked directly against Firestore database records)
  */
 export async function adminLogin(usernameOrEmail, password) {
+  const result = await adminLoginCheck(usernameOrEmail, password);
+  // Super Admins also get the quiz-manager session with the same password (no second login).
+  if (result.success && isSuperAdminUser(result.admin)) {
+    import('./quiz/quizAdmin')
+      .then((m) => m.linkQuizManagerSession(result.admin.email, password))
+      .catch((err) => console.warn('Quiz access could not be linked:', err?.code || err));
+  }
+  return result;
+}
+
+async function adminLoginCheck(usernameOrEmail, password) {
   const cleanInput = (usernameOrEmail || '').trim().toLowerCase();
   
   // 1. Check Firestore database admin collection

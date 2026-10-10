@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ChevronDown, Check, MailWarning, LogIn, KeyRound, UserCog, FileWarning, MessageCircle, BookOpen, HelpCircle,
+  ChevronDown, Check, MailWarning, LogIn, KeyRound, UserCog, UserPen, FileWarning, MessageCircle, BookOpen, HelpCircle,
 } from 'lucide-react';
 
 // Icon + short hint for each help category (keys match HELP_CATEGORIES in config/support.js).
@@ -9,7 +9,8 @@ const META = {
   'Unable to log in': { Icon: LogIn, hint: 'Email / mobile and password not working' },
   'Forgot password / reset not working': { Icon: KeyRound, hint: 'Reset link missing or not working' },
   'Problem with first-time setup': { Icon: UserCog, hint: 'Stuck while creating your account' },
-  'My registration details are wrong': { Icon: FileWarning, hint: 'Name, mobile or other details need correcting' },
+  'Edit my profile details': { Icon: UserPen, hint: 'Change your name, mobile, email or other details' },
+  'My registration details are wrong': { Icon: FileWarning, hint: 'Something in your registration is incorrect' },
   'WhatsApp community link': { Icon: MessageCircle, hint: 'Cannot see or join the group' },
   Quizzes: { Icon: BookOpen, hint: 'Questions about quizzes' },
   'Something else': { Icon: HelpCircle, hint: 'Anything not listed above' },

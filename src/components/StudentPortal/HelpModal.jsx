@@ -136,7 +136,7 @@ export default function HelpModal({ open, onClose, prefill }) {
                 <span className="block">Dear Devotee,</span>
               </p>
               <p className="text-sm text-temple-600 leading-relaxed">
-                We have received your request. Our team will humbly get back to you at <strong className="text-temple-800">{form.email.trim()}</strong> as soon as possible.
+                We have received your request. Our team will get back to you at <strong className="text-temple-800">{form.email.trim()}</strong> as soon as possible.
               </p>
               <p className="inline-block mt-1 px-3 py-1.5 rounded-full bg-white border border-gold-200 text-xs font-semibold text-temple-800">
                 Reference: {result.reference}
@@ -147,7 +147,7 @@ export default function HelpModal({ open, onClose, prefill }) {
         ) : (
           <form onSubmit={submit} className="px-5 sm:px-6 py-5 space-y-4" noValidate>
             <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-              Tell us what problem you are facing. Our team will reply to your email.
+              Kindly tell us how we can help. Our team will reply to your email.
             </p>
 
             {/* Honeypot: hidden from people, tempting for bots */}
@@ -172,14 +172,16 @@ export default function HelpModal({ open, onClose, prefill }) {
               />
             </Field>
 
-            <Field id="help-message" label="Describe the problem">
+            <Field id="help-message" label={form.category === 'Edit my profile details' ? 'What would you like to change?' : 'Please describe your request'}>
               <textarea
                 id="help-message"
                 rows={4}
                 maxLength={MESSAGE_MAX}
                 value={form.message}
                 onChange={set('message')}
-                placeholder="For example: I entered my mobile number and email, but I did not receive the verification email."
+                placeholder={form.category === 'Edit my profile details'
+                  ? 'For example: Please change my mobile number from 98xxxxxx10 to 98xxxxxx20.'
+                  : 'For example: I entered my mobile number and email, but I did not receive the verification email.'}
                 className="w-full px-4 py-3 rounded-xl bg-white border border-cream-300 text-sm text-temple-900 placeholder:text-temple-400 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 resize-y min-h-[110px]"
               />
               <p className="text-[11px] text-temple-400 text-right">{form.message.length}/{MESSAGE_MAX}</p>
