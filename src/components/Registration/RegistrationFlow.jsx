@@ -312,7 +312,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
         const dup = await checkDuplicateRegistration(formData.mobile, formData.email);
         if (dup.isDuplicate) {
           const fieldName = dup.field === 'mobile' ? 'mobile number' : 'email address';
-          setSubmitError(`This ${fieldName} is already registered. Use "Check Registration" to view your registration.`);
+          setSubmitError(`This ${fieldName} is already registered. Use "Already Registered?" to view your registration.`);
           return;
         }
       } catch (dupErr) {
@@ -391,7 +391,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                   className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-[11px] sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 cursor-pointer"
                 >
                   <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Check Registration</span>
+                  <span>Already Registered?</span>
                 </button>
               )}
               <a
