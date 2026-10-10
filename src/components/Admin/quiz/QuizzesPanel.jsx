@@ -57,8 +57,9 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
   const openEditor = async (quiz) => {
     if (!quiz) {
       const cache = loadEditorCache(null);
+      const nextWeek = Math.max(0, ...(quizzes || []).map((q) => Number(q.weekNumber) || 0)) + 1;
       return setEditing({
-        draft: cache?.draft || emptyDraft(),
+        draft: cache?.draft || { ...emptyDraft(), weekNumber: String(nextWeek) },
         saved: emptyDraft(),
         restored: cache ? { savedAt: cache.savedAt, stale: false } : null,
       });
@@ -167,6 +168,9 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
         attemptCount={attemptCount}
         onSave={onSave}
         onLeave={onLeave}
+        usedWeeks={Object.fromEntries((quizzes || [])
+          .filter((q) => q.weekNumber && q.id !== editing.quiz?.id)
+          .map((q) => [q.weekNumber, q.title]))}
       />
     );
   }

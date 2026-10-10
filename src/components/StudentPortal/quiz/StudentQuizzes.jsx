@@ -5,7 +5,7 @@ import {
 import QuizPlayer, { SCREEN_HEIGHT } from './QuizPlayer';
 import QuizResults from './QuizResults';
 import { Notice, PrimaryButton, FullScreenLoader, Spinner } from '../ui';
-import { availability, formatWhen, formatClock } from '../../../quiz/quizModel';
+import { availability, formatWhen, formatClock, toDate } from '../../../quiz/quizModel';
 import {
   resultsDue, fetchMyResults, submitQuizAttempt, finishQuizEarly, loadAnswerDraft, saveAnswerDraft,
   clearAnswerDraft, quizErrorMessage, loadElapsed, saveElapsed, explainSubmitFailure,
@@ -27,7 +27,7 @@ const STATE_CHIP = {
   'in-progress': { text: 'Retake available', cls: 'bg-gold-100 text-gold-600 border-gold-200' },
   completed: { text: 'Completed', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   upcoming: { text: 'Opening soon', cls: 'bg-saffron-50 text-saffron-700 border-saffron-200' },
-  missed: { text: 'Closed', cls: 'bg-cream-200 text-temple-500 border-cream-300' },
+  missed: { text: 'Not attempted', cls: 'bg-cream-200 text-temple-500 border-cream-300' }, // closed without an attempt
 };
 
 function windowText(quiz) {
@@ -156,10 +156,46 @@ function ListSkeleton() {
   );
 }
 
+/** Re-render every second while `active` (for live countdowns). */
+function useNow(active) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!active) return undefined;
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return now;
+}
+
+/** Short time left: "2d 4h", "5h 12m 09s", "12m 09s". */
+function timeLeft(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${pad(m)}m ${pad(total % 60)}s`;
+  return `${m}m ${pad(total % 60)}s`;
+}
+
+const TIMER_TONE = { open: 'text-saffron-700', closing: 'text-amber-700', urgent: 'text-red-600' };
+
 function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
-  const state = quizState(quiz, progress);
+  const opens = toDate(quiz.opensAt);
+  const closes = toDate(quiz.closesAt);
+  const ticking = Boolean((closes && closes > new Date()) || (opens && opens > new Date()));
+  const now = useNow(ticking);
+  const state = quizState(quiz, progress, now);
+  // Live countdown: to closing while it can still be attempted, or to opening
+  const timer = state === 'upcoming' && opens
+    ? { label: 'Opens in', ms: opens - now, tone: 'open', when: formatWhen(opens) }
+    : (state === 'not-attempted' || state === 'in-progress') && closes
+      ? { label: 'Closes in', ms: closes - now, tone: closes - now < 3600e3 ? 'urgent' : 'closing', when: formatWhen(closes) }
+      : null;
   const chip = STATE_CHIP[state];
   const max = quiz.maxAttempts || 1;
+  const qCount = quiz.questionCount || quiz.questions?.length || 0;
   return (
     <article className="flex flex-col rounded-3xl bg-cream-50 border border-cream-200 shadow-soft hover:shadow-soft-md hover:border-gold-300 transition p-5 sm:p-6 gap-4">
       <div className="flex items-start justify-between gap-3">
@@ -175,11 +211,19 @@ function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
         {quiz.description && <p className="text-sm text-temple-600 leading-relaxed line-clamp-3">{quiz.description}</p>}
       </div>
       <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-temple-500">
-        <li className="inline-flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5 text-gold-500" />{quiz.questionCount || quiz.questions?.length || 0} questions</li>
-        <li className="inline-flex items-center gap-1.5"><RotateCcw className="w-3.5 h-3.5 text-gold-500" />{max === 1 ? '1 attempt' : `${max} attempts`}</li>
-        <li className="inline-flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5 text-gold-500" />{windowText(quiz)}</li>
+        <li className="inline-flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5 text-gold-500" />{qCount} question{qCount === 1 ? '' : 's'}</li>
+        <li className="inline-flex items-center gap-1.5"><RotateCcw className="w-3.5 h-3.5 text-gold-500" />{max === 1 ? 'Only 1 attempt' : `${max} attempts`}</li>
+        {/* Upcoming and missed quizzes show their date in the box below instead */}
+        {timer && timer.ms > 0 ? (
+          // Live countdown in place of the date (exact date on hover / screen readers)
+          <li className={`inline-flex items-center gap-1.5 font-semibold tabular-nums ${TIMER_TONE[timer.tone]}`} title={timer.when} role="timer" aria-label={`${timer.label} ${timeLeft(timer.ms)}, ${timer.when}`}>
+            <Hourglass className={`w-3.5 h-3.5 ${timer.tone === 'urgent' ? 'animate-pulse' : ''}`} />{timer.label} {timeLeft(timer.ms)}
+          </li>
+        ) : state !== 'upcoming' && state !== 'missed' && (
+          <li className="inline-flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5 text-gold-500" />{windowText(quiz)}</li>
+        )}
       </ul>
-      {state === 'not-attempted' && (
+            {state === 'not-attempted' && (
         <PrimaryButton onClick={onStart}><PlayCircle className="w-4 h-4" /> Start quiz</PrimaryButton>
       )}
       {state === 'in-progress' && (
@@ -199,8 +243,8 @@ function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
         </div>
       )}
       {state === 'missed' && (
-        <div className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-cream-200/70 text-temple-500 text-sm font-medium">
-          <Lock className="w-4 h-4" /> This quiz has closed
+        <div className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-cream-200/70 text-temple-600 text-sm font-medium">
+          <Lock className="w-4 h-4" /> Closed on {formatWhen(quiz.closesAt)}
         </div>
       )}
     </article>

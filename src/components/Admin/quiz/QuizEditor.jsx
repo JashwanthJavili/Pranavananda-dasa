@@ -41,9 +41,10 @@ const whenSaved = (d) => (new Date().toDateString() === d.toDateString()
  * draft (onLeave(draft, dirty)); a published quiz keeps the changes on this device until you save.
  *  savedDraft: the quiz as last saved (to discard restored changes)
  *  restored: { savedAt, stale } when unfinished changes were restored from this device
+ *  usedWeeks: { [weekNumber]: title } of the other quizzes
  */
 export default function QuizEditor({
-  initialDraft, savedDraft, restored, quiz, attemptCount = 0, onSave, onLeave,
+  initialDraft, savedDraft, restored, quiz, attemptCount = 0, onSave, onLeave, usedWeeks = {},
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [busy, setBusy] = useState(null); // 'draft' | 'publish' | 'save' | 'leave'
@@ -57,6 +58,19 @@ export default function QuizEditor({
   const [focusId, setFocusId] = useState(null);
   const isPublished = Boolean(quiz?.published);
   const quizId = quiz?.id || null;
+
+  // Week dropdown: Week 1–52 (plus the current value if higher), showing weeks other quizzes already use
+  const weekOptions = useMemo(() => {
+    const current = Number(draft.weekNumber) || 0;
+    const top = Math.max(52, current, ...Object.keys(usedWeeks).map(Number));
+    return [
+      { value: '', label: 'No week' },
+      ...Array.from({ length: top }, (_, i) => {
+        const n = i + 1;
+        return { value: String(n), label: `Week ${n}`, hint: usedWeeks[n] ? `Used by “${usedWeeks[n]}”` : undefined };
+      }),
+    ];
+  }, [usedWeeks, draft.weekNumber]);
 
   // Keep unsaved work on this device: shortly after each change, and when the tab is closed
   const latest = useRef({ draft, dirty });
@@ -262,20 +276,16 @@ export default function QuizEditor({
               aria-label="Quiz title"
               className="flex-1 min-w-0 bg-transparent border-0 border-b-2 border-cream-300 focus:border-saffron-500 focus:outline-none font-display text-2xl sm:text-3xl font-bold text-temple-900 placeholder:text-temple-300 pb-1.5 transition"
             />
-            <label className="shrink-0 w-24">
-              <span className="sr-only">Week number</span>
-              <div className="flex items-center rounded-xl border border-cream-300 bg-white focus-within:ring-2 focus-within:ring-saffron-400/40 overflow-hidden">
-                <span className="pl-3 text-[11px] font-semibold text-temple-500">Week</span>
-                <input
-                  inputMode="numeric"
-                  value={draft.weekNumber}
-                  onChange={(e) => update({ weekNumber: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                  placeholder="–"
-                  aria-label="Week number"
-                  className="w-full px-2 py-2.5 text-sm font-bold text-temple-900 focus:outline-none bg-transparent"
-                />
-              </div>
-            </label>
+            <FancySelect
+              id="qz-week"
+              size="sm"
+              align="right"
+              ariaLabel="Week"
+              className="shrink-0 self-end"
+              value={String(draft.weekNumber ?? '')}
+              onChange={(v) => update({ weekNumber: v })}
+              options={weekOptions}
+            />
           </div>
           <textarea
             rows={2}
