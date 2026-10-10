@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LayoutDashboard, BookOpen, User, LogOut, Home } from 'lucide-react';
+import { LayoutDashboard, BookOpen, User, LogOut, Home, CheckCircle2, LifeBuoy } from 'lucide-react';
 import BrandLogo from '../BrandLogo';
 import {
   onStudentAuthChanged,
+  getCurrentStudent,
   isVerificationLink,
   completeVerificationLink,
   getPendingOnboarding,
@@ -18,6 +19,9 @@ import {
   authErrorMessage,
 } from '../../studentPortal';
 import PortalAuth from './PortalAuth';
+import HelpModal from './HelpModal';
+import { OpenHelpContext } from './helpContext';
+import { mobileProblem } from '../../utils/mobile';
 import { ConfirmLinkEmail, ConfirmMobile, CreatePassword } from './Onboarding';
 import { DashboardView, QuizzesView, ProfileView } from './PortalViews';
 import { FullScreenLoader, Notice, PortalCard, PrimaryButton } from './ui';
@@ -35,8 +39,16 @@ const CLAIMED_MSG =
 
 /**
  * Stages:
- *  loading | signed-out | confirm-link-email | confirm-mobile | create-password | portal | error
+ *  loading | signed-out | confirm-link-email | confirm-mobile | create-password | portal
+ *  | verified-elsewhere | continued-elsewhere | error
+ *
+ * Only one tab creates the password: a tab that reaches create-password posts 'claim',
+ * and any other tab on create-password steps aside (continued-elsewhere).
  */
+
+// Lets the tab opened from the email link hand the flow back to the tab that requested it.
+const CHANNEL_NAME = 'gfy-student-portal';
+const openChannel = () => (typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null);
 export default function StudentPortal({ onBackToHome }) {
   const [stage, setStage] = useState('loading');
   const [user, setUser] = useState(null);
@@ -44,6 +56,24 @@ export default function StudentPortal({ onBackToHome }) {
   const [stepError, setStepError] = useState('');
   const [busy, setBusy] = useState(false);
   const resolving = useRef(false);
+  const openedFromLink = useRef(isVerificationLink()); // read before the URL is cleaned
+  const channel = useRef(null);
+  const handedOffStage = useRef(null);
+
+  /** Ask whether another portal tab of this browser (the one that sent the email) is open. */
+  const isOtherTabOpen = useCallback(() => new Promise((resolve) => {
+    const ch = channel.current;
+    if (!ch) return resolve(false);
+    const timer = setTimeout(() => { ch.removeEventListener('message', onPong); resolve(false); }, 600);
+    function onPong(e) {
+      if (e.data !== 'pong') return;
+      clearTimeout(timer);
+      ch.removeEventListener('message', onPong);
+      resolve(true);
+    }
+    ch.addEventListener('message', onPong);
+    ch.postMessage('ping');
+  }), []);
 
   const signOutWith = useCallback(async (msg) => {
     setMessage(msg ? { type: 'error', text: msg } : null);
@@ -86,8 +116,21 @@ export default function StudentPortal({ onBackToHome }) {
         }
         linked = res.registrationId;
       }
+      // Setup is done for this browser; never show "Check your email" again.
+      setPendingOnboarding(null);
 
-      setStage((await hasCreatedPassword(u)) ? 'portal' : 'create-password');
+      const next = (await hasCreatedPassword(u)) ? 'portal' : 'create-password';
+
+      // Opened from the email while the original tab is still open: continue over there.
+      if (openedFromLink.current && next === 'create-password' && (await isOtherTabOpen())) {
+        openedFromLink.current = false;
+        handedOffStage.current = next;
+        channel.current?.postMessage('verified');
+        setStage('verified-elsewhere');
+        return;
+      }
+      openedFromLink.current = false;
+      setStage(next);
     } catch (err) {
       console.warn('Student portal resolve error:', err);
       setStepError('We could not load your account right now. Please check your connection and try again.');
@@ -95,7 +138,61 @@ export default function StudentPortal({ onBackToHome }) {
     } finally {
       resolving.current = false;
     }
-  }, [signOutWith]);
+  }, [signOutWith, isOtherTabOpen]);
+
+  // Verification often finishes in another tab or on the phone. When this tab is shown
+  // again (switching back, or Back restoring it from history), pick up the signed-in user.
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
+  useEffect(() => {
+    const recheck = () => {
+      if (document.visibilityState === 'hidden') return;
+      const u = getCurrentStudent();
+      if (u && stageRef.current === 'signed-out') {
+        setUser(u);
+        resolveUser(u);
+      }
+    };
+    window.addEventListener('focus', recheck);
+    window.addEventListener('pageshow', recheck);
+    document.addEventListener('visibilitychange', recheck);
+    return () => {
+      window.removeEventListener('focus', recheck);
+      window.removeEventListener('pageshow', recheck);
+      document.removeEventListener('visibilitychange', recheck);
+    };
+  }, [resolveUser]);
+
+  // Talk to other portal tabs: answer "are you open?", and continue when told the email is verified.
+  useEffect(() => {
+    const ch = openChannel();
+    channel.current = ch;
+    if (!ch) return undefined;
+    ch.onmessage = (e) => {
+      if (e.data === 'ping' && !openedFromLink.current) ch.postMessage('pong');
+      if (e.data === 'claim' && stageRef.current === 'create-password') setStage('continued-elsewhere');
+      if (e.data === 'password-set' && ['create-password', 'continued-elsewhere', 'verified-elsewhere'].includes(stageRef.current)) {
+        setStage('portal');
+      }
+      if (e.data === 'verified') {
+        const u = getCurrentStudent();
+        // If auth has not synced to this tab yet, onAuthStateChanged continues the flow.
+        if (u) {
+          setUser(u);
+          resolveUser(u);
+        }
+      }
+    };
+    return () => {
+      ch.close();
+      channel.current = null;
+    };
+  }, [resolveUser]);
+
+  // This tab is now the one creating the password: tell the others to step aside.
+  useEffect(() => {
+    if (stage === 'create-password') channel.current?.postMessage('claim');
+  }, [stage]);
 
   // Complete a verification link (if this page was opened from one), then follow auth state.
   useEffect(() => {
@@ -131,8 +228,8 @@ export default function StudentPortal({ onBackToHome }) {
 
   // Link opened on a different device/browser: ask for the registered email + mobile here.
   const handleConfirmLinkEmail = async ({ email, mobile, countryCode }) => {
-    if (mobile.length < 6) {
-      setStepError('Please enter your registered mobile number.');
+    if (mobileProblem(mobile, countryCode)) {
+      setStepError(mobileProblem(mobile, countryCode));
       return;
     }
     setBusy(true);
@@ -153,8 +250,8 @@ export default function StudentPortal({ onBackToHome }) {
   };
 
   const handleConfirmMobile = async (details) => {
-    if (details.mobile.length < 6) {
-      setStepError('Please enter your registered mobile number.');
+    if (mobileProblem(details.mobile, details.countryCode)) {
+      setStepError(mobileProblem(details.mobile, details.countryCode));
       return;
     }
     setBusy(true);
@@ -167,6 +264,7 @@ export default function StudentPortal({ onBackToHome }) {
     setStepError('');
     try {
       await setStudentPassword(user, password);
+      channel.current?.postMessage('password-set');
       setStage('portal');
     } catch (err) {
       if (err?.code === 'auth/requires-recent-login') {
@@ -188,6 +286,45 @@ export default function StudentPortal({ onBackToHome }) {
     content = <ConfirmMobile email={user?.email} onSubmit={handleConfirmMobile} onCancel={() => signOutWith(null)} error={stepError} loading={busy} />;
   else if (stage === 'create-password')
     content = <CreatePassword email={user?.email} onSubmit={handleCreatePassword} onCancel={() => signOutWith(null)} error={stepError} loading={busy} />;
+  else if (stage === 'verified-elsewhere')
+    content = (
+      <div className="max-w-md mx-auto w-full animate-fadeIn">
+        <PortalCard className="space-y-5 text-center">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-soft">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">✅ Email verified!</h2>
+            <p className="text-sm text-temple-600">Please go back to your previous tab to continue.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStage(handedOffStage.current || 'create-password')}
+            className="text-xs sm:text-sm font-medium text-saffron-700 hover:text-saffron-800 hover:underline underline-offset-4 cursor-pointer"
+          >
+            or continue here →
+          </button>
+        </PortalCard>
+      </div>
+    );
+  else if (stage === 'continued-elsewhere')
+    content = (
+      <div className="max-w-md mx-auto w-full animate-fadeIn">
+        <PortalCard className="space-y-5 text-center">
+          <div className="space-y-1.5">
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">Continuing in your other tab</h2>
+            <p className="text-sm text-temple-600">You chose to create your password in the other tab. You can close this tab.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStage('create-password')}
+            className="text-xs sm:text-sm font-medium text-saffron-700 hover:text-saffron-800 hover:underline underline-offset-4 cursor-pointer"
+          >
+            Continue here instead →
+          </button>
+        </PortalCard>
+      </div>
+    );
   else if (stage === 'error')
     content = (
       <div className="max-w-md mx-auto w-full">
@@ -210,20 +347,51 @@ export default function StudentPortal({ onBackToHome }) {
   );
 }
 
-function PortalFrame({ children, onBackToHome, right }) {
+// True on narrow phones, where the header needs a slightly smaller title to fit.
+function useNarrowScreen(maxWidth = 400) {
+  const query = `(max-width: ${maxWidth}px)`;
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setNarrow(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [query]);
+  return narrow;
+}
+
+function PortalFrame({ children, onBackToHome, right, helpPrefill }) {
+  const narrow = useNarrowScreen();
+  const small = useNarrowScreen(370);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpExtra, setHelpExtra] = useState(null); // e.g. a pre-chosen category from a screen
+  const closeHelp = useCallback(() => setHelpOpen(false), []);
+  const openHelp = useCallback((extra) => {
+    setHelpExtra(extra && typeof extra === 'object' && !extra.nativeEvent ? extra : null);
+    setHelpOpen(true);
+  }, []);
   return (
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900 overflow-x-hidden">
       <header className="sticky top-0 z-30 bg-cream-50/90 backdrop-blur-md border-b border-gold-200/70 shadow-soft">
         <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-[72px] flex items-center justify-between gap-2">
-          <BrandLogo />
-          <div className="flex items-center gap-2">
+          <BrandLogo fontScale={small ? 0.9 : narrow ? 1 : 1.3} />
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => openHelp()}
+              aria-label="Need help?"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full shrink-0 border border-saffron-200 bg-saffron-50 hover:bg-saffron-100 text-saffron-800 font-medium text-xs sm:text-sm whitespace-nowrap shadow-soft cursor-pointer"
+            >
+              <LifeBuoy className="hidden sm:block w-4 h-4 shrink-0" />
+              <span>Need help?</span>
+            </button>
             {right}
             {onBackToHome && (
               <button
                 type="button"
                 onClick={onBackToHome}
                 aria-label="Home"
-                className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-white hover:bg-cream-100 text-temple-700 font-medium text-xs sm:text-sm shadow-soft cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-white hover:bg-cream-100 text-temple-700 font-medium text-xs sm:text-sm shadow-soft cursor-pointer"
               >
                 <Home className="w-4 h-4" />
                 <span className="hidden sm:inline">Home</span>
@@ -232,7 +400,8 @@ function PortalFrame({ children, onBackToHome, right }) {
           </div>
         </div>
       </header>
-      {children}
+      <OpenHelpContext.Provider value={openHelp}>{children}</OpenHelpContext.Provider>
+      <HelpModal open={helpOpen} onClose={closeHelp} prefill={{ ...helpPrefill, ...helpExtra }} />
     </div>
   );
 }
@@ -273,7 +442,7 @@ function PortalHome({ user, onLogout, onBackToHome }) {
     <button
       type="button"
       onClick={() => setConfirmLogout(true)}
-      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-temple-900 hover:bg-temple-800 text-cream-50 font-medium text-xs sm:text-sm shadow-soft cursor-pointer"
+      className="inline-flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full bg-temple-900 hover:bg-temple-800 text-cream-50 font-medium text-xs sm:text-sm shadow-soft cursor-pointer"
     >
       <LogOut className="w-4 h-4" />
       <span className="hidden sm:inline">Log out</span>
@@ -281,7 +450,17 @@ function PortalHome({ user, onLogout, onBackToHome }) {
   );
 
   return (
-    <PortalFrame onBackToHome={onBackToHome} right={logoutButton}>
+    <PortalFrame
+      onBackToHome={onBackToHome}
+      right={logoutButton}
+      helpPrefill={{
+        name: profile?.fullName || '',
+        email: profile?.email || user.email || '',
+        mobile: profile?.mobileNumberClean || '',
+        countryCode: profile?.countryCode || '+91',
+        registrationId: profile?.registrationId || '',
+      }}
+    >
       <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-8 pb-28 sm:pb-12 flex-1">
         {/* Desktop tabs */}
         <nav className="hidden sm:flex gap-1 p-1 mb-6 rounded-2xl bg-cream-200/70 border border-cream-300/70 w-fit">

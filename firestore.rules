@@ -149,6 +149,31 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Masked-email hints for "Don't remember which email you used?", keyed by +countrycode+mobile.
+    // Holds only a masked email, so the full email is never sent to the browser.
+    // Fetch by exact key only (no listing). Writes must point at a real registration with that number.
+    function hintMatchesRegistration(key) {
+      let reg = get(/databases/$(database)/documents/BhagavadGita/data/registrations/$(request.resource.data.registrationId)).data;
+      return reg.get('isDeleted', false) != true
+        && key == reg.get('countryCode', '+91') + reg.get('mobileNumberClean', '');
+    }
+
+    match /emailHints/{key} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if request.resource.data.keys().hasOnly(['registrationId', 'maskedEmail', 'updatedAt'])
+        && request.resource.data.registrationId is string
+        && request.resource.data.maskedEmail is string
+        && request.resource.data.maskedEmail.size() <= 120
+        && request.resource.data.maskedEmail.matches('^[^@]{1,2}•{3,8}[^@]{0,2}@[^@]+$')
+        && request.resource.data.updatedAt == request.time
+        && exists(/databases/$(database)/documents/BhagavadGita/data/registrations/$(request.resource.data.registrationId))
+        && hintMatchesRegistration(key);
+      // Only once its registration is gone or marked deleted
+      allow delete: if !exists(/databases/$(database)/documents/BhagavadGita/data/registrations/$(resource.data.registrationId))
+        || get(/databases/$(database)/documents/BhagavadGita/data/registrations/$(resource.data.registrationId)).data.get('isDeleted', false) == true;
+    }
+
     // Quizzes are visible to verified students; managed from the Firebase Console for now
     match /portalQuizzes/{quizId} {
       allow read: if isVerifiedStudent();

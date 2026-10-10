@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Lock } from 'lucide-react';
-import CountryCodeSelector from '../Registration/CountryCodeSelector';
-import {
-  PortalCard, Heading, Notice, Field, TextInput, PasswordInput, PrimaryButton, LinkButton,
-} from './ui';
+import { PortalCard, Heading, Notice, Field, TextInput, PasswordInput, PrimaryButton, LinkButton, MobileInput } from './ui';
 
 /**
  * The verification link was opened on a different device/browser than the one that
@@ -29,18 +26,7 @@ export function ConfirmLinkEmail({ onSubmit, onCancel, error, loading }) {
             <TextInput id="confirm-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </Field>
           <Field id="confirm-link-mobile" label="Registered mobile number">
-            <div className="flex gap-2 items-center">
-              <CountryCodeSelector value={countryCode} onChange={setCountryCode} />
-              <TextInput
-                id="confirm-link-mobile"
-                type="tel"
-                inputMode="numeric"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value.replace(/[^\d\s]/g, ''))}
-                placeholder="Mobile number"
-                className="flex-1"
-              />
-            </div>
+            <MobileInput id="confirm-link-mobile" countryCode={countryCode} onCountryCodeChange={setCountryCode} value={mobile} onChange={setMobile} />
           </Field>
           {error && <Notice type="error">{error}</Notice>}
           <PrimaryButton type="submit" loading={loading}>Verify and continue</PrimaryButton>
@@ -65,18 +51,7 @@ export function ConfirmMobile({ email, onSubmit, onCancel, error, loading }) {
         >
           <Heading title="One more step" subtitle={`Your email ${email} is verified. Enter the mobile number you registered with to find your registration.`} />
           <Field id="confirm-mobile" label="Registered mobile number">
-            <div className="flex gap-2 items-center">
-              <CountryCodeSelector value={countryCode} onChange={setCountryCode} />
-              <TextInput
-                id="confirm-mobile"
-                type="tel"
-                inputMode="numeric"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value.replace(/[^\d\s]/g, ''))}
-                placeholder="Mobile number"
-                className="flex-1"
-              />
-            </div>
+            <MobileInput id="confirm-mobile" countryCode={countryCode} onCountryCodeChange={setCountryCode} value={mobile} onChange={setMobile} />
           </Field>
           {error && <Notice type="error">{error}</Notice>}
           <PrimaryButton type="submit" loading={loading}>Continue</PrimaryButton>

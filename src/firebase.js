@@ -48,6 +48,39 @@ export function sanitizeText(val, maxLength = 500) {
   return str.replace(/[<>]/g, '').slice(0, maxLength);
 }
 
+// ---------------------------------------------------------------------------
+// Email hints: emailHints/{countryCode + mobile} holds ONLY a masked email, so the
+// "Don't remember which email you used?" lookup never sends a full email to the browser.
+// ---------------------------------------------------------------------------
+
+/**
+ * Hide most of an email: first 2 and last 1-2 characters of the name stay visible,
+ * e.g. jashwanth7@gmail.com -> ja••••••h7@gmail.com
+ */
+export function maskEmail(email) {
+  const [local = '', domain = ''] = String(email || '').trim().toLowerCase().split('@');
+  if (!local || !domain) return '';
+  let start = 2;
+  let end = local.length >= 7 ? 2 : 1;
+  if (local.length <= 3) { start = 1; end = 0; }
+  else if (local.length <= 4) { end = 0; }
+  const hidden = Math.min(8, Math.max(3, local.length - start - end));
+  return `${local.slice(0, start)}${'•'.repeat(hidden)}${end ? local.slice(-end) : ''}@${domain}`;
+}
+
+export const emailHintKey = (countryCode, mobileClean) => `${countryCode || '+91'}${mobileClean}`;
+
+/** Create or refresh the masked-email hint for a registration (best effort). */
+export async function saveEmailHint(registrationId, { countryCode, mobileNumberClean, email }) {
+  const masked = maskEmail(email);
+  if (!registrationId || !mobileNumberClean || !masked) return;
+  await setDoc(doc(db, 'emailHints', emailHintKey(countryCode, mobileNumberClean)), {
+    registrationId,
+    maskedEmail: masked,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 /**
  * Generate sequential registration ID following pattern BG26-100, BG26-101, etc.
  * If database is wiped or empty, starts cleanly at BG26-100.
@@ -350,6 +383,8 @@ export async function saveRegistration(registrationData) {
     });
     localStorage.setItem('gita_amrita_registrations', JSON.stringify(localRecords));
   } catch (e) {}
+
+  await saveEmailHint(registrationId, payload).catch((err) => console.warn('Email hint not saved:', err?.code || err));
 
   return { success: true, registrationId };
 }
@@ -1270,6 +1305,12 @@ export async function updateParticipant(registrationId, updates) {
   try {
     const regRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
     await setDoc(regRef, { ...sanitizedUpdates, updatedAt: serverTimestamp() }, { merge: true });
+    if (['email', 'mobile', 'mobileNumberClean', 'countryCode'].some((k) => k in sanitizedUpdates)) {
+      const fresh = await getDoc(regRef);
+      if (fresh.exists()) {
+        await saveEmailHint(registrationId, fresh.data()).catch((err) => console.warn('Email hint not refreshed:', err?.code || err));
+      }
+    }
   } catch (err) {
     console.warn('Firestore update participant warning:', err);
   }
@@ -1296,6 +1337,15 @@ export async function deleteParticipant(registrationId, callerUser = null) {
     return { success: false, error: 'Access Denied: Only Super Administrators can delete participant records.' };
   }
 
+  // Remember the phone key so the masked-email hint can be removed afterwards.
+  let hintKey = null;
+  try {
+    const snap = await getDoc(doc(db, 'BhagavadGita', 'data', 'registrations', registrationId));
+    if (snap.exists() && snap.data().mobileNumberClean) {
+      hintKey = emailHintKey(snap.data().countryCode, snap.data().mobileNumberClean);
+    }
+  } catch (e) {}
+
   // 1. Try physical deletion from Firestore
   try {
     const regRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
@@ -1308,6 +1358,14 @@ export async function deleteParticipant(registrationId, callerUser = null) {
       await setDoc(regRef, { isDeleted: true, status: 'Deleted', deletedAt: serverTimestamp() }, { merge: true });
     } catch (setErr) {
       console.warn('Firestore fallback delete error:', setErr);
+    }
+  }
+  if (hintKey) {
+    try {
+      const hint = await getDoc(doc(db, 'emailHints', hintKey));
+      if (hint.exists() && hint.data().registrationId === registrationId) await deleteDoc(doc(db, 'emailHints', hintKey));
+    } catch (e) {
+      console.warn('Email hint not removed:', e?.code || e);
     }
   }
 

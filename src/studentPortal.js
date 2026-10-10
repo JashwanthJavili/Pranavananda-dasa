@@ -27,7 +27,7 @@ import {
   writeBatch,
   serverTimestamp,
 } from 'firebase/firestore';
-import { auth, db, verifyAndGetWhatsAppAccess } from './firebase';
+import { auth, db, verifyAndGetWhatsAppAccess, emailHintKey } from './firebase';
 
 const PENDING_KEY = 'gfy_portal_pending';
 export const PORTAL_HASH = 'student-portal';
@@ -64,9 +64,9 @@ export function setPendingOnboarding(value) {
  * Returns the matching registrations sorted by registration ID (oldest first),
  * so duplicate records always resolve to the same one.
  */
-async function findMatchingRegistrations(email, mobile, countryCode) {
+/** Active registrations with this email, oldest registration ID first. */
+async function findRegistrationsByEmail(email) {
   const e = cleanEmail(email);
-  const m = cleanMobile(mobile);
   const col = collection(db, 'BhagavadGita', 'data', 'registrations');
 
   const snaps = await Promise.all([
@@ -78,26 +78,31 @@ async function findMatchingRegistrations(email, mobile, countryCode) {
   snaps.forEach((snap) => snap.docs.forEach((d) => seen.set(d.id, d)));
 
   return [...seen.values()]
-    .filter((d) => {
-      const data = d.data();
-      return (
-        !data.isDeleted &&
-        data.mobileNumberClean === m &&
-        (data.countryCode || '+91') === countryCode
-      );
-    })
+    .filter((d) => !d.data().isDeleted)
     .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+}
+
+async function findMatchingRegistrations(email, mobile, countryCode) {
+  const m = cleanMobile(mobile);
+  return (await findRegistrationsByEmail(email)).filter((d) => {
+    const data = d.data();
+    return data.mobileNumberClean === m && (data.countryCode || '+91') === countryCode;
+  });
 }
 
 /**
  * Step 1 of onboarding: confirm that the email + mobile belong to one registration,
  * and only then send the Firebase sign-in link to that registered email.
- * Returns { status: 'sent' | 'not_found' }.
+ * Returns { status: 'sent' | 'not_found' | 'already_setup' }.
  */
 export async function startStudentVerification({ email, mobile, countryCode = '+91' }) {
   const e = cleanEmail(email);
   const matches = await findMatchingRegistrations(e, mobile, countryCode);
   if (matches.length === 0) return { status: 'not_found' };
+
+  // portalLogins/{phone} exists once the student has finished setup and created a password.
+  const login = await getDoc(doc(db, 'portalLogins', phoneKey(countryCode, mobile)));
+  if (login.exists()) return { status: 'already_setup' };
 
   await sendVerificationLink(e);
   setPendingOnboarding({ email: e, mobile: cleanMobile(mobile), countryCode, sentAt: Date.now() });
@@ -117,13 +122,23 @@ export function isVerificationLink(href = window.location.href) {
 }
 
 /** Step 2: the student clicked the link in their inbox. Signs them in with a verified email. */
-export async function completeVerificationLink(email, href = window.location.href) {
-  const cred = await signInWithEmailLink(auth, cleanEmail(email), href);
-  // Remove the one-time code from the address bar.
-  try {
-    window.history.replaceState(null, '', `${window.location.pathname}#${PORTAL_HASH}`);
-  } catch (e) {}
-  return cred.user;
+// The link's code is single-use. If the page starts twice (React StrictMode in dev, a
+// remount), share the first attempt instead of spending the code again and failing.
+let linkCompletion = null;
+
+export function completeVerificationLink(email, href = window.location.href) {
+  if (linkCompletion?.href === href) return linkCompletion.promise;
+  const promise = signInWithEmailLink(auth, cleanEmail(email), href).then((cred) => {
+    // Remove the one-time code from the address bar.
+    try {
+      window.history.replaceState(null, '', `${window.location.pathname}#${PORTAL_HASH}`);
+    } catch (e) {}
+    return cred.user;
+  });
+  linkCompletion = { href, promise };
+  // A failed attempt (e.g. wrong email typed) may be retried with the same link.
+  promise.catch(() => { if (linkCompletion?.promise === promise) linkCompletion = null; });
+  return promise;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +160,10 @@ export async function linkStudentAccount(user, { mobile, countryCode = '+91' }) 
   if (!user?.emailVerified) throw new Error('Email is not verified.');
 
   const existing = await getLinkedRegistrationId(user.uid);
-  if (existing) return { status: 'already_linked_self', registrationId: existing };
+  if (existing) {
+    setPendingOnboarding(null);
+    return { status: 'already_linked_self', registrationId: existing };
+  }
 
   const matches = await findMatchingRegistrations(user.email, mobile, countryCode);
   if (matches.length === 0) return { status: 'not_found' };
@@ -174,6 +192,12 @@ export async function linkStudentAccount(user, { mobile, countryCode = '+91' }) 
       // permission-denied here means the registration is already claimed by another account.
       if (err?.code !== 'permission-denied') throw err;
     }
+  }
+  // Another tab of this same student may have linked it a moment ago.
+  const linkedMeanwhile = await getLinkedRegistrationId(user.uid);
+  if (linkedMeanwhile) {
+    setPendingOnboarding(null);
+    return { status: 'already_linked_self', registrationId: linkedMeanwhile };
   }
   return { status: 'claimed_by_other' };
 }
@@ -275,11 +299,33 @@ export async function studentPasswordLogin(email, password) {
   return cred.user;
 }
 
-export function sendStudentPasswordReset(email) {
-  return sendPasswordResetEmail(auth, cleanEmail(email), {
+/**
+ * Forgot password. Firebase hides whether an account exists (and sends nothing if it
+ * doesn't), so first tell the student which case they are in.
+ * Returns { status: 'sent' | 'no_registration' | 'setup_incomplete' }.
+ */
+export async function requestStudentPasswordReset({ email }) {
+  const registrations = await findRegistrationsByEmail(email);
+  if (registrations.length === 0) return { status: 'no_registration' };
+
+  // portalLogins/{phone} is created when the student finishes first-time setup.
+  const logins = await Promise.all(
+    registrations.map((d) => {
+      const r = d.data();
+      return r.mobileNumberClean
+        ? getDoc(doc(db, 'portalLogins', phoneKey(r.countryCode, r.mobileNumberClean)))
+        : null;
+    })
+  );
+  if (!logins.some((snap) => snap?.exists())) return { status: 'setup_incomplete' };
+
+  await sendPasswordResetEmail(auth, cleanEmail(email), {
     url: `${window.location.origin}/?portal=1`,
   });
+  return { status: 'sent' };
 }
+
+export const getCurrentStudent = () => auth.currentUser;
 
 export function onStudentAuthChanged(callback) {
   return onAuthStateChanged(auth, callback);
@@ -316,6 +362,49 @@ export async function fetchPublishedQuizzes() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// ---------------------------------------------------------------------------
+// "Don't remember which email you used?" (first-time setup)
+// ---------------------------------------------------------------------------
+
+const LOOKUP_KEY = 'gfy_email_lookup';
+const LOOKUP_MAX = 5;
+const LOOKUP_WINDOW_MS = 15 * 60 * 1000;
+
+/** Minutes until another lookup is allowed in this browser (0 = allowed now). */
+function lookupWaitMinutes() {
+  try {
+    const { start = 0, count = 0 } = JSON.parse(localStorage.getItem(LOOKUP_KEY) || '{}');
+    if (Date.now() - start > LOOKUP_WINDOW_MS) return 0;
+    return count >= LOOKUP_MAX ? Math.ceil((start + LOOKUP_WINDOW_MS - Date.now()) / 60000) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function recordLookup() {
+  try {
+    const now = Date.now();
+    const prev = JSON.parse(localStorage.getItem(LOOKUP_KEY) || '{}');
+    const fresh = !prev.start || now - prev.start > LOOKUP_WINDOW_MS;
+    localStorage.setItem(LOOKUP_KEY, JSON.stringify({ start: fresh ? now : prev.start, count: fresh ? 1 : (prev.count || 0) + 1 }));
+  } catch (e) {}
+}
+
+/**
+ * Find the registered email for a mobile number, already masked (from emailHints).
+ * Returns { status: 'found', maskedEmail } | { status: 'not_found' } | { status: 'limited', minutes }.
+ */
+export async function findMaskedEmailByMobile(countryCode, mobile) {
+  const minutes = lookupWaitMinutes();
+  if (minutes > 0) return { status: 'limited', minutes };
+  recordLookup();
+
+  // Only the pre-masked hint is read; the full email never reaches the browser.
+  const hint = await getDoc(doc(db, 'emailHints', emailHintKey(countryCode, cleanMobile(mobile))));
+  if (!hint.exists() || !hint.data().maskedEmail) return { status: 'not_found' };
+  return { status: 'found', maskedEmail: hint.data().maskedEmail };
+}
+
 /** Map Firebase Auth error codes to friendly messages. */
 export function authErrorMessage(err) {
   switch (err?.code) {
@@ -327,6 +416,8 @@ export function authErrorMessage(err) {
       return 'Incorrect email or password.';
     case 'portal/mobile-not-set-up':
       return 'No portal account uses this mobile number yet. Log in with your email, or use First-time setup.';
+    case 'auth/quota-exceeded':
+      return 'We are unable to send verification emails right now because today\'s limit has been reached. Please try again tomorrow, or contact the Gita for Youth team.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Please wait a few minutes and try again.';
     case 'auth/expired-action-code':

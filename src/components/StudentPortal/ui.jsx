@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, Info, Eye, EyeOff, Loader2 } from 'lucide-react';
+import CountryCodeSelector from '../Registration/CountryCodeSelector';
+import { sanitizeMobileInput } from '../../utils/mobile';
 
 export function Spinner({ className = 'w-4 h-4' }) {
   return <Loader2 className={`${className} animate-spin`} />;
@@ -45,7 +47,7 @@ const inputClass =
 export function Field({ id, label, hint, children }) {
   return (
     <div className="space-y-1.5 text-left">
-      <label htmlFor={id} className="block text-xs font-medium text-temple-600">{label}</label>
+      <label id={`${id}-label`} htmlFor={id} className="block text-xs font-medium text-temple-600">{label}</label>
       {children}
       {hint && <p className="text-[11px] text-temple-500">{hint}</p>}
     </div>
@@ -54,6 +56,36 @@ export function Field({ id, label, hint, children }) {
 
 export function TextInput(props) {
   return <input {...props} className={`${inputClass} ${props.className || ''}`} />;
+}
+
+/**
+ * Country code + mobile number. Typing and pasting are cleaned as you go: digits only,
+ * no leading 0, and at most 10 digits for India (+91). (No maxLength attribute: it would
+ * cut a pasted "0 98765 43210" before the spaces and 0 are removed.)
+ */
+export function MobileInput({ id, countryCode, onCountryCodeChange, value, onChange, autoComplete = 'tel-national' }) {
+  return (
+    <div className="flex gap-2 items-center">
+      <CountryCodeSelector
+        value={countryCode}
+        onChange={(code) => {
+          onCountryCodeChange(code);
+          const trimmed = sanitizeMobileInput(value, code);
+          if (trimmed !== value) onChange(trimmed);
+        }}
+      />
+      <TextInput
+        id={id}
+        type="tel"
+        inputMode="numeric"
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(sanitizeMobileInput(e.target.value, countryCode))}
+        placeholder={countryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
+        className="flex-1"
+      />
+    </div>
+  );
 }
 
 export function PasswordInput({ id, value, onChange, autoComplete = 'current-password', placeholder }) {
