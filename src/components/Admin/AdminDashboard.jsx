@@ -47,10 +47,14 @@ import {
   ArrowRightCircle,
   Palette,
   CheckCircle2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  LifeBuoy as HelpIcon,
 } from 'lucide-react';
 import BrandLogo, { KRISHNA_ICON_SRC } from '../BrandLogo';
 import WhatsAppConfigModule from './WhatsAppConfigModule';
+import HelpRequestsPanel from './HelpRequestsPanel';
+import HelpEmailsSettings from './HelpEmailsSettings';
+import { subscribeToHelpRequests } from '../../helpRequests';
 import * as XLSX from 'xlsx';
 import { 
   fetchAllRegistrations, 
@@ -107,6 +111,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       if ((hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') && isSuperAdminUser(adminUser)) {
         return 'settings';
       }
+      if (hash === '#admin-help') return 'help';
     }
     return 'participants';
   });
@@ -121,6 +126,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     setActiveTab(tab);
     if (tab === 'settings') {
       window.location.hash = 'settings';
+    } else if (tab === 'help') {
+      window.location.hash = 'admin-help';
     } else {
       window.location.hash = 'admin';
     }
@@ -131,6 +138,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       const hash = window.location.hash.toLowerCase();
       if ((hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') && isSuperAdmin) {
         setActiveTab('settings');
+      } else if (hash === '#admin-help') {
+        setActiveTab('help');
       } else {
         setActiveTab('participants');
       }
@@ -261,6 +270,18 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const [isResettingCounter, setIsResettingCounter] = useState(false);
 
   const [notification, setNotification] = useState('');
+
+  // Help requests from the student portal (Admins and Super Admins)
+  const [helpRequests, setHelpRequests] = useState([]);
+  const [helpLoadError, setHelpLoadError] = useState(false);
+  useEffect(() => {
+    const unsub = subscribeToHelpRequests(
+      (list) => { setHelpRequests(list); setHelpLoadError(false); },
+      () => setHelpLoadError(true)
+    );
+    return () => unsub();
+  }, []);
+  const openHelpCount = helpRequests.filter((r) => (r.status || 'Open') === 'Open').length;
 
   const showNotification = (msg) => {
     setNotification(msg);
@@ -985,8 +1006,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             title="Gita for Youth"
           />
 
-          {/* Center: Clean Icon Navigation (Super Admin Only) */}
-          {isSuperAdmin && (
+          {/* Center: Clean Icon Navigation (Settings is Super Admin only) */}
+          {(
             <div className="flex items-center gap-1 bg-cream-200/80 p-1 rounded-2xl border border-cream-300">
               <button
                 onClick={() => switchTab('participants')}
@@ -1002,6 +1023,25 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               </button>
 
               <button
+                onClick={() => switchTab('help')}
+                className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
+                  activeTab === 'help'
+                    ? 'bg-white text-saffron-700 shadow-soft font-bold'
+                    : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
+                }`}
+                title="Help Requests from students"
+                aria-label={`Help Requests${openHelpCount ? ` (${openHelpCount} open)` : ''}`}
+              >
+                <HelpIcon className="w-4 h-4" />
+                {openHelpCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-saffron-500 text-white text-[10px] font-bold leading-4 text-center">
+                    {openHelpCount > 99 ? '99+' : openHelpCount}
+                  </span>
+                )}
+              </button>
+
+              {isSuperAdmin && (
+              <button
                 onClick={() => switchTab('settings')}
                 className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
                   activeTab === 'settings'
@@ -1013,6 +1053,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               >
                 <Settings className="w-4 h-4" />
               </button>
+              )}
             </div>
           )}
 
@@ -1061,6 +1102,16 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       {/* Main Content Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
         
+        {/* HELP REQUESTS (Admins and Super Admins) */}
+        {activeTab === 'help' && (
+          <HelpRequestsPanel
+            requests={helpRequests}
+            loadError={helpLoadError}
+            adminUser={adminUser}
+            notify={showNotification}
+          />
+        )}
+
         {/* TAB 1: PARTICIPANTS MANAGEMENT VIEW */}
         {activeTab === 'participants' && (
           <div className="space-y-4 animate-fadeIn">
@@ -2367,6 +2418,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             {/* SECTION 6: WHATSAPP COMMUNITY JOINING SETTINGS */}
             <div className="pt-2">
               <WhatsAppConfigModule callerUser={adminUser} />
+            </div>
+
+            {/* SECTION 7: HELP REQUEST EMAIL RECIPIENTS */}
+            <div className="pt-2">
+              <HelpEmailsSettings callerUser={adminUser} />
             </div>
 
           </div>
