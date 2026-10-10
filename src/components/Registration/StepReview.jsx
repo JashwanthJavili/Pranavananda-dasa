@@ -6,7 +6,8 @@ export default function StepReview({
   onBack, 
   onGoToStep, 
   onSubmit, 
-  isSubmitting 
+  isSubmitting,
+  submitError
 }) {
   const [isConfirmed, setIsConfirmed] = React.useState(false);
 
@@ -116,6 +117,12 @@ export default function StepReview({
           </span>
         </label>
       </div>
+
+      {submitError && (
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs sm:text-sm text-red-700" role="alert">
+          {submitError}
+        </div>
+      )}
 
       {/* Back & Submit Actions */}
       <div className="flex items-center gap-3 pt-2">

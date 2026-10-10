@@ -14,7 +14,8 @@ import {
   limit,
   orderBy,
   serverTimestamp,
-  onSnapshot 
+  onSnapshot,
+  runTransaction
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -240,7 +241,6 @@ export async function verifyPasswordMatch(inputPassword, storedHash, storedPlain
  * Validates, sanitizes, and securely hashes passwords
  */
 export async function saveRegistration(registrationData) {
-  const registrationId = sanitizeText(registrationData.registrationId || await getNextRegistrationId(), 30);
   const cleanMobile = (registrationData.mobile || '').replace(/\D/g, '').slice(-10);
   const cleanEmail = sanitizeText(registrationData.email || '', 100).toLowerCase();
 
@@ -281,7 +281,6 @@ export async function saveRegistration(registrationData) {
     takeawayAspiration: sanitizeText(registrationData.takeawayAspiration || '', 500),
     sourceOfDiscovery: sanitizeText(registrationData.sourceOfDiscovery || '', 100),
     sourceOfDiscoveryOther: sanitizeText(registrationData.sourceOfDiscoveryOther || '', 200),
-    registrationId,
     authUid,
     status: 'Confirmed',
     createdAt: serverTimestamp(),
@@ -289,44 +288,74 @@ export async function saveRegistration(registrationData) {
     center: 'Gita for Youth Study Circle',
   };
 
-  try {
-    const registrationRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
-    await setDoc(registrationRef, payload, { merge: true });
+  const regCol = collection(db, 'BhagavadGita', 'data', 'registrations');
 
-    // Ensure plaintext password is removed if previously present
+  // Allocate the ID and create the document in ONE transaction. If the ID is already
+  // taken (another registrant, or a deleted/archived record), move on to the next
+  // number. An existing registration is therefore never overwritten and an
+  // allocated ID never changes or gets reused.
+  const parseNum = (id) => {
+    const m = String(id).match(/BG26-(\d+)/i);
+    return m ? parseInt(m[1], 10) : 100;
+  };
+  let num = parseNum(await getNextRegistrationId());
+  const MAX_ATTEMPTS = 40;
+  let registrationId = null;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS && !registrationId; attempt++) {
+    const candidate = `BG26-${num}`;
+    const registrationRef = doc(regCol, candidate);
     try {
-      await updateDoc(registrationRef, { password: deleteField() });
-    } catch (e) {}
+      await runTransaction(db, async (tx) => {
+        const existing = await tx.get(registrationRef);
+        if (existing.exists()) {
+          const collision = new Error('Registration ID already in use');
+          collision.code = 'id-collision';
+          throw collision;
+        }
+        tx.set(registrationRef, { ...payload, registrationId: candidate });
+      });
+      registrationId = candidate;
+    } catch (err) {
+      if (err && err.code === 'id-collision') {
+        num += 1;
+        continue;
+      }
+      throw err; // Real failure (network, permissions): let the caller tell the user
+    }
+  }
 
-    const parentRef = doc(db, 'BhagavadGita', 'data');
-    await setDoc(parentRef, {
+  if (!registrationId) {
+    throw new Error('Could not allocate a registration ID. Please try again.');
+  }
+
+  // Best-effort bookkeeping; the registration itself is already safely saved
+  try {
+    await setDoc(doc(db, 'BhagavadGita', 'data'), {
       lastUpdated: serverTimestamp(),
       programName: 'Gita for Youth',
       organization: 'Gita for Youth',
     }, { merge: true });
+  } catch (e) {}
 
-    try {
-      const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
-      localRecords.push({ 
-        mobile: payload.mobile, 
-        email: payload.email, 
-        passwordHash: payload.passwordHash,
-        id: registrationId,
-        registrationId,
-        fullName: payload.fullName,
-        education: payload.education,
-        currentResidence: payload.currentResidence,
-        fullAddress: payload.fullAddress,
-        pincode: payload.pincode
-      });
-      localStorage.setItem('gita_amrita_registrations', JSON.stringify(localRecords));
-    } catch (e) {}
+  try {
+    const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
+    localRecords.push({
+      mobile: payload.mobile,
+      email: payload.email,
+      passwordHash: payload.passwordHash,
+      id: registrationId,
+      registrationId,
+      fullName: payload.fullName,
+      education: payload.education,
+      currentResidence: payload.currentResidence,
+      fullAddress: payload.fullAddress,
+      pincode: payload.pincode
+    });
+    localStorage.setItem('gita_amrita_registrations', JSON.stringify(localRecords));
+  } catch (e) {}
 
-    return { success: true, registrationId };
-  } catch (error) {
-    console.warn('Firestore write warning:', error);
-    return { success: true, registrationId, offlineMode: true };
-  }
+  return { success: true, registrationId };
 }
 
 /**
@@ -1192,11 +1221,49 @@ export async function fetchAllRegistrations() {
 }
 
 /**
+ * Look up a registration by country code + mobile number.
+ * Matches the indexed `mobileNumberClean` field (last 10 digits), with a fallback
+ * to the raw `mobile` field for older records saved before that field existed.
+ * Records without a stored countryCode are treated as +91.
+ */
+export async function fetchRegistrationByMobile(mobile, countryCode = '+91') {
+  const digits = String(mobile || '').replace(/\D/g, '');
+  const cleanMobile = digits.slice(-10);
+  if (cleanMobile.length < 6) return null;
+  const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
+
+  const isMatch = (d) => {
+    const data = d.data();
+    return !data.isDeleted && (data.countryCode || '+91') === countryCode;
+  };
+
+  let match = null;
+  const snap = await getDocs(query(regRef, where('mobileNumberClean', '==', cleanMobile), limit(10)));
+  match = snap.docs.find(isMatch);
+
+  if (!match) {
+    // Legacy records: no mobileNumberClean field, only the raw `mobile` string
+    const legacy = await getDocs(query(regRef, where('mobile', '==', digits), limit(10)));
+    match = legacy.docs.find(isMatch);
+  }
+  if (!match) return null;
+
+  const data = match.data();
+  return {
+    ...data,
+    registrationId: data.registrationId || match.id,
+    currentResidence: data.currentResidence || data.city || ''
+  };
+}
+
+/**
  * Update an individual participant record
  */
 export async function updateParticipant(registrationId, updates) {
   const sanitizedUpdates = {};
   for (const [key, value] of Object.entries(updates)) {
+    // A registration ID, once allocated, is permanent
+    if (key === 'registrationId' || key === 'id') continue;
     if (typeof value === 'string') {
       sanitizedUpdates[key] = sanitizeText(value, 500);
     } else {

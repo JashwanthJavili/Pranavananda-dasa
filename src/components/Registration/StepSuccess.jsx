@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, UserPlus, CheckCircle2, MessageSquare, ExternalLink } from 'lucide-react';
+import { Copy, Check, UserPlus, CheckCircle2, MessageSquare, ExternalLink, ArrowLeft } from 'lucide-react';
 import { subscribeToProgramSettings, verifyAndGetWhatsAppAccess, OFFICIAL_WA_FALLBACK_LINK } from '../../firebase';
+
+const maskMobile = (m = '') => {
+  const d = String(m).replace(/\D/g, '');
+  return d.length > 4 ? `${'•'.repeat(d.length - 4)}${d.slice(-4)}` : m;
+};
+const maskEmail = (e = '') => {
+  const [u, dom] = String(e).split('@');
+  return dom ? `${u.slice(0, 2)}${'•'.repeat(Math.max(u.length - 2, 2))}@${dom}` : e;
+};
 
 export default function StepSuccess({
   registrationId,
   formData = {},
   onRegisterAnother,
-  initialSettings
+  initialSettings,
+  isReturning = false,
+  onBack
 }) {
   const [copied, setCopied] = useState(false);
   const [settings, setSettings] = useState(() => {
@@ -102,13 +113,15 @@ export default function StepSuccess({
       {/* Headings & Devotional Message */}
       <div className="space-y-1">
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-temple-900">
-          Registration Successful
+          {isReturning ? 'You Are Registered' : 'Registration Successful'}
         </h2>
         <p className="text-base sm:text-lg font-semibold text-saffron-700">
           Hare Krishna
         </p>
         <p className="text-xs sm:text-sm text-temple-600 font-normal max-w-md mx-auto px-2 leading-relaxed">
-          Thank you for registering for the {courseName} Course. Further updates will be shared on your registered mobile number.
+          {isReturning
+            ? `Your registration for the ${courseName} Course is confirmed. Here are your details.`
+            : `Thank you for registering for the ${courseName} Course. Further updates will be shared on your registered mobile number.`}
         </p>
       </div>
 
@@ -149,14 +162,14 @@ export default function StepSuccess({
         <div className="flex justify-between border-b border-cream-200/70 pb-2">
           <span className="text-temple-500 font-medium">Contact:</span>
           <span className="font-semibold text-temple-900 ml-2">
-            {formData.countryCode || '+91'} {formData.mobile}
+            {formData.countryCode || '+91'} {isReturning ? maskMobile(formData.mobile) : formData.mobile}
           </span>
         </div>
 
         <div className="flex justify-between border-b border-cream-200/70 pb-2">
           <span className="text-temple-500 font-medium">Email:</span>
           <span className="font-semibold text-temple-900 truncate ml-2">
-            {formData.email || '—'}
+            {(isReturning ? maskEmail(formData.email) : formData.email) || '—'}
           </span>
         </div>
 
@@ -184,14 +197,25 @@ export default function StepSuccess({
         )}
 
         {/* Primary Action Buttons */}
-        <button
-          type="button"
-          onClick={onRegisterAnother}
-          className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all cursor-pointer transform hover:-translate-y-0.5"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Register Another Participant</span>
-        </button>
+        {!isReturning ? (
+          <button
+            type="button"
+            onClick={onRegisterAnother}
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all cursor-pointer transform hover:-translate-y-0.5"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Register Another Participant</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all cursor-pointer transform hover:-translate-y-0.5"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+        )}
 
         <a
           href="https://pranavanandadas.com/home"

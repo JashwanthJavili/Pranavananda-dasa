@@ -8,6 +8,7 @@ export default {
     extend: {
       fontFamily: {
         poppins: ['Poppins', 'sans-serif'],
+        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
       },
       colors: {
         saffron: {

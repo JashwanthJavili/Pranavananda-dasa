@@ -501,7 +501,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     setIsUpdatingBranding(true);
     const cleanCourseName = courseNameDraft.trim() || 'Gita for Youth';
     const cleanSubtitle = courseSubtitleDraft.trim();
-    const cleanFontSize = Math.max(12, Math.min(48, Number(courseNameFontSizeDraft) || 18));
+    const cleanFontSize = Math.max(5, Math.min(48, Number(courseNameFontSizeDraft) || 18));
 
     try {
       const res = await updateProgramSettings({
@@ -752,7 +752,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchName = (item.fullName || item.name || '').toLowerCase().includes(q);
-        const matchMobile = (item.mobile || '').replace(/\D/g, '').includes(q.replace(/\D/g, ''));
+        const qDigits = q.replace(/\D/g, '');
+        const matchMobile = qDigits.length > 0 && (item.mobile || '').replace(/\D/g, '').includes(qDigits);
         const matchEmail = (item.email || '').toLowerCase().includes(q);
         const matchId = (item.registrationId || item.id || '').toLowerCase().includes(q);
         const matchCity = (item.currentResidence || item.city || '').toLowerCase().includes(q);
@@ -1157,7 +1158,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   type="text"
                   placeholder="Search name, phone, email, residence, ID..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                   className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-cream-300 bg-white text-xs text-temple-900 placeholder:text-temple-400 focus:outline-none focus:border-saffron-500 transition-all"
                 />
               </div>
@@ -1544,32 +1545,24 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   </div>
                 </div>
 
-                {/* Font Size Preset Selector */}
+                {/* Font Size Dropdown */}
                 <div className="space-y-2 pt-2 border-t border-cream-100">
                   <label className="block text-[11px] font-semibold text-temple-700 uppercase">
                     Title Font Size
                   </label>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {[
-                      { label: 'Compact (15px)', size: 15 },
-                      { label: 'Standard (18px)', size: 18 },
-                      { label: 'Medium (22px)', size: 22 },
-                      { label: 'Large (26px)', size: 26 },
-                    ].map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => setCourseNameFontSizeDraft(preset.size)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                          Number(courseNameFontSizeDraft) === preset.size
-                            ? 'bg-saffron-500 text-white border-saffron-600 shadow-2xs'
-                            : 'bg-cream-100 hover:bg-cream-200 text-temple-700 border-cream-300/80'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
+                  <select
+                    value={Number(courseNameFontSizeDraft) || 18}
+                    onChange={(e) => setCourseNameFontSizeDraft(Number(e.target.value))}
+                    className="w-full sm:w-64 px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium cursor-pointer"
+                  >
+                    {[...new Set([...Array.from({ length: 32 }, (_, i) => i + 5), Number(courseNameFontSizeDraft) || 18])]
+                      .sort((x, y) => x - y)
+                      .map((size) => (
+                        <option key={size} value={size}>
+                          {size}px{size === 18 ? ' (Standard)' : ''}
+                        </option>
+                      ))}
+                  </select>
                 </div>
 
                 {/* Header Live Preview */}

@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Clock, Home, UserCheck } from 'lucide-react';
 import StepIndicator from './StepIndicator';
 import StepPersonal from './StepPersonal';
 import StepContact from './StepContact';
 import StepReflections from './StepReflections';
 import StepReview from './StepReview';
 import StepSuccess from './StepSuccess';
+import FindRegistration from './FindRegistration';
 import WaitingRoomQueue from './WaitingRoomQueue';
 import BrandLogo from '../BrandLogo';
 import { 
   saveRegistration, 
-  getNextRegistrationId, 
   checkDuplicateRegistration, 
   fetchProgramSettings, 
   subscribeToProgramSettings 
@@ -127,6 +127,11 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [errors, setErrors] = useState({});
+  // 'form' (normal flow) | 'lookup' (enter mobile number) | 'found' (existing registration)
+  const [lookupView, setLookupView] = useState('form');
+  const [foundReg, setFoundReg] = useState(null);
+  const [submitError, setSubmitError] = useState('');
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (initialSettings) {
@@ -291,18 +296,28 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
   };
 
   const handleConfirmRegistration = async () => {
-    if (isSubmitting) return;
+    if (submittingRef.current) return;
     if (!settings.isRegistrationOpen) {
-      setDuplicateWarning('Registrations are currently closed. Please contact program coordinators.');
+      setSubmitError('Registrations are currently closed. Please contact program coordinators.');
       return;
     }
 
+    submittingRef.current = true;
     setIsSubmitting(true);
+    setSubmitError('');
 
     try {
-      // Generate sequential registration ID: BG26-100, BG26-101...
-      const nextId = await getNextRegistrationId();
-      setGeneratedId(nextId);
+      // Re-check right before saving (covers double submits / another tab)
+      try {
+        const dup = await checkDuplicateRegistration(formData.mobile, formData.email);
+        if (dup.isDuplicate) {
+          const fieldName = dup.field === 'mobile' ? 'mobile number' : 'email address';
+          setSubmitError(`This ${fieldName} is already registered. Use "Check Registration" to view your registration.`);
+          return;
+        }
+      } catch (dupErr) {
+        console.warn('Duplicate re-check warning:', dupErr);
+      }
 
       const displayEducation = (formData.education || '').trim();
 
@@ -315,26 +330,29 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
         education: displayEducation,
         occupation: displayOccupation,
         otherOccupation: formData.otherOccupation || '',
-        registrationId: nextId,
         city: formData.currentResidence,
         area: formData.fullAddress,
       };
 
-      await saveRegistration(submissionPayload);
+      // The registration ID is allocated atomically while saving; it is permanent
+      const { registrationId } = await saveRegistration(submissionPayload);
+      setGeneratedId(registrationId);
 
-      // Save to local cache
-      localStorage.setItem(
-        'gita_amrita_completed_reg',
-        JSON.stringify({ registrationId: nextId, formData: submissionPayload })
-      );
-      localStorage.removeItem('gita_amrita_draft');
+      try {
+        localStorage.setItem(
+          'gita_amrita_completed_reg',
+          JSON.stringify({ registrationId, formData: { ...submissionPayload, registrationId } })
+        );
+        localStorage.removeItem('gita_amrita_draft');
+      } catch (storageErr) {}
 
       setCurrentStep(5); // Success screen
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      console.warn('Submission note:', e);
-      setCurrentStep(5);
+      console.warn('Registration submission failed:', e);
+      setSubmitError('We could not complete your registration. Please check your internet connection and try again. Your details are still saved on this page.');
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -349,6 +367,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
     setCurrentStep(1);
     setErrors({});
     setDuplicateWarning('');
+    setSubmitError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -356,20 +375,34 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900 w-full max-w-full overflow-x-hidden">
       
       {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-cream-100/95 backdrop-blur-md border-b border-cream-200/90 shadow-soft">
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between">
-          
-          {/* Left: Brand & Title */}
+      <header className="sticky top-0 z-30 bg-cream-50/90 backdrop-blur-md border-b border-gold-200/70 shadow-soft">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-[72px] flex items-center justify-between gap-2">
+
+          {/* Left: Brand */}
           <BrandLogo />
 
-          {/* Right: Home Link Button (Hidden on StepSuccess screen) */}
-          {currentStep !== 5 ? (
-            <a
-              href="https://pranavanandadas.com/home"
-              className="inline-flex items-center justify-center px-4 sm:px-5 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-cream-50 hover:bg-cream-200/80 hover:border-cream-400 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 cursor-pointer flex-shrink-0"
-            >
-              Home
-            </a>
+          {/* Right: Actions (hidden on success screens) */}
+          {currentStep !== 5 && lookupView !== 'found' ? (
+            <nav className="flex items-center gap-2 flex-shrink-0">
+              {lookupView === 'form' && (
+                <button
+                  type="button"
+                  onClick={() => { setLookupView('lookup'); window.scrollTo({ top: 0 }); }}
+                  className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-[11px] sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 cursor-pointer"
+                >
+                  <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>Check Registration</span>
+                </button>
+              )}
+              <a
+                href="https://pranavanandadas.com/home"
+                aria-label="Home"
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-white hover:bg-cream-100 hover:border-gold-300 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 cursor-pointer"
+              >
+                <Home className="w-4 h-4" />
+                <span className="hidden sm:inline">Home</span>
+              </a>
+            </nav>
           ) : (
             <div className="w-6" />
           )}
@@ -381,7 +414,24 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
       <main className="flex-1 flex flex-col justify-start sm:justify-center py-4 sm:py-8 px-3 sm:px-6 w-full max-w-full overflow-x-hidden">
         <div className="w-full max-w-lg lg:max-w-4xl mx-auto">
           
-          {!settings.isRegistrationOpen && currentStep !== 4 ? (
+          {lookupView === 'lookup' ? (
+            <FindRegistration
+              onFound={(reg) => { setFoundReg(reg); setLookupView('found'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onBack={() => setLookupView('form')}
+            />
+          ) : lookupView === 'found' && foundReg ? (
+            <div className="max-w-2xl mx-auto w-full">
+              <div className="bg-cream-50 rounded-3xl p-5 sm:p-8 lg:p-10 border border-cream-200/90 shadow-soft-lg w-full">
+                <StepSuccess
+                  isReturning
+                  registrationId={foundReg.registrationId}
+                  formData={foundReg}
+                  initialSettings={settings}
+                  onBack={() => { setFoundReg(null); setLookupView('form'); }}
+                />
+              </div>
+            </div>
+          ) : !settings.isRegistrationOpen && currentStep !== 4 ? (
             /* Registration Closed State */
             <div className="max-w-md mx-auto bg-cream-50 rounded-3xl p-5 sm:p-8 border border-cream-300/90 shadow-soft-lg text-center space-y-5 animate-fadeIn">
               {/* Icon Badge */}
@@ -477,6 +527,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                       onGoToStep={handleGoToStep}
                       onSubmit={handleConfirmRegistration}
                       isSubmitting={isSubmitting}
+                      submitError={submitError}
                     />
                   )}
 

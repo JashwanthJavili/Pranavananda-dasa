@@ -33,13 +33,14 @@ export default function BrandLogo({
   title,
   subtitle,
   fontSize,
+  fontScale = 1.3,
   badge,
   logoSrc = APP_LOGO_SRC,
-  iconContainerClassName = 'w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-transparent flex-shrink-0',
+  iconContainerClassName = 'w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden flex items-center justify-center bg-cream-100 ring-2 ring-gold-300/70 shadow-soft flex-shrink-0',
   logoClassName = 'w-full h-full object-contain',
   className = 'flex items-center gap-2.5 sm:gap-3 text-left p-0.5 min-w-0',
-  titleClassName = 'font-bold text-temple-900 leading-tight block truncate',
-  subtitleClassName = 'text-[10px] sm:text-xs text-temple-500 block truncate',
+  titleClassName = 'font-display font-bold leading-none tracking-wide text-saffron-600 block truncate',
+  subtitleClassName = 'text-[10px] sm:text-xs text-temple-500 tracking-wide block truncate mt-0.5',
   onClick,
 }) {
   const [liveSettings, setLiveSettings] = useState(() => {
@@ -70,7 +71,7 @@ export default function BrandLogo({
         <div className="flex items-center gap-1.5">
           <span 
             className={titleClassName}
-            style={activeFontSize ? { fontSize: `${activeFontSize}px` } : undefined}
+            style={activeFontSize ? { fontSize: `${Math.round(activeFontSize * fontScale)}px` } : undefined}
           >
             {displayTitle}
           </span>
