@@ -26,8 +26,15 @@ import {
   signOut,
   updatePassword
 } from 'firebase/auth';
-import { firebaseConfig } from './config/firebaseConfig';
 
+const firebaseConfig = {
+  apiKey: "AIzaSyCEtSN7OkVg2M9uB7-HPNNZf-UI23OpzhI",
+  authDomain: "forseva-21d12.firebaseapp.com",
+  projectId: "forseva-21d12",
+  storageBucket: "forseva-21d12.firebasestorage.app",
+  messagingSenderId: "137497887223",
+  appId: "1:137497887223:web:218ce234523691e1c76ef2"
+};
 
 // Initialize Firebase App, Auth & Firestore
 const app = initializeApp(firebaseConfig);

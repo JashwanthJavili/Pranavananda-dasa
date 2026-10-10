@@ -1,7 +1,5 @@
 {
   "projects": {
-    "default": "forseva-21d12",
-    "production": "forseva-21d12",
-    "staging": "gitaforyouth-stg"
+    "default": "forseva-21d12"
   }
 }
