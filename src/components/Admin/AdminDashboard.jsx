@@ -69,7 +69,8 @@ import {
   isSuperAdminUser,
   changeAdminPassword,
   resetAdminPasswordBySuperAdmin,
-  resetRegistrationSequenceAndArchive
+  resetRegistrationSequenceAndArchive,
+  ADMIN_CACHE_KEY,
 } from '../../firebase';
 
 const ALL_COLUMNS = [
@@ -347,7 +348,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       if (adms) {
         setAdminsList(adms);
         try {
-          localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(adms));
+          localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(adms));
         } catch (e) {}
       }
 

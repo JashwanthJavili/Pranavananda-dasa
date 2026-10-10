@@ -26,7 +26,10 @@ import {
   signOut,
   updatePassword
 } from 'firebase/auth';
-import { firebaseConfig } from './config/firebaseConfig';
+import { firebaseConfig, APP_ENV } from './config/firebaseConfig';
+
+// Staging and production must not share cached admins in the same browser origin.
+export const ADMIN_CACHE_KEY = APP_ENV === 'staging' ? 'gita_amrita_cached_admins_stg' : 'gita_amrita_cached_admins';
 
 
 // Initialize Firebase App, Auth & Firestore
@@ -607,7 +610,7 @@ export async function fetchAllAdmins() {
   // 2. Merge local cached admins
   const legacyPlaceholders = ['jashwanthjavili7@gmail.com', 'admin@gitaamrita.com'];
   try {
-    const local = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const local = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     local.forEach(adm => {
       const emailKey = (adm.email || adm.id || '').toLowerCase();
       if (emailKey && !adminsMap.has(emailKey) && !adm.isDeleted && adm.status !== 'Revoked' && !legacyPlaceholders.includes(emailKey)) {
@@ -627,7 +630,7 @@ export async function fetchAllAdmins() {
   });
 
   try {
-    localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(result));
+    localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(result));
   } catch (e) {}
 
   return result;
@@ -638,7 +641,7 @@ export async function fetchAllAdmins() {
  */
 export function subscribeToAdmins(callback) {
   try {
-    const cached = localStorage.getItem('gita_amrita_cached_admins');
+    const cached = localStorage.getItem(ADMIN_CACHE_KEY);
     if (cached) {
       callback(JSON.parse(cached));
     }
@@ -714,10 +717,10 @@ export async function addAdminToFirestore({ email, name, password, role = 'Admin
 
     // Update local cache without plaintext password
     try {
-      const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+      const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
       const filtered = cached.filter(a => (a.email || '').toLowerCase() !== cleanEmail);
       filtered.push(payload);
-      localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(filtered));
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(filtered));
     } catch (e) {}
 
     return { success: true, admin: payload };
@@ -750,11 +753,11 @@ export async function updateAdminRoleInFirestore({ email, newRole, callerUser = 
     }, { merge: true });
 
     try {
-      const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+      const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
       const idx = cached.findIndex(a => (a.email || '').toLowerCase() === cleanEmail);
       if (idx !== -1) {
         cached[idx].role = allowedRole;
-        localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(cached));
+        localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cached));
       }
     } catch (e) {}
 
@@ -809,12 +812,12 @@ export async function removeAdminFromFirestore(adminIdOrEmail, callerUser = null
 
   // 3. Purge from local cache immediately
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const filtered = cached.filter(a => {
       const emailLower = (a.email || '').toLowerCase();
       return emailLower !== cleanKey && a.id !== docId && a.id !== adminIdOrEmail && (a.id || '').toLowerCase() !== cleanKey;
     });
-    localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(filtered));
+    localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(filtered));
   } catch (e) {}
 
   return { success: true };
@@ -850,7 +853,7 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
   // Check Local storage cached admin password fallback
   if (!verified) {
     try {
-      const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+      const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
       const match = cached.find(a => (a.email || '').toLowerCase() === targetEmail);
       if (match) {
         verified = await verifyPasswordMatch(currentPassword, match.passwordHash, match.password);
@@ -877,12 +880,12 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
 
   // 3. Update Local Cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const idx = cached.findIndex(a => (a.email || '').toLowerCase() === targetEmail);
     if (idx !== -1) {
       cached[idx].passwordHash = newHash;
       delete cached[idx].password;
-      localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(cached));
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cached));
     }
   } catch (e) {}
 
@@ -934,12 +937,12 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
 
   // Update Local Cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const idx = cached.findIndex(a => (a.email || '').toLowerCase() === targetEmail);
     if (idx !== -1) {
       cached[idx].passwordHash = newHash;
       delete cached[idx].password;
-      localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(cached));
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cached));
     }
   } catch (e) {}
 
@@ -965,7 +968,7 @@ export async function isEmailAuthorizedAdmin(email) {
 
   // 2. Check local cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const match = cached.find(a => !a.isDeleted && a.status !== 'Revoked' && (a.email || '').toLowerCase() === cleanEmail);
     if (match) return match;
   } catch (e) {}
@@ -1083,7 +1086,7 @@ export async function adminLogin(usernameOrEmail, password) {
 
   // 2. Check local cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     for (const match of cached) {
       if (
         !match.isDeleted && 
