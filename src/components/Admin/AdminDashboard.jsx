@@ -56,6 +56,7 @@ import WhatsAppConfigModule from './WhatsAppConfigModule';
 import HelpRequestsPanel from './HelpRequestsPanel';
 import HelpEmailsSettings from './HelpEmailsSettings';
 import QuizzesPanel from './quiz/QuizzesPanel';
+import StudentAnswersModal from './quiz/StudentAnswersModal';
 import FancySelect from '../common/FancySelect';
 import useQuizManager from './quiz/useQuizManager';
 import useQuizTracking from './quiz/useQuizTracking';
@@ -307,6 +308,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const countableTracked = useMemo(() => countableQuizzes(trackedQuizzes), [trackedQuizzes]);
   const countableQuizCount = countableTracked.length;
   const [quizFilter, setQuizFilter] = useState({ quizId: 'all', status: 'all' });
+  const [answersView, setAnswersView] = useState(null); // { participant, quiz }: a student's answers
   const [sortBy, setSortBy] = useState('default');
   const quizStatusFor = (item, quizId) => quizData.tracking[quizId]?.[item.registrationId || item.id] || null;
   const openQuizTracking = (quizId) => {
@@ -1158,6 +1160,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             adminUser={adminUser}
             manager={quizManager}
             quizData={quizData}
+            participants={registrations}
             participantCount={registrations.length}
             notify={showNotification}
             onTrack={openQuizTracking}
@@ -1364,6 +1367,17 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               />
             )}
 
+            {/* A participant's answers for one quiz (from the Attempted badge) */}
+            {answersView && (
+              <StudentAnswersModal
+                participant={answersView.participant}
+                quiz={answersView.quiz}
+                status={quizStatusFor(answersView.participant, answersView.quiz.id)}
+                answerKey={quizData.keys?.[answersView.quiz.id]}
+                onClose={() => setAnswersView(null)}
+              />
+            )}
+
             {/* Participants Table */}
             <div className="bg-cream-50 rounded-2xl border border-cream-200 shadow-soft overflow-hidden">
               <div className="overflow-x-auto">
@@ -1527,7 +1541,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
                             {trackedQuizzes.map((q) => (
                               <td key={q.id} className={`py-3 px-3 ${quizFilter.quizId === q.id ? 'bg-gold-50/70' : ''}`}>
-                                <QuizStatusCell quiz={q} status={quizStatusFor(item, q.id)} />
+                                <QuizStatusCell quiz={q} status={quizStatusFor(item, q.id)} onView={() => setAnswersView({ participant: item, quiz: q })} />
                               </td>
                             ))}
                             {countableQuizCount > 0 && (() => {

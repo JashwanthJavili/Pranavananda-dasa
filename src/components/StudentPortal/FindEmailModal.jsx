@@ -74,7 +74,7 @@ export default function FindEmailModal({ open, onClose }) {
       <p className="text-xs sm:text-sm text-temple-700 leading-relaxed">
         <span className="font-semibold block">Hare Krishna 🙏</span>
         <span className="font-semibold block">Dear Devotee,</span>
-        If you still do not remember your email, we humbly request you to raise a request in <strong>Need help</strong>. Our team will help you.
+        If you still do not remember your email, kindly send a request through <strong>Need help</strong>. Our team will help you.
       </p>
       <button
         type="button"

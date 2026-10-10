@@ -55,12 +55,16 @@ service cloud.firestore {
       }
 
       // --- 4. Coordinator Accounts (/BhagavadGita/data/admins/{adminId}) ---
+      // Super Admin records decide who manages quizzes (answer keys, results), so only a
+      // signed-in active Super Admin (their quiz-access account) may create, change or remove
+      // one, or make someone a Super Admin. Ordinary Admin records stay open until the admin
+      // login moves to Firebase Auth (Phase 2).
       match /admins/{adminId} {
         // Read is allowed so the Admin Login portal can verify coordinator credentials
         allow read: if true;
-
-        // Write allows Super Admins to grant coordinator access, change roles, and reset passwords
-        allow write: if isRootSuperAdmin() || true;
+        allow create: if !isSuperRole(request.resource.data) || isSuperAdminCaller();
+        allow update: if (!isSuperRole(resource.data) && !isSuperRole(request.resource.data)) || isSuperAdminCaller();
+        allow delete: if !isSuperRole(resource.data) || isSuperAdminCaller();
       }
 
       // --- 5. Developer Trash & Archival Backups (/BhagavadGita/data/trash/{trashId}) ---
@@ -69,9 +73,11 @@ service cloud.firestore {
         allow read, write: if true;
       }
 
-      // Allow any subcollections under /BhagavadGita/data
-      match /{allChildren=**} {
-        allow read, write: if true;
+      // Allow any other subcollections under /BhagavadGita/data (admins has its own rules above;
+      // rules are combined with OR, so this must not also match admins)
+      match /{coll}/{rest=**} {
+        allow read: if true;
+        allow write: if coll != 'admins';
       }
     }
 
@@ -186,8 +192,8 @@ service cloud.firestore {
 
     // Quiz managers: the Firebase Auth account (same email + password as the admin login) of
     // an active Super Admin, or of an email listed in quizManagers/{email} (Console only).
-    // NOTE: BhagavadGita/data/admins is still publicly writable (Phase 2), so until that is
-    // locked down, quiz management is only as protected as the admin dashboard itself.
+    // Super Admin records can only be created or changed by a signed-in Super Admin (see the
+    // admins rules above), so nobody can make themselves a quiz manager.
     // Quiz-access accounts are named <admin doc id>@gfy-quiz.invalid; a real email maps to
     // the same doc id the admin dashboard uses (non a-z0-9 characters become _).
     function adminDocId() {
@@ -199,11 +205,27 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/BhagavadGita/data/admins/$(adminDocId())).data;
     }
 
+    function isSuperRole(d) {
+      return d.get('role', '') in ['Super Admin', 'Super Administrator'];
+    }
+
+    // A quiz-access account (<doc id>@gfy-quiz.invalid), or a real email Firebase has verified,
+    // so nobody can claim an admin's address by just creating an account with it
+    function trustedAdminEmail() {
+      let e = request.auth.token.email.lower();
+      return e.matches('^[a-z0-9_]+@gfy-quiz[.]invalid$') || request.auth.token.email_verified == true;
+    }
+
     function isActiveSuperAdmin() {
       let a = adminRecord();
-      return a.get('role', '') in ['Super Admin', 'Super Administrator']
+      return trustedAdminEmail()
+        && isSuperRole(a)
         && a.get('isDeleted', false) != true
         && a.get('status', 'Active') != 'Revoked';
+    }
+
+    function isSuperAdminCaller() {
+      return isSignedIn() && request.auth.token.email != null && isActiveSuperAdmin();
     }
 
     function isQuizManager() {
@@ -274,10 +296,12 @@ service cloud.firestore {
     function resultsReleased(quizId) {
       let quiz = quizDoc(quizId);
       let progress = get(/databases/$(database)/documents/quizProgress/$(quizId + '_' + myRegistrationId())).data;
+      // On closing, only after the 2-minute submission grace, so nobody can read the
+      // answers and still submit another attempt
       return progress.uid == request.auth.uid
         && (progress.finished == true
             || progress.attempts >= quiz.maxAttempts
-            || (quiz.get('closesAt', null) != null && request.time > quiz.closesAt));
+            || (quiz.get('closesAt', null) != null && request.time > quiz.closesAt + duration.value(2, 'm')));
     }
 
     match /portalQuizKeys/{quizId} {

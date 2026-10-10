@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Plus, BookOpen, Pencil, Eye, Send, EyeOff, Trash2, Loader2, CalendarClock, ListChecks, Table2, RotateCcw, PenLine, History,
+  Plus, BookOpen, Pencil, Eye, Send, EyeOff, Trash2, Loader2, CalendarClock, ListChecks, Table2, RotateCcw, PenLine, History, FileSpreadsheet,
 } from 'lucide-react';
 import QuizManagerGate from './QuizManagerGate';
 import QuizEditor from './QuizEditor';
@@ -33,7 +33,7 @@ function statusOf(q) {
  *  participantCount: number of registrations (for "x of y attempted")
  *  onTrack(quizId): open the participants table filtered by this quiz
  */
-export default function QuizzesPanel({ adminUser, manager, quizData, participantCount, notify, onTrack, onLogout }) {
+export default function QuizzesPanel({ adminUser, manager, quizData, participants = [], participantCount, notify, onTrack, onLogout }) {
   const [editing, setEditing] = useState(null); // { quiz?, draft }
   const [loadingEdit, setLoadingEdit] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -79,6 +79,25 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
       notify('Could not open the quiz. Please try again.');
     } finally {
       setLoadingEdit(null);
+    }
+  };
+
+  // One Excel workbook for this quiz: every participant, their score, time and answers
+  const exportQuiz = async (quiz) => {
+    if (!quizData.tracking[quiz.id] || !quizData.keys?.[quiz.id]) {
+      notify('Quiz results are still loading. Please try again in a moment.');
+      return;
+    }
+    setBusyId(quiz.id);
+    try {
+      const { downloadQuizWorkbook } = await import('../../../quiz/quizExport');
+      await downloadQuizWorkbook({ quiz, statusMap: quizData.tracking[quiz.id], answerKey: quizData.keys[quiz.id], participants });
+      notify('Excel sheet downloaded.');
+    } catch (err) {
+      console.warn('Quiz export failed:', err);
+      notify('Could not create the Excel sheet. Please try again.');
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -286,6 +305,7 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
                     <ActionBtn onClick={() => openEditor(q)} disabled={busy} icon={loadingEdit === q.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pencil className="w-3.5 h-3.5" />}>Edit</ActionBtn>
                     <ActionBtn onClick={() => openPreview(q)} disabled={busy} icon={<Eye className="w-3.5 h-3.5" />}>Preview</ActionBtn>
                     {q.publishedAt && <ActionBtn onClick={() => onTrack(q.id)} icon={<Table2 className="w-3.5 h-3.5" />}>Results</ActionBtn>}
+                    {q.publishedAt && <ActionBtn onClick={() => exportQuiz(q)} disabled={busy} icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}>Excel</ActionBtn>}
                     {!q.publishedAt && (
                       <ActionBtn danger onClick={() => setConfirm({ kind: 'delete', quiz: q })} disabled={busy} icon={<Trash2 className="w-3.5 h-3.5" />}>Delete</ActionBtn>
                     )}

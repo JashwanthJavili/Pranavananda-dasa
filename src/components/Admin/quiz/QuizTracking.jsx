@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, ShieldCheck, BookOpenCheck, CheckCircle2, Circle } from 'lucide-react';
+import { Eye, RefreshCw, ShieldCheck, BookOpenCheck, CheckCircle2, Circle } from 'lucide-react';
 import { formatWhen, availability } from '../../../quiz/quizModel';
 import FancySelect from '../../common/FancySelect';
 
@@ -29,8 +29,9 @@ export const sortQuizzesByWeek = (list) =>
   [...list].sort((a, b) => (Number(a.weekNumber) || 9999) - (Number(b.weekNumber) || 9999)
     || (a.publishedAt?.toMillis?.() || 0) - (b.publishedAt?.toMillis?.() || 0));
 
-/** One participant's status for one quiz: green Attempted (with score) or grey Not Attempted. */
-export function QuizStatusCell({ quiz, status }) {
+/** One participant's status for one quiz: green Attempted (with score) or grey Not Attempted.
+ *  onView: open this participant's answers (Attempted only) */
+export function QuizStatusCell({ quiz, status, onView }) {
   if (!status) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cream-200/80 border border-cream-300 text-[10px] font-semibold text-temple-500 whitespace-nowrap">
@@ -47,9 +48,16 @@ export function QuizStatusCell({ quiz, status }) {
   ].filter(Boolean).join(' · ');
   return (
     <span title={title} className="inline-flex flex-col items-start gap-0.5">
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700 whitespace-nowrap">
+      <button
+        type="button"
+        onClick={onView}
+        disabled={!onView}
+        aria-label={`Attempted${s ? `, score ${s.correct} of ${s.total}` : ''}. View answers`}
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700 whitespace-nowrap enabled:hover:bg-emerald-100 enabled:hover:border-emerald-300 enabled:cursor-pointer disabled:cursor-default"
+      >
         <CheckCircle2 className="w-2.5 h-2.5" /> Attempted{s ? ` · ${s.correct}/${s.total}` : ''}
-      </span>
+        {onView && <Eye className="w-2.5 h-2.5 opacity-70" />}
+      </button>
       {status.lastSubmittedAt && (
         <span className="text-[10px] text-temple-400 whitespace-nowrap pl-1">
           {formatWhen(status.lastSubmittedAt)}{status.attempts > 1 ? ` · ${status.attempts} tries` : ''}

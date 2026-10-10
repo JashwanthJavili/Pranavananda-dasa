@@ -11,11 +11,12 @@ import {
   signOut, updatePassword,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, doc, getDoc, getDocs, query, where, limit, writeBatch, updateDoc, serverTimestamp,
+  getFirestore, collection, doc, getDoc, getDocs, query, where, limit, writeBatch, updateDoc, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { firebaseConfig } from '../config/firebaseConfig';
 import { withEmulatorConfig, connectToEmulators } from '../config/emulators';
 import { fromDraft, scoreAnswers, countedAttempt } from './quizModel';
+import { clearAllEditorCaches, setEditorCacheEnabled } from './editorCache';
 
 const APP_NAME = 'quiz-admin';
 const existing = getApps().find((a) => a.name === APP_NAME);
@@ -54,7 +55,11 @@ async function resolveManager(user) {
 }
 
 export function onQuizManagerChanged(callback) {
-  return onAuthStateChanged(adminAuth, async (user) => callback(await resolveManager(user)));
+  return onAuthStateChanged(adminAuth, async (user) => {
+    const state = await resolveManager(user);
+    if (state.status === 'manager') setEditorCacheEnabled(true);
+    callback(state);
+  });
 }
 
 export async function refreshQuizManager() {
@@ -122,8 +127,17 @@ export async function syncQuizManagerPassword(email, currentPassword, newPasswor
 
 export const quizManagerSignOut = () => {
   setQuizLinkIssue('');
+  // Nothing with answers or results stays in this browser after logging out
+  clearTrackingCache();
+  clearAllEditorCaches();
   return signOut(adminAuth);
 };
+
+/**
+ * Firestore signed in as the Super Admin (null when not linked). Changes to Super Admin
+ * records must go through it: the rules only accept them from a signed-in Super Admin.
+ */
+export const managerFirestore = () => (adminAuth.currentUser ? adb : null);
 
 export function quizManagerAuthError(err) {
   switch (err?.code) {
@@ -205,37 +219,125 @@ export async function deleteDraftQuiz(quizId) {
  * A participant missing from the map has Not Attempted, so publishing a quiz needs no writes
  * per participant. `score` follows the quiz's policy (best / latest attempt).
  */
-export async function fetchQuizTracking(quizzes) {
-  const result = {};
-  await Promise.all(quizzes.map(async (quiz) => {
-    const [progressSnap, attemptSnap, key] = await Promise.all([
-      getDocs(query(collection(adb, 'quizProgress'), where('quizId', '==', quiz.id))),
-      getDocs(query(collection(adb, 'quizAttempts'), where('quizId', '==', quiz.id))),
-      getQuizKey(quiz.id),
-    ]);
-    const attemptsByReg = {};
-    attemptSnap.docs.forEach((d) => {
-      const a = d.data();
-      (attemptsByReg[a.registrationId] ||= []).push({
-        attemptNumber: a.attemptNumber,
-        submittedAt: a.submittedAt,
-        score: scoreAnswers(quiz.questions, a.answers, key.answers),
-      });
+// Tracking is cached in this browser (IndexedDB) and then only what changed is read:
+// attempts are create-only and progress is never deleted, so "everything submitted since
+// the newest record we have" keeps the cache complete. A full re-read happens once a day
+// (or on request) to pick up anything else. The cache is wiped when the Super Admin logs out.
+const IDB_NAME = 'gfy-quiz-admin';
+const IDB_STORE = 'kv';
+const TRACKING_KEY = `tracking_v1_${firebaseConfig.projectId}`;
+const FULL_REFRESH_MS = 24 * 60 * 60 * 1000;
+
+function openIdb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGet(key) {
+  try {
+    const dbh = await openIdb();
+    return await new Promise((resolve) => {
+      const r = dbh.transaction(IDB_STORE).objectStore(IDB_STORE).get(key);
+      r.onsuccess = () => resolve(r.result || null);
+      r.onerror = () => resolve(null);
     });
+  } catch (e) {
+    return null;
+  }
+}
+
+async function idbSet(key, value) {
+  try {
+    const dbh = await openIdb();
+    await new Promise((resolve) => {
+      const tx = dbh.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+    });
+  } catch (e) { /* the cache is optional */ }
+}
+
+export function clearTrackingCache() {
+  try { indexedDB.deleteDatabase(IDB_NAME); } catch (e) { /* ignore */ }
+}
+
+const ms = (t) => (t?.toMillis ? t.toMillis() : 0);
+const ts = (m) => (m ? Timestamp.fromMillis(m) : null);
+
+/**
+ * { tracking: { [quizId]: { [registrationId]: status } }, keys: { [quizId]: key } }
+ * for the given (published) quizzes. A participant missing from a quiz has Not Attempted.
+ *  force: re-read everything instead of only what changed
+ */
+export async function fetchQuizTracking(quizzes, { force = false } = {}) {
+  const owner = adminAuth.currentUser?.uid || '';
+  let cache = await idbGet(TRACKING_KEY);
+  const full = force || !cache || cache.owner !== owner || Date.now() - (cache.fullAt || 0) > FULL_REFRESH_MS;
+  if (full) cache = { owner, fullAt: Date.now(), since: 0, progress: {}, attempts: {} };
+
+  const since = Timestamp.fromMillis(cache.since || 0);
+  const [progressSnap, attemptSnap, keyList] = await Promise.all([
+    getDocs(full ? collection(adb, 'quizProgress') : query(collection(adb, 'quizProgress'), where('lastSubmittedAt', '>=', since))),
+    getDocs(full ? collection(adb, 'quizAttempts') : query(collection(adb, 'quizAttempts'), where('submittedAt', '>=', since))),
+    Promise.all(quizzes.map((q) => getQuizKey(q.id))),
+  ]);
+
+  let newest = cache.since || 0;
+  progressSnap.docs.forEach((d) => {
+    const p = d.data();
+    cache.progress[d.id] = {
+      quizId: p.quizId, registrationId: p.registrationId, attempts: p.attempts, finished: Boolean(p.finished),
+      first: ms(p.firstSubmittedAt), last: ms(p.lastSubmittedAt),
+    };
+    newest = Math.max(newest, ms(p.lastSubmittedAt));
+  });
+  attemptSnap.docs.forEach((d) => {
+    const a = d.data();
+    cache.attempts[d.id] = {
+      quizId: a.quizId, registrationId: a.registrationId, n: a.attemptNumber, t: ms(a.submittedAt),
+      answers: a.answers || {}, time: Number.isFinite(a.timeTakenSec) ? a.timeTakenSec : null,
+    };
+    newest = Math.max(newest, ms(a.submittedAt));
+  });
+  cache.since = newest;
+  await idbSet(TRACKING_KEY, cache);
+
+  // Build the per-quiz maps from the cache (scores always use the current answer keys)
+  const keys = {};
+  const tracking = {};
+  const byQuiz = {};
+  Object.values(cache.attempts).forEach((a) => {
+    ((byQuiz[a.quizId] ||= {})[a.registrationId] ||= []).push(a);
+  });
+  quizzes.forEach((quiz, i) => {
+    const key = keyList[i];
+    keys[quiz.id] = key;
     const map = {};
-    progressSnap.docs.forEach((d) => {
-      const p = d.data();
-      const attempts = attemptsByReg[p.registrationId] || [];
+    Object.values(cache.progress).filter((p) => p.quizId === quiz.id).forEach((p) => {
+      const history = (byQuiz[quiz.id]?.[p.registrationId] || [])
+        .map((a) => ({
+          attemptNumber: a.n,
+          submittedAt: ts(a.t),
+          answers: a.answers,
+          timeTakenSec: a.time,
+          score: scoreAnswers(quiz.questions, a.answers, key.answers),
+        }))
+        .sort((x, y) => x.attemptNumber - y.attemptNumber);
       map[p.registrationId] = {
         attempts: p.attempts,
-        finished: Boolean(p.finished),
-        firstSubmittedAt: p.firstSubmittedAt,
-        lastSubmittedAt: p.lastSubmittedAt,
-        history: attempts.sort((x, y) => x.attemptNumber - y.attemptNumber),
-        score: countedAttempt(attempts, quiz.scorePolicy)?.score || null,
+        finished: p.finished,
+        firstSubmittedAt: ts(p.first),
+        lastSubmittedAt: ts(p.last),
+        history,
+        score: countedAttempt(history, quiz.scorePolicy)?.score || null,
       };
     });
-    result[quiz.id] = map;
-  }));
-  return result;
+    tracking[quiz.id] = map;
+  });
+  return { tracking, keys, full };
 }

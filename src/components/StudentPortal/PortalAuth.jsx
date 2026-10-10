@@ -337,7 +337,7 @@ function SetupNeeded({ onSetup }) {
           <span className="block">Dear Devotee,</span>
         </h3>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          You are registered with us, but your login has not been created yet, so there is no password to reset. We humbly request you to set up your account first.
+          You are registered with us, but your login has not been created yet, so there is no password to reset. Kindly set up your account first.
         </p>
         <p className="pt-2 text-xs sm:text-sm font-medium text-temple-800">Kindly follow these simple steps:</p>
       </div>
@@ -369,7 +369,7 @@ function AlreadySetUp({ onLogin, onForgot }) {
           <span className="block">Dear Devotee,</span>
         </h3>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          Your account setup is already completed. We humbly request you to log in with your email or mobile number and the password you created.
+          Your account setup is already complete. Kindly log in with your email or mobile number and the password you created.
         </p>
       </div>
       <PrimaryButton type="button" onClick={onLogin}>Go to log in</PrimaryButton>

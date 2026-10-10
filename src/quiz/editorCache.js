@@ -8,8 +8,14 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // forget copies older than 30 days
 const keyFor = (quizId) => `${PREFIX}${quizId || 'new'}`;
 const millis = (t) => (t?.toMillis ? t.toMillis() : t instanceof Date ? t.getTime() : null);
 
+// Off after logout until a Super Admin signs in again, so an editor closing during logout
+// cannot write its copy (with correct answers) back.
+let enabled = true;
+export const setEditorCacheEnabled = (on) => { enabled = Boolean(on); };
+
 /** Save the draft. baseUpdatedAt: the quiz's updatedAt when editing began (to spot newer server edits). */
 export function saveEditorCache(quizId, draft, baseUpdatedAt) {
+  if (!enabled) return false;
   try {
     localStorage.setItem(keyFor(quizId), JSON.stringify({
       draft: {
@@ -57,6 +63,14 @@ export function clearEditorCache(quizId) {
 }
 
 export const hasEditorCache = (quizId) => Boolean(loadEditorCache(quizId));
+
+/** Remove every kept copy (they contain correct answers), e.g. when the Super Admin logs out. */
+export function clearAllEditorCaches() {
+  enabled = false;
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith(PREFIX)).forEach((k) => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
 
 /** True when the quiz was saved (from anywhere) after the cached copy was started. */
 export const cacheIsStale = (cache, quiz) => Boolean(cache && quiz && cache.base && millis(quiz.updatedAt) && millis(quiz.updatedAt) > cache.base);

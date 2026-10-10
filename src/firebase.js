@@ -567,6 +567,19 @@ export async function studentLogin(identifier, password) {
  */
 export const DEFAULT_ADMIN_USERS = [];
 
+// Changes to admin records go through the Super Admin's signed-in quiz-access session when
+// there is one: the Firestore rules only accept changes to Super Admin records from it.
+async function adminStore() {
+  try {
+    const { managerFirestore } = await import('./quiz/quizAdmin');
+    return managerFirestore() || db;
+  } catch (e) {
+    return db;
+  }
+}
+const SUPER_ADMIN_SESSION_ERROR = 'Your Super Admin access could not be confirmed for this change. Please log out, log in again and try once more.';
+const adminWriteError = (err) => (err?.code === 'permission-denied' ? SUPER_ADMIN_SESSION_ERROR : (err?.message || 'Could not save the change. Please try again.'));
+
 /**
  * Helper to determine if a user holds Super Admin privileges
  */
@@ -737,7 +750,7 @@ export async function addAdminToFirestore({ email, name, password, role = 'Admin
   };
 
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, payload, { merge: true });
 
     // Ensure plaintext password is removed if previously present
@@ -763,7 +776,7 @@ export async function addAdminToFirestore({ email, name, password, role = 'Admin
     return { success: true, admin: payload };
   } catch (err) {
     console.warn('Error granting admin in Firestore:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: adminWriteError(err) };
   }
 }
 
@@ -782,7 +795,7 @@ export async function updateAdminRoleInFirestore({ email, newRole, callerUser = 
   const docId = cleanEmail.replace(/[^a-z0-9]/g, '_');
 
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, { 
       role: allowedRole, 
       updatedBy: callerUser?.email || 'Super Admin', 
@@ -800,7 +813,7 @@ export async function updateAdminRoleInFirestore({ email, newRole, callerUser = 
 
     return { success: true, role: allowedRole };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: adminWriteError(err) };
   }
 }
 
@@ -814,23 +827,26 @@ export async function removeAdminFromFirestore(adminIdOrEmail, callerUser = null
 
   const cleanKey = sanitizeText(adminIdOrEmail || '', 120).trim().toLowerCase();
   const docId = cleanKey.includes('@') ? cleanKey.replace(/[^a-z0-9]/g, '_') : cleanKey;
+  const store = await adminStore();
+  let denied = false;
+  const noteDenied = (err) => { if (err?.code === 'permission-denied') denied = true; };
 
   // 1. Delete from Firestore directly by document ID
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(store, 'BhagavadGita', 'data', 'admins', docId);
     await deleteDoc(adminRef);
-  } catch (err) {}
+  } catch (err) { noteDenied(err); }
 
   if (adminIdOrEmail && adminIdOrEmail !== docId) {
     try {
-      const directRef = doc(db, 'BhagavadGita', 'data', 'admins', adminIdOrEmail);
+      const directRef = doc(store, 'BhagavadGita', 'data', 'admins', adminIdOrEmail);
       await deleteDoc(directRef);
-    } catch (err) {}
+    } catch (err) { noteDenied(err); }
   }
 
   // 2. Query and delete all matching admin documents in the collection
   try {
-    const adminCol = collection(db, 'BhagavadGita', 'data', 'admins');
+    const adminCol = collection(store, 'BhagavadGita', 'data', 'admins');
     const snap = await getDocs(adminCol);
     for (const d of snap.docs) {
       const data = d.data();
@@ -839,13 +855,17 @@ export async function removeAdminFromFirestore(adminIdOrEmail, callerUser = null
         try {
           await deleteDoc(d.ref);
         } catch (e) {
-          await setDoc(d.ref, { isDeleted: true, status: 'Revoked', revokedAt: serverTimestamp() }, { merge: true });
+          noteDenied(e);
+          try {
+            await setDoc(d.ref, { isDeleted: true, status: 'Revoked', revokedAt: serverTimestamp() }, { merge: true });
+          } catch (e2) { noteDenied(e2); }
         }
       }
     }
   } catch (err) {
     console.warn('Revoke delete query note:', err);
   }
+  if (denied) return { success: false, error: SUPER_ADMIN_SESSION_ERROR };
 
   // 3. Purge from local cache immediately
   try {
@@ -905,7 +925,7 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
   // 2. Update Password Hash in Firestore and remove plaintext password
   const newHash = await hashPassword(newPassword);
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
       passwordHash: newHash,
       password: deleteField(),
@@ -913,6 +933,7 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore password update error:', err);
+    return { success: false, error: adminWriteError(err) };
   }
 
   // 3. Update Local Cache
@@ -972,7 +993,7 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
   const newHash = await hashPassword(cleanPass);
 
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
       passwordHash: newHash,
       password: deleteField(),
@@ -981,6 +1002,7 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore reset password error:', err);
+    return { success: false, error: adminWriteError(err) };
   }
 
   // Update Local Cache

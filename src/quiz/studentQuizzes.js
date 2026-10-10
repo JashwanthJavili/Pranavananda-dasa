@@ -33,8 +33,13 @@ export async function fetchMyAttempts(uid, quizId) {
 /** True once the student may see scores and correct answers for this quiz. */
 export function resultsDue(quiz, progress, now = new Date()) {
   if (!progress) return false;
-  return Boolean(progress.finished) || progress.attempts >= (quiz.maxAttempts || 1) || availability(quiz, now) === 'closed';
+  const closes = toDate(quiz.closesAt);
+  // Matches the rules: answers are released 2 minutes after closing (the submission grace)
+  const closedAndSettled = closes && now.getTime() > closes.getTime() + SUBMIT_GRACE_MS;
+  return Boolean(progress.finished) || progress.attempts >= (quiz.maxAttempts || 1) || Boolean(closedAndSettled);
 }
+
+const SUBMIT_GRACE_MS = 2 * 60 * 1000;
 
 /** The answer key, or null if results are not due yet (rules refuse it). */
 export async function fetchQuizKey(quizId) {
