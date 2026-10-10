@@ -3,9 +3,5 @@
     "default": "forseva-21d12",
     "production": "forseva-21d12",
     "staging": "gitaforyouth-stg"
-  },
-  "targets": {
-    "forseva-21d12": { "hosting": { "app": ["pranavanandadas-gitaforyouth"] } },
-    "gitaforyouth-stg": { "hosting": { "app": ["gitaforyouth-stg"] } }
   }
 }
