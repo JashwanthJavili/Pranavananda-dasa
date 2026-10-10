@@ -75,6 +75,86 @@ service cloud.firestore {
       }
     }
 
+    // ---------------------------------------------------------------------------
+    // STUDENT PORTAL (root level, so the open BhagavadGita/data wildcard does not apply)
+    // ---------------------------------------------------------------------------
+
+    // Signed in through Firebase Auth with an email address Firebase has verified
+    function isVerifiedStudent() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function verifiedEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    // The registration exists, is active, and its email + mobile match the claim
+    function registrationMatches(regId, mobileClean, countryCode) {
+      let reg = get(/databases/$(database)/documents/BhagavadGita/data/registrations/$(regId)).data;
+      return reg.get('isDeleted', false) != true
+        && reg.get('mobileNumberClean', '') == mobileClean
+        && reg.get('countryCode', '+91') == countryCode
+        && (reg.get('emailLower', '') == verifiedEmail() || reg.get('email', '').lower() == verifiedEmail());
+    }
+
+    // One claim per registration. Create-only: a claim can never be moved to another account.
+    match /portalLinks/{regId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedStudent()
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'mobileClean', 'countryCode', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == verifiedEmail()
+        && request.resource.data.createdAt == request.time
+        && registrationMatches(regId, request.resource.data.mobileClean, request.resource.data.countryCode)
+        && getAfter(/databases/$(database)/documents/portalAccounts/$(request.auth.uid)).data.registrationId == regId;
+      allow update, delete: if false;
+    }
+
+    // Each account points at exactly one registration it has claimed. Create-only.
+    match /portalAccounts/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isVerifiedStudent()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['registrationId', 'email', 'createdAt'])
+        && request.resource.data.email == verifiedEmail()
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/portalLinks/$(request.resource.data.registrationId)).data.uid == uid;
+      // The only later change: recording that the student has created their password
+      allow update: if isVerifiedStudent()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passwordSetAt'])
+        && request.resource.data.passwordSetAt == request.time;
+      allow delete: if false;
+    }
+
+    // The signed-in student's own phone key (+countrycode + mobile), taken from their claim
+    function ownPhoneKey() {
+      let regId = get(/databases/$(database)/documents/portalAccounts/$(request.auth.uid)).data.registrationId;
+      let link = get(/databases/$(database)/documents/portalLinks/$(regId)).data;
+      return link.countryCode + link.mobileClean;
+    }
+
+    // Mobile number + password login. Holds the email ENCRYPTED with a key derived from the
+    // student's password, so reading a document by phone number does not reveal the email.
+    // Fetch by exact key only (no listing); only the owner can write their own phone key.
+    match /portalLogins/{key} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isVerifiedStudent()
+        && key == ownPhoneKey()
+        && (resource == null || resource.data.uid == request.auth.uid)
+        && request.resource.data.keys().hasOnly(['uid', 'salt', 'iv', 'data', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Quizzes are visible to verified students; managed from the Firebase Console for now
+    match /portalQuizzes/{quizId} {
+      allow read: if isVerifiedStudent();
+      allow write: if false;
+    }
+
     // Direct root level trash backup fallback
     match /trash/{trashId} {
       allow read, write: if true;
