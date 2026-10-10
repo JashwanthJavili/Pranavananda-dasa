@@ -17,7 +17,7 @@ const staging = {
   appId: "1:380604461588:web:d129835e201178636cad01"
 };
 
-// Vite mode decides the environment: only `vite build --mode production` uses production.
-// `npm run dev` and `--mode staging` use staging, so local work can never touch production data.
-export const APP_ENV = import.meta.env.MODE === 'production' ? 'production' : 'staging';
-export const firebaseConfig = APP_ENV === 'production' ? production : staging;
+// Vite mode decides the environment: only `--mode staging` uses the staging project.
+// Everything else (`npm run dev`, `npm run build`) uses production, as before.
+export const APP_ENV = import.meta.env.MODE === 'staging' ? 'staging' : 'production';
+export const firebaseConfig = APP_ENV === 'staging' ? staging : production;
