@@ -43,6 +43,8 @@ export default function FindEmailModal({ open, onClose }) {
 
   const search = async (e) => {
     e.preventDefault();
+    e.stopPropagation(); // React passes portal events to the page's own form otherwise
+
     const digits = mobile.replace(/\D/g, '');
     if (mobileProblem(digits, countryCode)) return setError(mobileProblem(digits, countryCode));
     setLoading(true);

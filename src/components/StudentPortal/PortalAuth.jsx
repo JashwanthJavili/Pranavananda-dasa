@@ -280,6 +280,7 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
   }
 
   return (
+    <>
     <form onSubmit={check} className="space-y-4" noValidate>
       <Heading
         title="Create Your Account"
@@ -300,7 +301,6 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
         </LinkButton>
         <TextInput id="setup-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); reset(); }} placeholder="Enter your email address" />
       </Field>
-      <FindEmailModal open={findEmailOpen} onClose={() => setFindEmailOpen(false)} />
       {error && <Notice type="error">{error}</Notice>}
       {notRegistered && (
         <NotRegistered what="both" helpPrefill={{ countryCode, mobile: digits, email: email.trim() }} />
@@ -316,6 +316,9 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
         </div>
       )}
     </form>
+    {/* Outside the form: its own "Find my email" submit must not also submit sign up */}
+    <FindEmailModal open={findEmailOpen} onClose={() => setFindEmailOpen(false)} />
+    </>
   );
 }
 
