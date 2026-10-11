@@ -86,7 +86,6 @@ export default function SocialFollowCard({ links, className = '' }) {
               </span>
               <span className="w-full min-w-0 leading-tight">
                 <span className="block text-xs sm:text-sm font-semibold text-temple-900 break-words">{p.name}</span>
-                <span className="block text-[10px] sm:text-[11px] font-medium text-temple-500 mt-0.5">{p.action} on {p.label}</span>
               </span>
             </a>
           );
