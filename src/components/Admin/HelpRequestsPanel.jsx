@@ -1,10 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  LifeBuoy, Mail, Phone, Search, X, ChevronRight, MessageCircle, MailCheck, MailX, Inbox,
+  LifeBuoy, Mail, Phone, Search, X, ChevronRight, MessageCircle, MailCheck, MailX, Inbox, UserPen, Loader2, History,
 } from 'lucide-react';
 import { HELP_STATUSES } from '../../config/support';
 import { updateHelpRequestStatus } from '../../helpRequests';
+import { fetchRegistration } from '../../profileEdits';
+import ProfileEditModal from './ProfileEditModal';
+import ProfileEditLogs from './ProfileEditLogs';
+
+// Requests that ask for a change to the participant's details
+const EDIT_CATEGORIES = ['Edit my profile details', 'My registration details are wrong'];
 
 const STATUS = {
   Open: { dot: 'bg-saffron-500', pill: 'bg-saffron-50 text-saffron-800 border-saffron-200', card: 'text-saffron-700' },
@@ -32,8 +38,13 @@ function StatusPill({ status }) {
   );
 }
 
-/** Help requests sent from the student portal. Visible to Admins and Super Admins. */
-export default function HelpRequestsPanel({ requests, loadError, adminUser, notify }) {
+/**
+ * Help requests sent from the student portal. Visible to Admins and Super Admins.
+ * Super Admins can also change a participant's details from a request, and see the edit log.
+ */
+export default function HelpRequestsPanel({ requests, loadError, adminUser, notify, isSuperAdmin = false, manager, registrations = [], onRegistrationUpdated }) {
+  const [view, setView] = useState('requests'); // 'requests' | 'log' (Super Admins)
+  const [logKey, setLogKey] = useState(0);
   const [filter, setFilter] = useState('Open');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(null);
@@ -68,6 +79,7 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
           </h2>
           <p className="text-xs text-temple-500">Questions and problems sent by students from the portal.</p>
         </div>
+        {view === 'requests' && (
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-temple-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -78,7 +90,35 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
             className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-cream-300 text-sm focus:outline-none focus:ring-2 focus:ring-saffron-400/50"
           />
         </div>
+        )}
       </div>
+
+      {isSuperAdmin && (
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-cream-200/70 border border-cream-300/70 w-full sm:w-80" role="tablist" aria-label="Help view">
+          {[
+            ['requests', 'Requests', Inbox],
+            ['log', 'Profile edit log', History],
+          ].map(([key, label, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => setView(key)}
+              className={`inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                view === key ? 'bg-white shadow-soft text-temple-900' : 'text-temple-500 hover:text-temple-800'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {view === 'log' && isSuperAdmin ? (
+        <ProfileEditLogs manager={manager} refreshKey={logKey} />
+      ) : (
+      <>
 
       {/* Summary cards = filters */}
       <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
@@ -162,20 +202,139 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
         )}
       </div>
 
+      </>
+      )}
+
       {selected && (
-        <RequestDetail request={selected} adminUser={adminUser} notify={notify} onClose={() => setSelectedId(null)} />
+        <RequestDetail
+          request={selected}
+          adminUser={adminUser}
+          notify={notify}
+          onClose={() => setSelectedId(null)}
+          isSuperAdmin={isSuperAdmin}
+          manager={manager}
+          registrations={registrations}
+          onEdited={(regId) => { setLogKey((k) => k + 1); onRegistrationUpdated?.(regId); }}
+        />
       )}
     </div>
   );
 }
 
-function RequestDetail({ request: r, adminUser, notify, onClose }) {
+/** Registrations this request is about: its linked ID, else the same email or mobile number. */
+function matchRegistrations(r, registrations) {
+  const idOf = (x) => x.registrationId || x.id;
+  if (r.registrationId) {
+    const hit = registrations.find((x) => idOf(x) === r.registrationId);
+    if (hit) return [hit];
+  }
+  const email = String(r.email || '').toLowerCase();
+  const mobile = String(r.mobile || '').replace(/\D/g, '').slice(-10);
+  return registrations.filter((x) => !x.isDeleted && (
+    (email && String(x.email || x.emailLower || '').toLowerCase() === email)
+    || (mobile && x.mobileNumberClean === mobile && (x.countryCode || '+91') === (r.countryCode || '+91'))
+  ));
+}
+
+/** Super Admins: open the edit form for the participant behind a request. */
+function EditDetailsSection({ request: r, registrations, manager, adminUser, notify, onEdited, onEditorChange }) {
+  const matches = useMemo(() => matchRegistrations(r, registrations), [r, registrations]);
+  const [typedId, setTypedId] = useState('');
+  const [loadingId, setLoadingId] = useState('');
+  const [error, setError] = useState('');
+  const [editing, setEditing] = useState(null);
+  useEffect(() => { onEditorChange?.(Boolean(editing)); }, [editing, onEditorChange]);
+  const asked = EDIT_CATEGORIES.includes(r.category);
+
+  const open = async (id) => {
+    const regId = String(id || '').trim().toUpperCase();
+    if (!regId) return setError('Please enter a registration ID.');
+    setLoadingId(regId);
+    setError('');
+    try {
+      // Always the latest copy, so the log records the true "before" values
+      const fresh = await fetchRegistration(regId);
+      if (fresh) setEditing(fresh);
+      else setError(`No active registration found with ID ${regId}.`);
+    } catch (e) {
+      setError('The registration could not be loaded. Please check your connection and try again.');
+    } finally {
+      setLoadingId('');
+    }
+  };
+
+  return (
+    <section className="space-y-2">
+      <h4 className="text-[11px] uppercase tracking-wider font-bold text-temple-500">Participant details</h4>
+      <div className={`rounded-xl border px-4 py-3 space-y-2.5 ${asked ? 'border-saffron-200 bg-saffron-50/60' : 'border-cream-200 bg-white'}`}>
+        <p className="text-xs text-temple-600">
+          {asked ? 'This participant has asked for their details to be changed.' : "You can change this participant's details if needed."}{' '}
+          Every change is saved in the profile edit log.
+        </p>
+        {matches.map((m) => {
+          const id = m.registrationId || m.id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => open(id)}
+              disabled={Boolean(loadingId)}
+              className="w-full inline-flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold disabled:opacity-70 cursor-pointer"
+            >
+              <span className="inline-flex items-center gap-1.5 min-w-0">
+                <UserPen className="w-4 h-4 shrink-0" />
+                <span className="truncate">Edit details · {id} · {m.fullName || 'Participant'}</span>
+              </span>
+              {loadingId === id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
+          );
+        })}
+        {matches.length === 0 && (
+          <form onSubmit={(e) => { e.preventDefault(); open(typedId); }} className="space-y-1.5">
+            <p className="text-[11px] text-temple-500">No registration matches this request's email or mobile number. Enter the registration ID to edit:</p>
+            <div className="flex gap-2">
+              <input
+                value={typedId}
+                onChange={(e) => { setTypedId(e.target.value); setError(''); }}
+                placeholder="e.g. BG26-120"
+                aria-label="Registration ID"
+                className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-white border border-cream-300 text-sm focus:outline-none focus:ring-2 focus:ring-saffron-400/50"
+              />
+              <button type="submit" disabled={Boolean(loadingId)} className="inline-flex items-center gap-1.5 px-3.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold disabled:opacity-70 cursor-pointer">
+                {loadingId ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPen className="w-4 h-4" />} Edit
+              </button>
+            </div>
+          </form>
+        )}
+        {error && <p className="text-xs text-red-600">{error}</p>}
+      </div>
+      {editing && (
+        <ProfileEditModal
+          registration={editing}
+          helpRequest={r}
+          registrations={registrations}
+          adminUser={adminUser}
+          manager={manager}
+          notify={notify}
+          onClose={() => setEditing(null)}
+          onSaved={() => onEdited?.(editing.registrationId || editing.id)}
+        />
+      )}
+    </section>
+  );
+}
+
+function RequestDetail({ request: r, adminUser, notify, onClose, isSuperAdmin, manager, registrations, onEdited }) {
+  // While the edit form is open, Escape and outside clicks belong to it
+  const [editorOpen, setEditorOpen] = useState(false);
+  const editorOpenRef = useRef(false);
+  editorOpenRef.current = editorOpen;
   const [saving, setSaving] = useState(false);
   const status = r.status || 'Open';
   const phoneDigits = r.mobile ? `${(r.countryCode || '+91').replace(/\D/g, '')}${r.mobile}` : '';
 
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
+    const onKey = (e) => e.key === 'Escape' && !editorOpenRef.current && onClose();
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -209,7 +368,7 @@ function RequestDetail({ request: r, adminUser, notify, onClose }) {
   // Rendered into <body>: an animated (transformed) ancestor would otherwise become the
   // containing block for `position: fixed` and push the panel out of place.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex justify-end bg-temple-900/30 backdrop-blur-[2px] font-poppins" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-temple-900/30 backdrop-blur-[2px] font-poppins" onMouseDown={(e) => e.target === e.currentTarget && !editorOpen && onClose()}>
       <aside
         role="dialog"
         aria-modal="true"
@@ -276,6 +435,18 @@ function RequestDetail({ request: r, adminUser, notify, onClose }) {
               ))}
             </dl>
           </section>
+
+          {isSuperAdmin && (
+            <EditDetailsSection
+              request={r}
+              registrations={registrations}
+              manager={manager}
+              adminUser={adminUser}
+              notify={notify}
+              onEdited={onEdited}
+              onEditorChange={setEditorOpen}
+            />
+          )}
 
           {/* Email notification */}
           <section className="space-y-2">

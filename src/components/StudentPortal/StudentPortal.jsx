@@ -14,8 +14,11 @@ import {
   setStudentPassword,
   studentLogout,
   fetchMyProfile,
-  fetchMyWhatsAppAccess,
   authErrorMessage,
+  PORTAL_HASH,
+  sendVerificationEmail,
+  refreshVerification,
+  finishPasswordSetup,
 } from '../../studentPortal';
 import { fetchPublishedQuizzes, fetchMyQuizProgress } from '../../quiz/studentQuizzes';
 import StudentQuizzes, { useQuizSummary } from './quiz/StudentQuizzes';
@@ -23,8 +26,9 @@ import PortalAuth from './PortalAuth';
 import HelpModal from './HelpModal';
 import { OpenHelpContext } from './helpContext';
 import { mobileProblem } from '../../utils/mobile';
-import { ConfirmLinkEmail, ConfirmMobile, CreatePassword } from './Onboarding';
+import { ConfirmLinkEmail, ConfirmMobile, CreatePassword, VerifyEmail } from './Onboarding';
 import { DashboardView, ProfileView } from './PortalViews';
+import { usePortalRoute } from './portalRoute';
 import { FullScreenLoader, Notice, PortalCard, PrimaryButton } from './ui';
 
 const TABS = [
@@ -40,7 +44,7 @@ const CLAIMED_MSG =
 
 /**
  * Stages:
- *  loading | signed-out | confirm-link-email | confirm-mobile | create-password | portal
+ *  loading | signed-out | verify-email | confirm-link-email | confirm-mobile | create-password | portal
  *  | verified-elsewhere | continued-elsewhere | error
  *
  * Only one tab creates the password: a tab that reaches create-password posts 'claim',
@@ -76,9 +80,13 @@ export default function StudentPortal({ onBackToHome }) {
     ch.postMessage('ping');
   }), []);
 
-  const signOutWith = useCallback(async (msg) => {
-    setMessage(msg ? { type: 'error', text: msg } : null);
+  const signOutWith = useCallback(async (msg, type = 'error') => {
+    setMessage(msg ? { type, text: msg } : null);
     await studentLogout().catch(() => {});
+    // The next login starts on the dashboard, not on the last student's page
+    if (/^#student-portal\//i.test(window.location.hash)) {
+      try { window.history.replaceState(null, '', `${window.location.pathname}#${PORTAL_HASH}`); } catch (e) {}
+    }
     setStage('signed-out');
   }, []);
 
@@ -88,11 +96,14 @@ export default function StudentPortal({ onBackToHome }) {
     resolving.current = true;
     setStepError('');
     try {
+      // Account created, email not verified yet: wait for the verification link
       if (!u.emailVerified) {
-        await signOutWith('Please verify your email first: use "First-time setup" with your registered mobile number and email.');
+        setStage('verify-email');
         return;
       }
 
+      // Set up with "verify your email" (the student already chose a password)
+      const viaVerifyEmail = Boolean(getPendingOnboarding()?.method);
       let linked = await getLinkedRegistrationId(u.uid);
       if (!linked) {
         const pending = getPendingOnboarding();
@@ -120,7 +131,14 @@ export default function StudentPortal({ onBackToHome }) {
       // Setup is done for this browser; never show "Check your email" again.
       setPendingOnboarding(null);
 
-      const next = (await hasCreatedPassword(u)) ? 'portal' : 'create-password';
+      // The password typed at setup / login finishes the account here; otherwise ask for one
+      const ready = (await hasCreatedPassword(u)) || (await finishPasswordSetup(u));
+      if (!ready && viaVerifyEmail) {
+        // The page was reloaded, so the password typed at setup is no longer known here
+        await signOutWith('Your email is verified and your registration is linked. Kindly log in with your email and the password you created.', 'success');
+        return;
+      }
+      const next = ready ? 'portal' : 'create-password';
 
       // Opened from the email while the original tab is still open: continue over there.
       if (openedFromLink.current && next === 'create-password' && (await isOtherTabOpen())) {
@@ -250,6 +268,25 @@ export default function StudentPortal({ onBackToHome }) {
     }
   };
 
+  // Verification happens in the email (often on another device): check, then continue
+  const handleVerified = useCallback(async () => {
+    const ok = await refreshVerification().catch(() => false);
+    if (ok) {
+      const u = getCurrentStudent();
+      setUser(u);
+      await resolveUser(u);
+    }
+    return ok;
+  }, [resolveUser]);
+
+  const handleResendVerification = async () => {
+    try {
+      await sendVerificationEmail();
+    } catch (err) {
+      throw new Error(authErrorMessage(err));
+    }
+  };
+
   const handleConfirmMobile = async (details) => {
     if (mobileProblem(details.mobile, details.countryCode)) {
       setStepError(mobileProblem(details.mobile, details.countryCode));
@@ -281,6 +318,15 @@ export default function StudentPortal({ onBackToHome }) {
   let content;
   if (stage === 'loading') content = <FullScreenLoader label="Opening your portal…" />;
   else if (stage === 'signed-out') content = <PortalAuth initialMessage={message} />;
+  else if (stage === 'verify-email')
+    content = (
+      <VerifyEmail
+        email={user?.email}
+        onVerified={handleVerified}
+        onResend={handleResendVerification}
+        onCancel={() => { setPendingOnboarding(null); signOutWith(null); }}
+      />
+    );
   else if (stage === 'confirm-link-email')
     content = <ConfirmLinkEmail onSubmit={handleConfirmLinkEmail} onCancel={() => signOutWith(null)} error={stepError} loading={busy} />;
   else if (stage === 'confirm-mobile')
@@ -361,7 +407,7 @@ function useNarrowScreen(maxWidth = 400) {
   return narrow;
 }
 
-function PortalFrame({ children, onBackToHome, right, helpPrefill }) {
+function PortalFrame({ children, onBackToHome, right, helpPrefill, bottomNav = false, bare = false, footer = true }) {
   const narrow = useNarrowScreen();
   const small = useNarrowScreen(370);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -373,6 +419,7 @@ function PortalFrame({ children, onBackToHome, right, helpPrefill }) {
   }, []);
   return (
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins text-temple-900 selection:bg-saffron-100 selection:text-saffron-900 overflow-x-hidden">
+      {!bare && (
       <header className="sticky top-0 z-30 bg-cream-50/90 backdrop-blur-md border-b border-gold-200/70 shadow-soft">
         <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-[72px] flex items-center justify-between gap-2">
           <BrandLogo fontScale={small ? 0.9 : narrow ? 1 : 1.3} />
@@ -401,16 +448,29 @@ function PortalFrame({ children, onBackToHome, right, helpPrefill }) {
           </div>
         </div>
       </header>
+      )}
       <OpenHelpContext.Provider value={openHelp}>{children}</OpenHelpContext.Provider>
+      {/* Devotional footer (on phones, kept clear of the bottom tab bar) */}
+      {!bare && footer && (
+      <footer className={`mt-auto border-t border-cream-200 bg-cream-50/50 pt-5 text-center text-xs space-y-0.5 ${bottomNav ? 'pb-24 sm:pb-5' : 'pb-5'}`}>
+        <p className="font-medium text-temple-700">&copy; 2026 Pranavananda Das</p>
+        <p className="text-temple-500">Built with devotion for spreading Krishna consciousness</p>
+      </footer>
+      )}
+      {/* Without the footer, keep the last content clear of the phone tab bar */}
+      {!bare && !footer && bottomNav && <div aria-hidden className="h-20 sm:hidden" />}
       <HelpModal open={helpOpen} onClose={closeHelp} prefill={{ ...helpPrefill, ...helpExtra }} />
     </div>
   );
 }
 
 function PortalHome({ user, onLogout, onBackToHome }) {
-  const [tab, setTab] = useState('dashboard');
+  // The page comes from the address (#student-portal/quizzes/...), so a refresh stays on it
+  const [route, navigate] = usePortalRoute();
+  const { tab } = route;
+  // Answering a quiz: nothing on screen but the quiz
+  const focus = tab === 'quizzes' && route.step === 'play';
   const [profile, setProfile] = useState(undefined);
-  const [whatsapp, setWhatsapp] = useState(undefined);
   const [quizzes, setQuizzes] = useState(undefined);
   const [quizProgress, setQuizProgress] = useState(undefined);
   const [quizError, setQuizError] = useState('');
@@ -437,7 +497,6 @@ function PortalHome({ user, onLogout, onBackToHome }) {
       .then((p) => {
         if (!alive) return;
         setProfile(p);
-        fetchMyWhatsAppAccess(p).then((w) => alive && setWhatsapp(w)).catch(() => alive && setWhatsapp(null));
       })
       .catch(() => alive && setProfile(null));
     loadQuizzes();
@@ -447,7 +506,7 @@ function PortalHome({ user, onLogout, onBackToHome }) {
   // Re-selecting a tab starts it fresh (e.g. Quizzes goes back to the list).
   const [tabVisit, setTabVisit] = useState(0);
   const open = (key) => {
-    setTab(key);
+    navigate(key);
     setTabVisit((v) => v + 1);
     if (key === 'quizzes') loadQuizzes();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -468,6 +527,9 @@ function PortalHome({ user, onLogout, onBackToHome }) {
     <PortalFrame
       onBackToHome={onBackToHome}
       right={logoutButton}
+      bottomNav={!focus}
+      bare={focus}
+      footer={tab === 'profile'}
       helpPrefill={{
         name: profile?.fullName || '',
         email: profile?.email || user.email || '',
@@ -476,9 +538,9 @@ function PortalHome({ user, onLogout, onBackToHome }) {
         registrationId: profile?.registrationId || '',
       }}
     >
-      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-8 pb-28 sm:pb-12 flex-1">
+      <div className={`max-w-5xl w-full mx-auto px-4 sm:px-6 flex-1 ${focus ? 'py-5 sm:py-8' : 'pt-5 sm:pt-8 pb-8 sm:pb-12'}`}>
         {/* Desktop tabs */}
-        <nav className="hidden sm:flex gap-1 p-1 mb-6 rounded-2xl bg-cream-200/70 border border-cream-300/70 w-fit">
+        <nav className={`${focus ? 'hidden' : 'hidden sm:flex'} gap-1 p-1 mb-6 rounded-2xl bg-cream-200/70 border border-cream-300/70 w-fit`}>
           {TABS.map(({ key, label, Icon }) => (
             <button
               key={key}
@@ -503,7 +565,7 @@ function PortalHome({ user, onLogout, onBackToHome }) {
             </Notice>
           </div>
         ) : tab === 'dashboard' ? (
-          <DashboardView profile={profile} whatsapp={whatsapp} quizSummary={quizSummary} onOpen={open} />
+          <DashboardView profile={profile} quizSummary={quizSummary} onOpen={open} onStartQuiz={(id) => navigate('quizzes', id, 'confirm')} />
         ) : tab === 'quizzes' ? (
           <StudentQuizzes
             key={`quizzes-${tabVisit}`}
@@ -513,6 +575,8 @@ function PortalHome({ user, onLogout, onBackToHome }) {
             progress={quizProgress}
             error={quizError}
             onReload={loadQuizzes}
+            route={route}
+            navigate={navigate}
           />
         ) : (
           <ProfileView profile={profile} />
@@ -520,6 +584,7 @@ function PortalHome({ user, onLogout, onBackToHome }) {
       </div>
 
       {/* Mobile bottom navigation */}
+      {!focus && (
       <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70 grid grid-cols-3 pb-[env(safe-area-inset-bottom)]">
         {TABS.map(({ key, label, Icon }) => (
           <button
@@ -535,6 +600,7 @@ function PortalHome({ user, onLogout, onBackToHome }) {
           </button>
         ))}
       </nav>
+      )}
 
       {confirmLogout && (
         <div className="fixed inset-0 z-50 bg-temple-900/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">

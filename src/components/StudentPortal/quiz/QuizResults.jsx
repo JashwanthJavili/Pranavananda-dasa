@@ -17,8 +17,9 @@ const MARK_STYLE = {
  *  attempts: [{ attemptNumber, answers, submittedAt, score }]  (scored)
  *  counted:  the attempt that counts under the quiz's policy
  *  answerKey: { answers }
+ *  extra: shown under the score (the student's rating)
  */
-export default function QuizResults({ quiz, attempts, counted, answerKey, onBack, backLabel = 'Back to quizzes', preview = false }) {
+export default function QuizResults({ quiz, attempts, counted, answerKey, onBack, backLabel = 'Back to quizzes', preview = false, extra = null }) {
   const key = answerKey?.answers || {};
   const [shownNumber, setShownNumber] = useState(counted?.attemptNumber);
   const shown = attempts.find((a) => a.attemptNumber === shownNumber) || counted || attempts[attempts.length - 1];
@@ -113,6 +114,7 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
         </div>
       )}
 
+      {extra}
       </div>
       <button
         type="button"

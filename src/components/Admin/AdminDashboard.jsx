@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Users, 
   Search, 
@@ -50,10 +50,14 @@ import {
   Image as ImageIcon,
   LifeBuoy as HelpIcon,
   BookOpenCheck,
+  Star,
 } from 'lucide-react';
 import BrandLogo, { KRISHNA_ICON_SRC } from '../BrandLogo';
 import WhatsAppConfigModule from './WhatsAppConfigModule';
 import HelpRequestsPanel from './HelpRequestsPanel';
+import QuizRatingsPanel from './QuizRatingsPanel';
+import StagingWipePanel from './StagingWipePanel';
+import { fetchRegistration } from '../../profileEdits';
 import HelpEmailsSettings from './HelpEmailsSettings';
 import QuizzesPanel from './quiz/QuizzesPanel';
 import StudentAnswersModal from './quiz/StudentAnswersModal';
@@ -62,6 +66,7 @@ import useQuizManager from './quiz/useQuizManager';
 import useQuizTracking from './quiz/useQuizTracking';
 import {
   QuizTrackingBar, QuizStatusCell, quizColumnLabel, sortQuizzesByWeek, countableQuizzes, attemptedCount,
+  matchesQuizStatus, matchesQuizCount,
 } from './quiz/QuizTracking';
 import { subscribeToHelpRequests } from '../../helpRequests';
 import * as XLSX from 'xlsx';
@@ -121,6 +126,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         return 'settings';
       }
       if (hash === '#admin-help') return 'help';
+      if (hash === '#admin-ratings') return 'ratings';
       if (hash === '#admin-quizzes' && isSuperAdminUser(adminUser)) return 'quizzes';
     }
     return 'participants';
@@ -138,6 +144,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       window.location.hash = 'settings';
     } else if (tab === 'help') {
       window.location.hash = 'admin-help';
+    } else if (tab === 'ratings') {
+      window.location.hash = 'admin-ratings';
     } else if (tab === 'quizzes') {
       window.location.hash = 'admin-quizzes';
     } else {
@@ -152,6 +160,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         setActiveTab('settings');
       } else if (hash === '#admin-help') {
         setActiveTab('help');
+      } else if (hash === '#admin-ratings') {
+        setActiveTab('ratings');
       } else if (hash === '#admin-quizzes' && isSuperAdmin) {
         setActiveTab('quizzes');
       } else {
@@ -374,6 +384,15 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       if (list) setAdminsList(list);
     });
     return () => unsubAdmins();
+  }, []);
+
+  // After a Super Admin changes a participant's details, show the saved values
+  const refreshRegistration = useCallback(async (regId) => {
+    try {
+      const fresh = await fetchRegistration(regId);
+      if (!fresh) return;
+      setRegistrations((prev) => prev.map((r) => ((r.registrationId || r.id) === regId ? { ...r, ...fresh, id: r.id } : r)));
+    } catch (e) {}
   }, []);
 
   // Fetch data
@@ -836,17 +855,17 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     const countable = countableQuizzes(trackedQuizzes);
     const doneOf = (item) => attemptedCount(countable, quizData.tracking, item.registrationId || item.id);
     if (activeQuiz && quizFilter.status !== 'all') {
-      list = list.filter((item) => (quizFilter.status === 'attempted' ? Boolean(statusOf(item)) : !statusOf(item)));
-    } else if (!activeQuiz && countable.length && ['every', 'missed', 'none'].includes(quizFilter.status)) {
-      list = list.filter((item) => {
-        const n = doneOf(item);
-        return quizFilter.status === 'every' ? n === countable.length : quizFilter.status === 'none' ? n === 0 : n < countable.length;
-      });
+      list = list.filter((item) => matchesQuizStatus(statusOf(item), quizFilter.status));
+    } else if (!activeQuiz && quizFilter.status !== 'all') {
+      list = list.filter((item) => matchesQuizCount(doneOf(item), countable.length, quizFilter.status));
     }
-    if (sortBy === 'default') return list;
     const byId = (a, b) => String(a.registrationId || a.id || '').localeCompare(String(b.registrationId || b.id || ''), undefined, { numeric: true });
     const sorted = [...list];
-    if (sortBy === 'name') sorted.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')) || byId(a, b));
+    if (sortBy === 'default') {
+      // Newest registration first (registration ID breaks ties / records without a date)
+      const made = (item) => item.createdAt?.toMillis?.() || 0;
+      sorted.sort((a, b) => made(b) - made(a) || byId(b, a));
+    } else if (sortBy === 'name') sorted.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')) || byId(a, b));
     else if (sortBy === 'id') sorted.sort(byId);
     else if (activeQuiz && (sortBy === 'score-desc' || sortBy === 'score-asc')) {
       // Not attempted always last
@@ -1151,6 +1170,19 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             loadError={helpLoadError}
             adminUser={adminUser}
             notify={showNotification}
+            isSuperAdmin={isSuperAdmin}
+            manager={quizManager}
+            registrations={registrations}
+            onRegistrationUpdated={refreshRegistration}
+          />
+        )}
+
+        {/* QUIZ RATINGS (Admins and Super Admins) */}
+        {activeTab === 'ratings' && (
+          <QuizRatingsPanel
+            registrations={registrations}
+            quizzes={isSuperAdmin && quizManager.isManager ? quizData.quizzes : null}
+            canSeeFeedback={isSuperAdmin && quizManager.isManager}
           />
         )}
 
@@ -2512,6 +2544,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               <HelpEmailsSettings callerUser={adminUser} />
             </div>
 
+            {/* SECTION 8: STAGING ONLY - wipe test data (not rendered on the live site) */}
+            <StagingWipePanel
+              manager={quizManager}
+              onDone={() => { loadData(true); quizData.reload?.(true); }}
+            />
+
           </div>
         )}
 
@@ -2526,6 +2564,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
           {[
             { key: 'participants', label: 'Home', Icon: Users, title: 'Participant Registrations' },
             { key: 'help', label: 'Need help', Icon: HelpIcon, title: 'Help requests from students', badge: openHelpCount },
+            { key: 'ratings', label: 'Ratings', Icon: Star, title: 'Quiz ratings from students' },
             ...(isSuperAdmin
               ? [
                   { key: 'quizzes', label: 'Quizzes', Icon: BookOpenCheck, title: 'Weekly Quizzes' },

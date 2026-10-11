@@ -1,5 +1,8 @@
-// Student Portal data layer: Firebase Auth (email link + password) and the
-// account <-> registration link. Security is enforced by firestore.rules:
+// Student Portal data layer: Firebase Auth (email + password, verified by Firebase's
+// "verify your email" message) and the account <-> registration link.
+// First-time setup: check the registration -> create the password -> verify the email ->
+// link. (Older email sign-in links still work, but Firebase allows only 5 of those a day on
+// the free plan, against 1,000 verification emails.) Security is enforced by firestore.rules:
 //   portalLinks/{registrationId}  one claim per registration, create-only
 //   portalAccounts/{uid}          the student's own pointer to their registration
 // A student can only claim a registration whose email equals their *verified*
@@ -9,6 +12,8 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
   sendPasswordResetEmail,
   updatePassword,
   onAuthStateChanged,
@@ -21,11 +26,13 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   limit,
   writeBatch,
   serverTimestamp,
+  getCountFromServer,
 } from 'firebase/firestore';
 import { auth, db, verifyAndGetWhatsAppAccess, emailHintKey } from './firebase';
 
@@ -82,6 +89,33 @@ async function findRegistrationsByEmail(email) {
     .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 }
 
+/** How many registrations have field == value. Only a number comes back, never the records. */
+async function countRegistrations(field, value) {
+  const col = collection(db, 'BhagavadGita', 'data', 'registrations');
+  const snap = await getCountFromServer(query(col, where(field, '==', value)));
+  return snap.data().count;
+}
+
+/**
+ * Whether an email and / or mobile number belongs to any registration, so a student who
+ * has not registered yet can be pointed to the registration form.
+ * Uses counts only, so no registration data (emails, addresses) reaches the browser.
+ * Errs towards "registered" (a deleted record, or the same digits in another country, still
+ * counts): the worst case is pointing someone to Need help instead of the registration form.
+ * Returns { emailRegistered, mobileRegistered } (null for a value that was not given).
+ */
+export async function checkRegistered({ email, mobile } = {}) {
+  const any = async (pairs) => (await Promise.all(pairs.map(([f, v]) => countRegistrations(f, v)))).some((c) => c > 0);
+  const e = cleanEmail(email);
+  const digits = String(mobile || '').replace(/\D/g, '');
+  const [emailRegistered, mobileRegistered] = await Promise.all([
+    e ? any([['emailLower', e], ['email', e]]) : null,
+    // Older records may only have the raw `mobile` field
+    digits ? any([['mobileNumberClean', cleanMobile(digits)], ['mobile', digits]]) : null,
+  ]);
+  return { emailRegistered, mobileRegistered };
+}
+
 async function findMatchingRegistrations(email, mobile, countryCode) {
   const m = cleanMobile(mobile);
   return (await findRegistrationsByEmail(email)).filter((d) => {
@@ -90,23 +124,117 @@ async function findMatchingRegistrations(email, mobile, countryCode) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Leftovers of a deleted registration
+// When an admin deletes a registration, the student's portal records stay behind. Firestore
+// rules let anyone remove them only once they no longer belong to a live registration, so a
+// re-registered student can set up again instead of being told "already set up".
+// ---------------------------------------------------------------------------
+
+/** Remove a document if the rules say it is a leftover. True when it was removed. */
+const removeIfLeftover = (ref) => deleteDoc(ref).then(() => true, () => false);
+
+/** True if this phone's mobile login really exists (leftovers are removed on the way). */
+async function liveMobileLogin(countryCode, mobile) {
+  const ref = doc(db, 'portalLogins', phoneKey(countryCode, mobile));
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return false;
+  return !(await removeIfLeftover(ref));
+}
+
+/** Old claims on these registration IDs (an ID can be given again after a deletion). */
+const clearLeftoverLinks = (registrationIds) =>
+  Promise.all(registrationIds.map((id) => removeIfLeftover(doc(db, 'portalLinks', id))));
+
 /**
- * Step 1 of onboarding: confirm that the email + mobile belong to one registration,
- * and only then send the Firebase sign-in link to that registered email.
- * Returns { status: 'sent' | 'not_found' | 'already_setup' }.
+ * Step 1 of first-time setup: do this email + mobile belong to one registration that has not
+ * been set up yet? Returns { status: 'ok' | 'not_found' | 'not_registered' | 'already_setup' }
+ * ('not_registered': neither the email nor the mobile number is registered).
  */
-export async function startStudentVerification({ email, mobile, countryCode = '+91' }) {
+export async function checkSetupDetails({ email, mobile, countryCode = '+91' }) {
   const e = cleanEmail(email);
   const matches = await findMatchingRegistrations(e, mobile, countryCode);
-  if (matches.length === 0) return { status: 'not_found' };
+  if (matches.length === 0) {
+    const { emailRegistered, mobileRegistered } = await checkRegistered({ email: e, mobile });
+    return { status: emailRegistered || mobileRegistered ? 'not_found' : 'not_registered' };
+  }
+  // portalLogins/{phone} exists once the student has finished setup and created a password
+  // (a leftover from a deleted registration does not count).
+  await clearLeftoverLinks(matches.map((m) => m.id));
+  if (await liveMobileLogin(countryCode, mobile)) return { status: 'already_setup' };
+  return { status: 'ok' };
+}
 
-  // portalLogins/{phone} exists once the student has finished setup and created a password.
-  const login = await getDoc(doc(db, 'portalLogins', phoneKey(countryCode, mobile)));
-  if (login.exists()) return { status: 'already_setup' };
+// The password typed during setup or login, kept in memory only (never stored), so the
+// mobile-number login can be saved once the registration is linked.
+let rememberedPassword = null;
+const takeRememberedPassword = () => {
+  const p = rememberedPassword;
+  rememberedPassword = null;
+  return p;
+};
 
-  await sendVerificationLink(e);
-  setPendingOnboarding({ email: e, mobile: cleanMobile(mobile), countryCode, sentAt: Date.now() });
-  return { status: 'sent' };
+/** Firebase's "verify your email" message, returning to the portal afterwards. */
+export function sendVerificationEmail(user = auth.currentUser) {
+  return sendEmailVerification(user, { url: `${window.location.origin}/?portal=1` });
+}
+
+/**
+ * Step 2: create the account with the student's password and send the verification email.
+ * Returns { status: 'sent' | 'account_exists' } ('account_exists': this email already has a
+ * sign-in account, e.g. from an earlier setup; the student sets a password via Forgot password).
+ */
+export async function createStudentAccount({ email, mobile, countryCode = '+91', password }) {
+  const e = cleanEmail(email);
+  const pending = { email: e, mobile: cleanMobile(mobile), countryCode, sentAt: Date.now(), method: 'verify' };
+  // Saved first: signing in happens immediately and the portal needs the mobile to link later
+  setPendingOnboarding(pending);
+  rememberedPassword = password;
+  try {
+    const { user } = await createUserWithEmailAndPassword(auth, e, password);
+    await sendVerificationEmail(user);
+    return { status: 'sent' };
+  } catch (err) {
+    rememberedPassword = null;
+    if (err?.code === 'auth/email-already-in-use') {
+      // Often the same person setting up again (e.g. after their registration was deleted):
+      // if the password matches the old account, carry on with it
+      try {
+        rememberedPassword = password;
+        const { user } = await signInWithEmailAndPassword(auth, e, password);
+        if (!user.emailVerified) await sendVerificationEmail(user);
+        return { status: 'sent' };
+      } catch (signInErr) {
+        rememberedPassword = null;
+      }
+      setPendingOnboarding({ ...pending, method: 'existing' });
+      return { status: 'account_exists' };
+    }
+    setPendingOnboarding(null);
+    throw err;
+  }
+}
+
+/** Has the signed-in student clicked the verification link yet? Refreshes their sign-in if so. */
+export async function refreshVerification() {
+  const user = auth.currentUser;
+  if (!user) return false;
+  await user.reload();
+  if (!auth.currentUser?.emailVerified) return false;
+  await auth.currentUser.getIdToken(true); // the database rules read "verified" from this
+  return true;
+}
+
+/**
+ * After linking: record the password and save the mobile-number login, using the password
+ * typed in this tab. False if it is not known here (the student is then asked to create one).
+ */
+export async function finishPasswordSetup(user) {
+  const password = takeRememberedPassword();
+  if (!password) return false;
+  await updateDoc(doc(db, 'portalAccounts', user.uid), { passwordSetAt: serverTimestamp() });
+  await saveMobileLogin(user, password).catch((err) => console.warn('Mobile login not saved:', err?.code || err));
+  return true;
 }
 
 /** (Re)send the Firebase email sign-in link. */
@@ -145,10 +273,18 @@ export function completeVerificationLink(email, href = window.location.href) {
 // Account <-> registration link
 // ---------------------------------------------------------------------------
 
-/** The registration ID linked to this account, or null. */
+/** The registration ID linked to this account, or null (also when that registration was deleted). */
 export async function getLinkedRegistrationId(uid) {
   const snap = await getDoc(doc(db, 'portalAccounts', uid));
-  return snap.exists() ? snap.data().registrationId : null;
+  if (!snap.exists()) return null;
+  const { registrationId, createdAt } = snap.data();
+  const reg = await getDoc(regRef(registrationId)).catch(() => null);
+  const created = reg?.exists() ? reg.data().createdAt : null;
+  const live = reg?.exists() && !reg.data().isDeleted
+    && !(created?.toMillis && createdAt?.toMillis && created.toMillis() > createdAt.toMillis());
+  if (live || !reg) return registrationId;
+  // Deleted or registered again: drop the old pointer so the account can link afresh
+  return (await removeIfLeftover(snap.ref)) ? null : registrationId;
 }
 
 /**
@@ -158,6 +294,8 @@ export async function getLinkedRegistrationId(uid) {
  */
 export async function linkStudentAccount(user, { mobile, countryCode = '+91' }) {
   if (!user?.emailVerified) throw new Error('Email is not verified.');
+  // The rules check "verified" in the sign-in token, which may predate the verification
+  await user.getIdToken(true);
 
   const existing = await getLinkedRegistrationId(user.uid);
   if (existing) {
@@ -167,6 +305,7 @@ export async function linkStudentAccount(user, { mobile, countryCode = '+91' }) 
 
   const matches = await findMatchingRegistrations(user.email, mobile, countryCode);
   if (matches.length === 0) return { status: 'not_found' };
+  await clearLeftoverLinks(matches.map((m) => m.id));
 
   // Try each matching record (duplicates) until one is unclaimed.
   for (const match of matches) {
@@ -293,7 +432,11 @@ export async function studentMobileLogin(countryCode, mobile, password) {
 // Returning students
 // ---------------------------------------------------------------------------
 export async function studentPasswordLogin(email, password) {
-  const cred = await signInWithEmailAndPassword(auth, cleanEmail(email), password);
+  rememberedPassword = password; // used if this login finishes a first-time setup
+  const cred = await signInWithEmailAndPassword(auth, cleanEmail(email), password).catch((err) => {
+    rememberedPassword = null;
+    throw err;
+  });
   // Keep the mobile login in step with the current password (e.g. after a reset by email).
   saveMobileLogin(cred.user, password).catch(() => {});
   return cred.user;
@@ -304,20 +447,24 @@ export async function studentPasswordLogin(email, password) {
  * doesn't), so first tell the student which case they are in.
  * Returns { status: 'sent' | 'no_registration' | 'setup_incomplete' }.
  */
-export async function requestStudentPasswordReset({ email }) {
+export async function requestStudentPasswordReset({ email, accountExists = false }) {
   const registrations = await findRegistrationsByEmail(email);
   if (registrations.length === 0) return { status: 'no_registration' };
+  // Setup found an existing sign-in account for this email: let them set its password
+  if (accountExists) {
+    await sendPasswordResetEmail(auth, cleanEmail(email), { url: `${window.location.origin}/?portal=1` });
+    return { status: 'sent' };
+  }
 
-  // portalLogins/{phone} is created when the student finishes first-time setup.
+  // portalLogins/{phone} is created when the student finishes first-time setup
+  // (leftovers of a deleted registration are removed and do not count).
   const logins = await Promise.all(
     registrations.map((d) => {
       const r = d.data();
-      return r.mobileNumberClean
-        ? getDoc(doc(db, 'portalLogins', phoneKey(r.countryCode, r.mobileNumberClean)))
-        : null;
+      return r.mobileNumberClean ? liveMobileLogin(r.countryCode, r.mobileNumberClean) : false;
     })
   );
-  if (!logins.some((snap) => snap?.exists())) return { status: 'setup_incomplete' };
+  if (!logins.some(Boolean)) return { status: 'setup_incomplete' };
 
   await sendPasswordResetEmail(auth, cleanEmail(email), {
     url: `${window.location.origin}/?portal=1`,
@@ -332,6 +479,7 @@ export function onStudentAuthChanged(callback) {
 }
 
 export function studentLogout() {
+  rememberedPassword = null;
   return signOut(auth);
 }
 
@@ -387,7 +535,8 @@ function recordLookup() {
 
 /**
  * Find the registered email for a mobile number, already masked (from emailHints).
- * Returns { status: 'found', maskedEmail } | { status: 'not_found' } | { status: 'limited', minutes }.
+ * Returns { status: 'found', maskedEmail } | { status: 'not_found' } (registered, but no hint saved)
+ *   | { status: 'not_registered' } | { status: 'limited', minutes }.
  */
 export async function findMaskedEmailByMobile(countryCode, mobile) {
   const minutes = lookupWaitMinutes();
@@ -396,7 +545,10 @@ export async function findMaskedEmailByMobile(countryCode, mobile) {
 
   // Only the pre-masked hint is read; the full email never reaches the browser.
   const hint = await getDoc(doc(db, 'emailHints', emailHintKey(countryCode, cleanMobile(mobile))));
-  if (!hint.exists() || !hint.data().maskedEmail) return { status: 'not_found' };
+  if (!hint.exists() || !hint.data().maskedEmail) {
+    const { mobileRegistered } = await checkRegistered({ mobile });
+    return { status: mobileRegistered ? 'not_found' : 'not_registered' };
+  }
   return { status: 'found', maskedEmail: hint.data().maskedEmail };
 }
 

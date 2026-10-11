@@ -103,9 +103,57 @@ service cloud.firestore {
         && (reg.get('emailLower', '') == verifiedEmail() || reg.get('email', '').lower() == verifiedEmail());
     }
 
+    // ---- Leftovers of a deleted registration ----
+    // When an admin deletes a registration, the student's portal records stay behind and
+    // would block the same person from setting up again ("already set up"). They may be
+    // removed once they no longer belong to a live registration: the registration is gone or
+    // marked deleted, or was created again after the record (a re-registration).
+    function regPath(regId) {
+      return /databases/$(database)/documents/BhagavadGita/data/registrations/$(regId);
+    }
+
+    function registrationGone(regId) {
+      return !exists(regPath(regId)) || get(regPath(regId)).data.get('isDeleted', false) == true;
+    }
+
+    function registeredAfter(regId, t) {
+      let created = get(regPath(regId)).data.get('createdAt', null);
+      return created is timestamp && t is timestamp && created > t;
+    }
+
+    function linkPath(regId) {
+      return /databases/$(database)/documents/portalLinks/$(regId);
+    }
+
+    function linkStale(regId, link) {
+      return registrationGone(regId) || registeredAfter(regId, link.get('createdAt', null));
+    }
+
+    // An account pointer whose registration is gone, re-created, or no longer linked to it
+    function accountStale(uid, acct) {
+      let regId = acct.registrationId;
+      return registrationGone(regId)
+        || registeredAfter(regId, acct.get('createdAt', null))
+        || !exists(linkPath(regId))
+        || get(linkPath(regId)).data.uid != uid;
+    }
+
+    function accountPath(uid) {
+      return /databases/$(database)/documents/portalAccounts/$(uid);
+    }
+
+    // A mobile login whose account no longer leads to a live, linked registration
+    function loginStale(login) {
+      return !exists(accountPath(login.uid)) || accountStale(login.uid, get(accountPath(login.uid)).data);
+    }
+
     // One claim per registration. Create-only: a claim can never be moved to another account.
     match /portalLinks/{regId} {
-      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      // The student, or a Super Admin checking whether the portal account is set up before
+      // changing a registration's email or mobile number
+      allow read: if (isSignedIn() && resource.data.uid == request.auth.uid) || isSuperAdminCaller();
+      // Only a leftover of a deleted (or re-created) registration, or the staging wipe
+      allow delete: if canWipeStaging() || linkStale(regId, resource.data);
       allow create: if isVerifiedStudent()
         && request.resource.data.keys().hasOnly(['uid', 'email', 'mobileClean', 'countryCode', 'createdAt'])
         && request.resource.data.uid == request.auth.uid
@@ -118,7 +166,11 @@ service cloud.firestore {
 
     // Each account points at exactly one registration it has claimed. Create-only.
     match /portalAccounts/{uid} {
-      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow read: if (isSignedIn() && request.auth.uid == uid) || canWipeStaging();
+      // The owner may drop a pointer to a registration that is gone, so they can link again
+      // (a Super Admin removes it together with the registration they delete)
+      allow delete: if canWipeStaging()
+        || ((isSuperAdminCaller() || (isSignedIn() && request.auth.uid == uid)) && accountStale(uid, resource.data));
       allow create: if isVerifiedStudent()
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['registrationId', 'email', 'createdAt'])
@@ -145,7 +197,8 @@ service cloud.firestore {
     // Fetch by exact key only (no listing); only the owner can write their own phone key.
     match /portalLogins/{key} {
       allow get: if true;
-      allow list: if false;
+      allow list: if canWipeStaging();
+      allow delete: if canWipeStaging() || loginStale(resource.data);
       allow create, update: if isVerifiedStudent()
         && key == ownPhoneKey()
         && (resource == null || resource.data.uid == request.auth.uid)
@@ -164,9 +217,14 @@ service cloud.firestore {
         && key == reg.get('countryCode', '+91') + reg.get('mobileNumberClean', '');
     }
 
+    function hintIsStale(key, reg) {
+      return reg.get('isDeleted', false) == true
+        || key != reg.get('countryCode', '+91') + reg.get('mobileNumberClean', '');
+    }
+
     match /emailHints/{key} {
       allow get: if true;
-      allow list: if false;
+      allow list, delete: if canWipeStaging();
       allow create, update: if request.resource.data.keys().hasOnly(['registrationId', 'maskedEmail', 'updatedAt'])
         && request.resource.data.registrationId is string
         && request.resource.data.maskedEmail is string
@@ -175,9 +233,9 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && exists(/databases/$(database)/documents/BhagavadGita/data/registrations/$(request.resource.data.registrationId))
         && hintMatchesRegistration(key);
-      // Only once its registration is gone or marked deleted
+      // Only once its registration is gone, marked deleted, or now has a different number
       allow delete: if !exists(/databases/$(database)/documents/BhagavadGita/data/registrations/$(resource.data.registrationId))
-        || get(/databases/$(database)/documents/BhagavadGita/data/registrations/$(resource.data.registrationId)).data.get('isDeleted', false) == true;
+        || hintIsStale(key, get(/databases/$(database)/documents/BhagavadGita/data/registrations/$(resource.data.registrationId)).data);
     }
 
     // ---------------------------------------------------------------------------
@@ -226,6 +284,13 @@ service cloud.firestore {
 
     function isSuperAdminCaller() {
       return isSignedIn() && request.auth.token.email != null && isActiveSuperAdmin();
+    }
+
+    // STAGING ONLY: a Super Admin may wipe test data. The sign-in token names the Firebase
+    // project it was issued for, so this can never be true on production (forseva-21d12).
+    // demo-gfy is the local emulator used by the rules tests.
+    function canWipeStaging() {
+      return isSignedIn() && request.auth.token.aud in ['gitaforyouth-stg', 'demo-gfy'] && isSuperAdminCaller();
     }
 
     function isQuizManager() {
@@ -288,7 +353,7 @@ service cloud.firestore {
               ? request.resource.data.get('publishedAt', null) == resource.data.publishedAt
               : request.resource.data.get('publishedAt', null) == (request.resource.data.published ? request.time : null));
       // Only drafts that were never published, so no attempt history is ever orphaned
-      allow delete: if isQuizManager() && resource.data.get('publishedAt', null) == null;
+      allow delete: if (isQuizManager() && resource.data.get('publishedAt', null) == null) || canWipeStaging();
     }
 
     // Results are due once the student has used every attempt, chose to finish early,
@@ -311,7 +376,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['answers', 'explanations', 'updatedAt'])
         && request.resource.data.answers is map
         && request.resource.data.updatedAt == request.time;
-      allow delete: if isQuizManager() && quizDoc(quizId).get('publishedAt', null) == null;
+      allow delete: if (isQuizManager() && quizDoc(quizId).get('publishedAt', null) == null) || canWipeStaging();
     }
 
     function progressPath(pid) {
@@ -346,13 +411,14 @@ service cloud.firestore {
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finished'])
             && request.resource.data.finished == true)
         );
-      allow delete: if false;
+      allow delete: if canWipeStaging();
     }
 
     match /quizAttempts/{aid} {
       allow get, list: if isQuizManager() || (isSignedIn() && resource.data.uid == request.auth.uid);
       allow create: if isLinkedStudent() && attemptAllowed(aid, request.resource.data);
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canWipeStaging();
     }
 
     function attemptAllowed(aid, d) {
@@ -378,6 +444,93 @@ service cloud.firestore {
         && d.answers is map
         && d.answers.size() <= quiz.questionCount
         && d.submittedAt == request.time;
+    }
+
+    // Optional 1-5 star rating a student gives a quiz they have submitted, one per student per
+    // quiz ({quizId}_{registrationId}); they may change it. Ratings hold nothing private
+    // (registration IDs are already listed in registrations) and must reach every admin,
+    // whose login has no Firebase session yet, so anyone may read them.
+    match /quizRatings/{rid} {
+      allow get, list: if true;
+      allow create, update: if isLinkedStudent() && ratingAllowed(rid, request.resource.data);
+      allow delete: if canWipeStaging();
+    }
+
+    function ratingAllowed(rid, d) {
+      let quiz = quizDoc(d.quizId);
+      return d.keys().hasOnly(['quizId', 'registrationId', 'quizTitle', 'weekNumber', 'rating', 'ratedAt'])
+        && d.registrationId == myRegistrationId()
+        && rid == d.quizId + '_' + d.registrationId
+        && d.rating is int && d.rating >= 1 && d.rating <= 5
+        // The copied title / week must match the quiz
+        && d.quizTitle == quiz.title
+        && d.get('weekNumber', null) == quiz.get('weekNumber', null)
+        // Only for a quiz this student has submitted
+        && exists(progressPath(rid))
+        && get(progressPath(rid)).data.uid == request.auth.uid
+        && d.ratedAt == request.time;
+    }
+
+    // Written suggestions ("how can we improve?", asked for 4 stars or fewer). Kept apart from
+    // the public ratings: free text may hold personal details, so only quiz managers (Super
+    // Admins) and the student who wrote it can read it. One per student per quiz.
+    match /quizFeedback/{rid} {
+      allow get: if isQuizManager() || (isLinkedStudent() && resource.data.registrationId == myRegistrationId());
+      allow list: if isQuizManager();
+      allow create, update: if isLinkedStudent() && feedbackAllowed(rid, request.resource.data);
+      allow delete: if canWipeStaging();
+    }
+
+    function feedbackAllowed(rid, d) {
+      return d.keys().hasOnly(['quizId', 'registrationId', 'comment', 'updatedAt'])
+        && d.registrationId == myRegistrationId()
+        && rid == d.quizId + '_' + d.registrationId
+        && d.comment is string && d.comment.size() > 0 && d.comment.size() <= 1000
+        // Only alongside the student's own rating of a quiz they submitted
+        && exists(/databases/$(database)/documents/quizRatings/$(rid))
+        && exists(progressPath(rid))
+        && get(progressPath(rid)).data.uid == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+
+    // ---------------------------------------------------------------------------
+    // PROFILE EDIT LOG: every change a Super Admin makes to a participant's details.
+    // Append-only: written by a signed-in Super Admin (quiz-access session) in the same batch
+    // as the registration change, attributed to their own account, never edited or deleted.
+    // ---------------------------------------------------------------------------
+    function registrationPath(regId) {
+      return /databases/$(database)/documents/BhagavadGita/data/registrations/$(regId);
+    }
+
+    function validEditLog(d) {
+      let account = request.auth.token.email.lower();
+      let by = d.editedByEmail.lower();
+      return d.keys().hasOnly(['registrationId', 'participantName', 'changes', 'changedFields', 'reason',
+          'helpRequestId', 'helpReference', 'editedByEmail', 'editedByName', 'editedByAccount', 'editedAt'])
+        && d.registrationId is string && d.registrationId.size() > 0 && d.registrationId.size() <= 40
+        && d.get('participantName', '') is string && d.get('participantName', '').size() <= 120
+        && d.changes is list && d.changes.size() > 0 && d.changes.size() <= 20
+        && d.changedFields is list && d.changedFields.size() == d.changes.size()
+        && d.get('reason', '') is string && d.get('reason', '').size() <= 500
+        && d.get('helpRequestId', '') is string && d.get('helpRequestId', '').size() <= 60
+        && d.get('helpReference', '') is string && d.get('helpReference', '').size() <= 20
+        && d.get('editedByName', '') is string && d.get('editedByName', '').size() <= 100
+        // Attributed to the Super Admin who is signed in, not to anyone they name
+        && d.editedByAccount == account
+        && d.editedByEmail is string
+        && (by == account || by.replace('[^a-z0-9]', '_') + '@gfy-quiz.invalid' == account)
+        && d.editedAt == request.time
+        // Written together with the registration change it records
+        && exists(registrationPath(d.registrationId))
+        && getAfter(registrationPath(d.registrationId)).data.get('updatedAt', null) == request.time;
+    }
+
+    match /profileEditLogs/{logId} {
+      allow get, list: if isSuperAdminCaller();
+      allow create: if isSuperAdminCaller() && validEditLog(request.resource.data);
+      allow update: if false;
+      // Append-only on production; only the staging test-data wipe may clear it
+      allow delete: if canWipeStaging();
     }
 
     // Direct root level trash backup fallback

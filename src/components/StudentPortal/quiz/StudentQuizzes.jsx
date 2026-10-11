@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Sparkles, CalendarClock, ListChecks, RotateCcw, Trophy, Lock, PlayCircle, ArrowLeft, Clock, CheckCircle2, Hourglass,
+  Sparkles, CalendarClock, ListChecks, RotateCcw, Trophy, Lock, PlayCircle, Clock, CheckCircle2, Hourglass,
 } from 'lucide-react';
 import QuizPlayer, { SCREEN_HEIGHT } from './QuizPlayer';
 import QuizResults from './QuizResults';
+import RateQuiz from './RateQuiz';
 import { Notice, PrimaryButton, FullScreenLoader, Spinner } from '../ui';
-import { availability, formatWhen, formatClock, toDate } from '../../../quiz/quizModel';
+import { availability, formatWhen, toDate } from '../../../quiz/quizModel';
 import {
   resultsDue, fetchMyResults, submitQuizAttempt, finishQuizEarly, loadAnswerDraft, saveAnswerDraft,
   clearAnswerDraft, quizErrorMessage, loadElapsed, saveElapsed, explainSubmitFailure,
@@ -37,17 +38,45 @@ function windowText(quiz) {
   return quiz.closesAt ? `Open until ${formatWhen(quiz.closesAt)}` : 'Open now';
 }
 
+/** Which quiz pages make sense for this student right now (anything else goes back to the list). */
+function allowedSteps(quiz, progress) {
+  const state = quizState(quiz, progress);
+  const canAnswer = availability(quiz) === 'open' && (state === 'not-attempted' || state === 'in-progress');
+  const steps = canAnswer ? ['confirm', 'instructions', 'play'] : [];
+  if (state === 'in-progress') steps.push('submitted', 'results');
+  if (state === 'completed') steps.push('results');
+  return steps;
+}
+
 /**
- * The student's weekly quizzes: list, start, answer, submit and results.
+ * The student's weekly quizzes: list, confirm details, instructions, answer, submit and results.
+ * Each page has its own address (#student-portal/quizzes/{quizId}/{step}), so a refresh stays on it.
  *  progress: { [quizId]: progress } for this student
  *  onReload(): refreshes quizzes and progress
+ *  route / navigate: from usePortalRoute
  */
-export default function StudentQuizzes({ user, profile, quizzes, progress, error, onReload, onActiveChange }) {
-  const [view, setView] = useState({ name: 'list' });
+export default function StudentQuizzes({ user, profile, quizzes, progress, error, onReload, onActiveChange, route, navigate }) {
   const [scores, setScores] = useState({}); // quizId -> counted score, for completed quizzes
   const registrationId = profile.registrationId;
+  const { quizId, step } = route;
+  const quiz = quizId && quizzes ? quizzes.find((q) => q.id === quizId) || null : null;
+  // While a submission or "finish" is being saved, progress changes before the next page opens
+  const moving = useRef(false);
 
-  useEffect(() => { onActiveChange?.(view.name === 'play'); }, [view.name, onActiveChange]);
+  const go = useCallback((id = null, next = null, opts) => {
+    navigate('quizzes', id, next, opts);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [navigate]);
+  const back = useCallback(() => go(), [go]);
+
+  useEffect(() => { onActiveChange?.(step === 'play'); }, [step, onActiveChange]);
+
+  // An address for a quiz that is gone, or a page that no longer applies (e.g. answering a
+  // quiz that has closed): back to the list, without leaving that address in the history
+  useEffect(() => {
+    if (!quizId || !quizzes || !progress || moving.current) return;
+    if (!quiz || !allowedSteps(quiz, progress[quiz.id]).includes(step)) navigate('quizzes', null, null, { replace: true });
+  }, [quizId, step, quiz, quizzes, progress, navigate]);
 
   // Scores for completed quizzes (shown on the cards)
   useEffect(() => {
@@ -64,52 +93,58 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizzes, progress, user.uid]);
 
-  const back = useCallback(() => {
-    setView({ name: 'list' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
   if (error) return <Notice type="error">{error}</Notice>;
   if (quizzes === undefined || progress === undefined) return <ListSkeleton />;
 
-  if (view.name === 'intro') {
-    return <QuizIntro quiz={view.quiz} progress={progress[view.quiz.id]} registrationId={registrationId} onBack={back} onBegin={() => setView({ name: 'play', quiz: view.quiz })} />;
+  // Saved, then open the next page in place of the one just finished (Back skips it)
+  const settleTo = async (next) => {
+    moving.current = true;
+    try {
+      await onReload?.();
+    } finally {
+      moving.current = false;
+    }
+    go(quiz.id, next, { replace: true });
+  };
+
+  if (quiz && allowedSteps(quiz, progress[quiz.id]).includes(step)) {
+    // Step 1: the student confirms these are their own details. Step 2: instructions.
+    if (step === 'confirm') {
+      return <ConfirmDetails quiz={quiz} profile={profile} onBack={back} onConfirm={() => go(quiz.id, 'instructions')} />;
+    }
+    if (step === 'instructions') {
+      return <QuizIntro quiz={quiz} progress={progress[quiz.id]} registrationId={registrationId} onBack={() => go(quiz.id, 'confirm', { replace: true })} onBegin={() => go(quiz.id, 'play')} />;
+    }
+    if (step === 'play') {
+      return (
+        <PlayQuiz
+          quiz={quiz}
+          user={user}
+          registrationId={registrationId}
+          progress={progress[quiz.id]}
+          onExit={back}
+          onSubmitted={(newProgress) => settleTo(resultsDue(quiz, newProgress) ? 'results' : 'submitted')}
+        />
+      );
+    }
+    if (step === 'submitted') {
+      return (
+        <SubmittedScreen
+          quiz={quiz}
+          progress={progress[quiz.id]}
+          registrationId={registrationId}
+          onBack={back}
+          onRetake={() => go(quiz.id, 'confirm')}
+          onFinished={() => settleTo('results')}
+        />
+      );
+    }
+    if (step === 'results') {
+      return <ResultsLoader quiz={quiz} user={user} registrationId={registrationId} onBack={back} onScore={(sc) => setScores((m) => ({ ...m, [quiz.id]: sc }))} />;
+    }
   }
-  if (view.name === 'play') {
-    return (
-      <PlayQuiz
-        quiz={view.quiz}
-        user={user}
-        registrationId={registrationId}
-        progress={progress[view.quiz.id]}
-        onExit={back}
-        onSubmitted={async (newProgress) => {
-          await onReload?.();
-          const due = resultsDue(view.quiz, newProgress);
-          setView({ name: due ? 'results' : 'submitted', quiz: view.quiz, progress: newProgress });
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      />
-    );
-  }
-  if (view.name === 'submitted') {
-    return (
-      <SubmittedScreen
-        quiz={view.quiz}
-        progress={progress[view.quiz.id] || view.progress}
-        registrationId={registrationId}
-        onBack={back}
-        onRetake={() => setView({ name: 'intro', quiz: view.quiz })}
-        onFinished={async () => {
-          await onReload?.();
-          setView({ name: 'results', quiz: view.quiz });
-        }}
-      />
-    );
-  }
-  if (view.name === 'results') {
-    return <ResultsLoader quiz={view.quiz} user={user} onBack={back} onScore={(s) => setScores((m) => ({ ...m, [view.quiz.id]: s }))} />;
-  }
+  // A page that no longer applies: the list shows while the address is corrected
+  if (quizId && moving.current && quiz) return <ListSkeleton />;
 
   // List
   return (
@@ -137,9 +172,9 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
               quiz={q}
               progress={progress[q.id]}
               score={scores[q.id]}
-              onStart={() => setView({ name: 'intro', quiz: q })}
-              onResults={() => setView({ name: 'results', quiz: q })}
-              onSubmitted={() => setView({ name: 'submitted', quiz: q })}
+              onStart={() => go(q.id, 'confirm')}
+              onResults={() => go(q.id, 'results')}
+              onSubmitted={() => go(q.id, 'submitted')}
             />
           ))}
         </div>
@@ -251,52 +286,114 @@ function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
   );
 }
 
+/** Before a quiz: the student checks the registration their score will be saved under. */
+function ConfirmDetails({ quiz, profile, onBack, onConfirm }) {
+  const [agreed, setAgreed] = useState(false);
+  const mobile = profile.mobileNumberClean || profile.mobile;
+  const rows = [
+    ['Name', profile.fullName],
+    ['Registration ID', profile.registrationId],
+    ['Email', profile.email],
+    ['Mobile', mobile ? `${profile.countryCode || '+91'} ${mobile}` : ''],
+    ['City', profile.currentResidence || profile.city],
+  ].filter(([, v]) => v);
+
+  // Centred in the space left by the header and tab bar, without making the page scroll
+  return (
+    <div className="max-w-md w-full mx-auto flex flex-col justify-center animate-fadeIn min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-14.5rem)]">
+      <section className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft-md p-6 sm:p-7 space-y-5">
+        <div className="text-center space-y-1">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">Confirm your details</h2>
+          <p className="text-xs sm:text-sm text-temple-500">{quiz.weekNumber ? `Week ${quiz.weekNumber} · ` : ''}{quiz.title}</p>
+        </div>
+
+        <dl className="rounded-2xl bg-white border border-cream-200 divide-y divide-cream-200">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-xs text-temple-500 shrink-0">{k}</dt>
+              <dd className={`text-sm text-right break-all ${k === 'Registration ID' ? 'font-mono font-bold text-saffron-700' : 'font-semibold text-temple-900'}`}>{v}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <p className="text-xs text-temple-600 leading-relaxed text-center">
+          Your score will be saved under these details, so kindly make sure everything is correct.
+          If anything is wrong, please let us know through <span className="font-semibold text-temple-800">Need help?</span> at the top.
+        </p>
+
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="w-4 h-4 shrink-0 accent-saffron-600 cursor-pointer"
+          />
+          <span className="text-sm text-temple-800">Yes, these are my details.</span>
+        </label>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={onBack}
+            className="py-3 rounded-xl border border-cream-300 bg-white text-sm font-semibold text-temple-700 hover:bg-cream-100 cursor-pointer"
+          >
+            Go back
+          </button>
+          <PrimaryButton onClick={onConfirm} disabled={!agreed} className="!py-3">Continue</PrimaryButton>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/** Instructions before answering, styled like the confirm-details card before it. */
 function QuizIntro({ quiz, progress, registrationId, onBack, onBegin }) {
   const n = (progress?.attempts || 0) + 1;
   const max = quiz.maxAttempts || 1;
   const hasDraft = Object.keys(loadAnswerDraft(quiz.id, registrationId, n)).length > 0;
+  const rows = [
+    ['Questions', quiz.questionCount || quiz.questions?.length || 0],
+    ['Attempts allowed', max === 1 ? 'Only one' : `${max} (this is attempt ${n})`],
+    ['Time limit', 'No time limit'],
+    quiz.closesAt && ['Submit before', formatWhen(quiz.closesAt)],
+  ].filter(Boolean);
+
   return (
-    <div className="max-w-2xl mx-auto space-y-5 animate-fadeIn">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-temple-600 hover:text-temple-900 cursor-pointer">
-        <ArrowLeft className="w-4 h-4" /> Back to quizzes
-      </button>
-      <section className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft-md overflow-hidden">
-        <div className="bg-gradient-to-br from-saffron-50 via-cream-50 to-gold-100 px-6 sm:px-8 py-6 sm:py-7 border-b border-gold-200/70">
-          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-saffron-700">{quiz.weekNumber ? `Week ${quiz.weekNumber}` : 'Weekly quiz'}</p>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-temple-900 leading-tight mt-1">{quiz.title}</h2>
-          {quiz.description && <p className="text-sm text-temple-600 mt-2 leading-relaxed">{quiz.description}</p>}
+    <div className="max-w-md w-full mx-auto flex flex-col justify-center animate-fadeIn min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-14.5rem)]">
+      <section className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft-md p-6 sm:p-7 space-y-5">
+        <div className="text-center space-y-1">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">Before you begin</h2>
+          <p className="text-xs sm:text-sm text-temple-500">{quiz.weekNumber ? `Week ${quiz.weekNumber} · ` : ''}{quiz.title}</p>
         </div>
-        <div className="px-6 sm:px-8 py-6 space-y-5">
-          <dl className={`grid gap-2 sm:gap-3 text-center ${max > 1 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            {[
-              ['Questions', quiz.questionCount || quiz.questions?.length || 0],
-              max > 1 && ['Attempt', `${n} of ${max}`],
-              ['Timer', formatClock(loadElapsed(quiz.id, registrationId, n))],
-            ].filter(Boolean).map(([k, v]) => (
-              <div key={k} className="rounded-2xl bg-white border border-cream-200 px-2 py-3">
-                <dt className="text-[11px] text-temple-500">{k}</dt>
-                <dd className="text-base sm:text-lg font-bold text-temple-900">{v}</dd>
-              </div>
-            ))}
-          </dl>
-          {quiz.instructions && (
-            <div className="space-y-1.5">
-              <h3 className="text-xs font-semibold tracking-[0.14em] uppercase text-temple-500">Instructions</h3>
-              <p className="text-sm text-temple-700 leading-relaxed whitespace-pre-line">{quiz.instructions}</p>
+
+        <dl className="rounded-2xl bg-white border border-cream-200 divide-y divide-cream-200">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-xs text-temple-500 shrink-0">{k}</dt>
+              <dd className="text-sm text-right font-semibold text-temple-900">{v}</dd>
             </div>
-          )}
-          <ul className="text-xs text-temple-500 space-y-1 list-disc pl-5">
-            {max === 1 && (
-              <li className="text-temple-800 font-semibold">
-                You can attempt this quiz only once, so please read each question carefully before you submit.
-              </li>
-            )}
-            <li>A timer starts from 00:00 when you begin, just to show how long you took. There is no time limit.</li>
-            {quiz.closesAt && <li>Please submit before {formatWhen(quiz.closesAt)}.</li>}
-            <li>Your answers are saved on this device as you go, so you can pause and continue later.</li>
-            <li>{max > 1 ? 'Your score and the correct answers are shown after your final attempt (or when you choose to finish).' : 'Your score and the correct answers are shown right after you submit.'}</li>
-          </ul>
-          <PrimaryButton onClick={onBegin}><PlayCircle className="w-4 h-4" /> {hasDraft ? 'Continue quiz' : 'Begin quiz'}</PrimaryButton>
+          ))}
+        </dl>
+
+        {quiz.instructions && (
+          <p className="text-sm text-temple-700 leading-relaxed whitespace-pre-line">{quiz.instructions}</p>
+        )}
+
+        <ul className="text-xs text-temple-600 leading-relaxed space-y-1 list-disc pl-5">
+          {max === 1 && <li className="font-semibold text-temple-800">Kindly read each question carefully before you submit.</li>}
+          <li>A timer shows how long you take, just for you.</li>
+          <li>{max > 1 ? 'Your score and the correct answers are shown after your final attempt.' : 'Your score and the correct answers are shown right after you submit.'}</li>
+        </ul>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={onBack}
+            className="py-3 rounded-xl border border-cream-300 bg-white text-sm font-semibold text-temple-700 hover:bg-cream-100 cursor-pointer"
+          >
+            Go back
+          </button>
+          <PrimaryButton onClick={onBegin} className="!py-3">{hasDraft ? 'Continue quiz' : 'Begin quiz'}</PrimaryButton>
         </div>
       </section>
     </div>
@@ -330,7 +427,7 @@ function PlayQuiz({ quiz, user, registrationId, progress, onExit, onSubmitted })
       onExit={onExit}
       initialElapsed={loadElapsed(quiz.id, registrationId, n)}
       onElapsed={(sec) => { if (!submitted.current) saveElapsed(quiz.id, registrationId, n, sec); }}
-      attemptLabel={`${quiz.weekNumber ? `Week ${quiz.weekNumber} · ` : ''}Attempt ${n} of ${quiz.maxAttempts || 1}`}
+      fullScreen
     />
   );
 }
@@ -368,6 +465,7 @@ function SubmittedScreen({ quiz, progress, registrationId, onBack, onRetake, onF
             {quiz.closesAt ? `, or when the quiz closes on ${formatWhen(quiz.closesAt)}` : ''}.
           </p>
         </div>
+        <RateQuiz quiz={quiz} registrationId={registrationId} />
         {error && <Notice type="error">{error}</Notice>}
         <div className="space-y-2 pt-1">
           {open && left > 0 && <PrimaryButton onClick={onRetake}><RotateCcw className="w-4 h-4" /> Retake now</PrimaryButton>}
@@ -404,7 +502,7 @@ function SubmittedScreen({ quiz, progress, registrationId, onBack, onRetake, onF
   );
 }
 
-function ResultsLoader({ quiz, user, onBack, onScore }) {
+function ResultsLoader({ quiz, user, registrationId, onBack, onScore }) {
   const [state, setState] = useState({ loading: true });
   useEffect(() => {
     let alive = true;
@@ -434,7 +532,16 @@ function ResultsLoader({ quiz, user, onBack, onScore }) {
       </div>
     );
   }
-  return <QuizResults quiz={quiz} attempts={state.attempts} counted={state.counted} answerKey={state.key} onBack={onBack} />;
+  return (
+    <QuizResults
+      quiz={quiz}
+      attempts={state.attempts}
+      counted={state.counted}
+      answerKey={state.key}
+      onBack={onBack}
+      extra={<RateQuiz quiz={quiz} registrationId={registrationId} className="max-w-sm w-full mx-auto" />}
+    />
+  );
 }
 
 export function useQuizSummary(quizzes, progress) {
@@ -442,10 +549,19 @@ export function useQuizSummary(quizzes, progress) {
     if (!quizzes || !progress) return null;
     const now = new Date();
     const states = quizzes.map((q) => quizState(q, progress[q.id], now));
+    const time = (v, none) => toDate(v)?.getTime() ?? none;
+    // The quiz to take next (closing soonest), else the next one to open
+    const next = quizzes.filter((q, i) => states[i] === 'not-attempted')
+      .sort((a, b) => time(a.closesAt, Infinity) - time(b.closesAt, Infinity))[0] || null;
+    const upcoming = quizzes.filter((q, i) => states[i] === 'upcoming')
+      .sort((a, b) => time(a.opensAt, Infinity) - time(b.opensAt, Infinity))[0] || null;
     return {
       open: states.filter((s) => s === 'not-attempted' || s === 'in-progress').length,
-      completed: states.filter((s) => s === 'completed').length,
-      total: quizzes.length,
+      completed: states.filter((s) => s === 'completed' || s === 'in-progress').length,
+      // Quizzes that have opened so far (taken, open now or missed)
+      total: states.filter((s) => s !== 'upcoming').length,
+      next,
+      upcoming,
     };
   }, [quizzes, progress]);
 }

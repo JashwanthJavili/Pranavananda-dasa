@@ -10,3 +10,7 @@ dist-ssr
 *.log
 .firebase
 
+
+# Service account keys (never commit)
+*service-account*.json
+*-firebase-adminsdk-*.json

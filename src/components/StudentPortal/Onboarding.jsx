@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ShieldCheck, Lock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ShieldCheck, Lock, MailCheck } from 'lucide-react';
 import { PortalCard, Heading, Notice, Field, TextInput, PasswordInput, PrimaryButton, LinkButton, MobileInput } from './ui';
 
 /**
@@ -104,6 +104,83 @@ export function CreatePassword({ email, onSubmit, onCancel, error, loading }) {
           </PrimaryButton>
           <div className="text-center"><LinkButton onClick={onCancel}>Cancel and sign out</LinkButton></div>
         </form>
+      </PortalCard>
+    </div>
+  );
+}
+
+const RESEND_SECONDS = 60;
+
+/**
+ * After setup: the account exists but the email is not verified yet. Checks by itself every
+ * few seconds (and when the student comes back to this tab) and continues once it is.
+ */
+export function VerifyEmail({ email, onVerified, onResend, onCancel }) {
+  const [checking, setChecking] = useState(false);
+  const [notYet, setNotYet] = useState(false);
+  const [cooldown, setCooldown] = useState(RESEND_SECONDS);
+  const [status, setStatus] = useState(null);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  // Quietly look for the verification while this screen is open
+  useEffect(() => {
+    const tick = () => document.visibilityState === 'visible' && onVerified(true);
+    const id = setInterval(tick, 5000);
+    window.addEventListener('focus', tick);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('focus', tick);
+    };
+  }, [onVerified]);
+
+  const check = async () => {
+    setChecking(true);
+    setNotYet(false);
+    const ok = await onVerified(false);
+    if (!ok) setNotYet(true);
+    setChecking(false);
+  };
+
+  const resend = async () => {
+    setSending(true);
+    setStatus(null);
+    try {
+      await onResend();
+      setStatus({ type: 'success', text: 'A new verification email is on its way.' });
+      setCooldown(RESEND_SECONDS);
+    } catch (err) {
+      setStatus({ type: 'error', text: err?.message || 'The email could not be sent. Please try again in a little while.' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto w-full animate-fadeIn">
+      <PortalCard className="space-y-5 text-center">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-saffron-100 border border-saffron-200 flex items-center justify-center text-saffron-700 shadow-soft">
+          <MailCheck className="w-8 h-8" />
+        </div>
+        <Heading
+          title="Verify your email"
+          subtitle={`We have sent a verification link to ${email}. Kindly open it and tap the link, then come back here. This page will continue by itself.`}
+        />
+        <Notice type="info">Can't find it? Please check your Spam or Promotions folder.</Notice>
+        {notYet && <Notice type="error">Your email is not verified yet. Kindly open the link in the email first.</Notice>}
+        {status && <Notice type={status.type}>{status.text}</Notice>}
+        <PrimaryButton onClick={check} loading={checking}>I have verified my email</PrimaryButton>
+        <div className="flex flex-col items-center gap-3">
+          <LinkButton onClick={resend} disabled={sending || cooldown > 0}>
+            {sending ? 'Sending…' : cooldown > 0 ? `Resend email in ${cooldown}s` : 'Resend verification email'}
+          </LinkButton>
+          <LinkButton onClick={onCancel} className="text-temple-500 hover:text-temple-700">Cancel and sign out</LinkButton>
+        </div>
       </PortalCard>
     </div>
   );

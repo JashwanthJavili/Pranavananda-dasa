@@ -27,8 +27,10 @@ function TextAnswer({ q, value, onChange }) {
 
 // Minimum height so the player fills the visible screen below the surrounding header and padding
 export const SCREEN_HEIGHT = {
-  portal: 'min-h-[calc(100dvh-11.75rem)] sm:min-h-[calc(100dvh-14.25rem)]',
+  portal: 'min-h-[calc(100dvh-9.25rem)] sm:min-h-[calc(100dvh-14.25rem)]',
   preview: 'min-h-[calc(100dvh-6.25rem)]',
+  // While answering: the portal hides its header, tabs and footer (only the page padding remains)
+  focus: 'min-h-[calc(100dvh-2.5rem)] sm:min-h-[calc(100dvh-4rem)]',
 };
 
 const listQs = (idx) => idx.map((i) => `Q${i + 1}`).join(', ');
@@ -38,11 +40,12 @@ const listQs = (idx) => idx.map((i) => `Q${i + 1}`).join(', ');
  *  answers / onAnswersChange: controlled { [questionId]: answer }
  *  onSubmit(answers): Promise; errors are shown here
  *  preview: admin preview (nothing is saved)
+ *  fullScreen: the portal shows nothing but the quiz
  */
 export default function QuizPlayer({
-  quiz, answers, onAnswersChange, onSubmit, onExit, attemptLabel, preview = false, initialElapsed = 0, onElapsed,
+  quiz, answers, onAnswersChange, onSubmit, onExit, attemptLabel, preview = false, initialElapsed = 0, onElapsed, fullScreen = false,
 }) {
-  const screenClass = SCREEN_HEIGHT[preview ? 'preview' : 'portal'];
+  const screenClass = SCREEN_HEIGHT[preview ? 'preview' : fullScreen ? 'focus' : 'portal'];
 
   // Stopwatch from 00:00 (continues from initialElapsed after "Save & exit"); no time limit
   const startRef = useRef(Date.now() - initialElapsed * 1000);
@@ -70,6 +73,7 @@ export default function QuizPlayer({
   const [reviewing, setReviewing] = useState(false);
   const [fromReview, setFromReview] = useState(false); // opened a question from the review page
   const [confirming, setConfirming] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [missing, setMissing] = useState([]); // required questions left empty at submit
@@ -159,31 +163,31 @@ export default function QuizPlayer({
   return (
     // Fills the screen: summary at the top, question (or review) in the middle, buttons at the bottom
     <div className={`w-full max-w-2xl mx-auto flex flex-col gap-4 sm:gap-5 animate-fadeIn ${screenClass}`}>
-      {/* Top: progress */}
-      <div className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-        {/* The ring is the only progress shown here; the question card says which question this is */}
-        <ProgressRing percent={percent} size={56} label={`${answered} of ${total} questions answered`}>
-          <span className="text-sm font-bold text-temple-900">{Math.round(percent)}%</span>
-          <span className="text-[8px] font-semibold uppercase tracking-wider text-temple-400 mt-0.5">done</span>
-        </ProgressRing>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] sm:text-xs font-semibold tracking-[0.14em] uppercase text-saffron-700">
-            {preview ? 'Preview' : attemptLabel || (quiz.weekNumber ? `Week ${quiz.weekNumber}` : 'Quiz')}
-          </p>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-temple-900 leading-tight truncate">{quiz.title}</h2>
-          <p className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-cream-200 text-xs font-semibold text-temple-700 tabular-nums" role="timer" aria-label={`Time taken ${formatClock(seconds)}`}>
+      {/* Top: quiz name, timer and progress */}
+      <header className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft px-4 sm:px-5 py-3.5 sm:py-4">
+        <div className="flex items-center gap-3">
+          <ProgressRing percent={percent} size={46} stroke={4} label={`${answered} of ${total} questions answered`}>
+            <span className="text-[11px] font-medium text-temple-700 tabular-nums">{answered}/{total}</span>
+          </ProgressRing>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] sm:text-[11px] font-semibold tracking-[0.16em] uppercase text-saffron-700">
+              {preview ? 'Preview' : attemptLabel || (quiz.weekNumber ? `Week ${quiz.weekNumber}` : 'Quiz')}
+            </p>
+            <h2 className="font-display text-lg sm:text-xl font-bold text-temple-900 leading-tight truncate">{quiz.title}</h2>
+          </div>
+          <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white border border-cream-200 text-xs font-semibold text-temple-700 tabular-nums" role="timer" aria-label={`Time taken ${formatClock(seconds)}`}>
             <Timer className="w-3.5 h-3.5 text-saffron-600" /> {formatClock(seconds)}
-          </p>
+          </span>
+          <button
+            type="button"
+            onClick={() => (preview ? onExit() : setConfirmExit(true))}
+            title={preview ? 'Close preview' : 'Exit the quiz'}
+            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-xs font-medium text-temple-700 hover:bg-cream-100 cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" /> {preview ? 'Close' : 'Exit'}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onExit}
-          title={preview ? 'Close preview' : 'Save & exit (your answers stay on this device)'}
-          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-cream-300 bg-white text-xs font-medium text-temple-700 hover:bg-cream-100 cursor-pointer"
-        >
-          <ChevronLeft className="w-4 h-4" /> <span className="hidden sm:inline">{preview ? 'Close preview' : 'Save & exit'}</span><span className="sm:hidden">Exit</span>
-        </button>
-      </div>
+      </header>
 
       {/* Middle: one question, or the review page */}
       <div className="flex-1 flex flex-col justify-center gap-4 sm:gap-5">
@@ -340,6 +344,34 @@ export default function QuizPlayer({
           </>
         )}
       </div>
+
+      {confirmExit && (
+        <div className="fixed inset-0 z-50 bg-temple-900/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+          <div className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 space-y-4 shadow-soft-lg border border-cream-200 animate-fadeIn">
+            <h3 id="exit-title" className="font-display text-2xl font-bold text-temple-900">Exit the quiz?</h3>
+            <p className="text-sm text-temple-600">
+              You have answered <strong>{answered}</strong> of <strong>{total}</strong> questions and have not submitted yet.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={onExit}
+                className="w-1/2 py-2.5 rounded-xl border border-cream-300 bg-white text-sm font-medium cursor-pointer"
+              >
+                Exit
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setConfirmExit(false)}
+                className="w-1/2 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-sm font-semibold cursor-pointer"
+              >
+                Stay in quiz
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirming && (
         <div className="fixed inset-0 z-50 bg-temple-900/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="submit-title">

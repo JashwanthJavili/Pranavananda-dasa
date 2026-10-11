@@ -139,6 +139,9 @@ export const quizManagerSignOut = () => {
  */
 export const managerFirestore = () => (adminAuth.currentUser ? adb : null);
 
+/** The signed-in Super Admin's Firebase account email ('' when not linked). */
+export const managerAccountEmail = () => cleanEmail(adminAuth.currentUser?.email);
+
 export function quizManagerAuthError(err) {
   switch (err?.code) {
     case 'auth/too-many-requests': return 'Too many attempts. Please wait a few minutes and try again.';

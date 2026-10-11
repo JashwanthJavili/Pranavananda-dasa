@@ -168,27 +168,19 @@ export function generateRegistrationId() {
 /**
  * Check if a mobile number or email is already registered (Parallel & Optimized)
  */
+/** Is this registration still in the database? null when the database could not be reached. */
+export async function registrationExists(registrationId) {
+  try {
+    const snap = await getDoc(doc(db, 'BhagavadGita', 'data', 'registrations', registrationId));
+    return snap.exists() && !snap.data().isDeleted;
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function checkDuplicateRegistration(mobile, email) {
   const cleanMobile = (mobile || '').replace(/\D/g, '').slice(-10);
   const cleanEmail = (email || '').trim().toLowerCase();
-
-  // Local device cache check
-  try {
-    const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
-    const localMatch = localRecords.find(r => 
-      !r.isDeleted && (
-        (cleanMobile && (r.mobile || '').replace(/\D/g, '').slice(-10) === cleanMobile) ||
-        (cleanEmail && (r.email || '').trim().toLowerCase() === cleanEmail)
-      )
-    );
-    if (localMatch) {
-      return {
-        isDuplicate: true,
-        field: cleanMobile && (localMatch.mobile || '').includes(cleanMobile) ? 'mobile' : 'email',
-        message: 'This mobile number or email is already registered on this device.'
-      };
-    }
-  } catch (e) {}
 
   // Parallel Firestore query with limit 1
   try {
@@ -220,9 +212,29 @@ export async function checkDuplicateRegistration(mobile, email) {
         }
       }
     }
+    // The database answered: it is the truth (a copy left in this browser may be deleted since)
+    return { isDuplicate: false };
   } catch (err) {
     console.warn('Firestore duplicate check query note:', err);
   }
+
+  // Database unreachable: check the copies saved on this device
+  try {
+    const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
+    const localMatch = localRecords.find(r => 
+      !r.isDeleted && (
+        (cleanMobile && (r.mobile || '').replace(/\D/g, '').slice(-10) === cleanMobile) ||
+        (cleanEmail && (r.email || '').trim().toLowerCase() === cleanEmail)
+      )
+    );
+    if (localMatch) {
+      return {
+        isDuplicate: true,
+        field: cleanMobile && (localMatch.mobile || '').includes(cleanMobile) ? 'mobile' : 'email',
+        message: 'This mobile number or email is already registered on this device.'
+      };
+    }
+  } catch (e) {}
 
   return { isDuplicate: false };
 }
@@ -1228,9 +1240,11 @@ export async function fetchAllRegistrations() {
   const registrationsMap = new Map();
 
   // 1. Fetch remote registrations from Firestore
+  let fromDatabase = false;
   try {
     const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
     const snapshot = await getDocs(regRef);
+    fromDatabase = true;
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
       if (data.isDeleted) return;
@@ -1251,7 +1265,22 @@ export async function fetchAllRegistrations() {
     console.warn('Firestore fetch registrations warning (using local):', err);
   }
 
-  // 2. Merge local storage registrations
+  // The database is the truth: browser copies of registrations that were since deleted
+  // (by another admin, another device or the staging wipe) must not show up as participants
+  if (fromDatabase) {
+    try {
+      const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
+      const kept = localRecords.filter((rec) => registrationsMap.has(rec.id || rec.registrationId));
+      if (kept.length !== localRecords.length) localStorage.setItem('gita_amrita_registrations', JSON.stringify(kept));
+      const completed = JSON.parse(localStorage.getItem('gita_amrita_completed_reg') || 'null');
+      if (completed?.registrationId && !registrationsMap.has(completed.registrationId)) {
+        localStorage.removeItem('gita_amrita_completed_reg');
+      }
+    } catch (e) {}
+    return Array.from(registrationsMap.values());
+  }
+
+  // 2. Database unreachable: fall back to the copies saved in this browser
   try {
     const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
     localRecords.forEach(rec => {
@@ -1392,6 +1421,15 @@ export async function deleteParticipant(registrationId, callerUser = null) {
     }
   } catch (e) {}
 
+  // The student's portal records (read with the Super Admin's session), removed once the
+  // registration is gone so the same person can register and set up again.
+  const store = await adminStore();
+  let portal = null;
+  try {
+    const link = await getDoc(doc(store, 'portalLinks', registrationId));
+    if (link.exists()) portal = link.data();
+  } catch (e) {}
+
   // 1. Try physical deletion from Firestore
   try {
     const regRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
@@ -1404,6 +1442,17 @@ export async function deleteParticipant(registrationId, callerUser = null) {
       await setDoc(regRef, { isDeleted: true, status: 'Deleted', deletedAt: serverTimestamp() }, { merge: true });
     } catch (setErr) {
       console.warn('Firestore fallback delete error:', setErr);
+    }
+  }
+  if (portal) {
+    // The rules allow these only now that the registration no longer exists
+    const leftovers = [
+      doc(store, 'portalLogins', `${portal.countryCode || '+91'}${portal.mobileClean}`),
+      doc(store, 'portalAccounts', portal.uid),
+      doc(store, 'portalLinks', registrationId),
+    ];
+    for (const ref of leftovers) {
+      await deleteDoc(ref).catch((e) => console.warn('Portal record not removed:', e?.code || e));
     }
   }
   if (hintKey) {

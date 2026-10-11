@@ -304,6 +304,146 @@ function submit(c, uid, quizId, regId, nAttempt, answers = { q1: 'a', q2: 'b' },
   await expect('registrations are still open to the registration form', () => setDoc(doc(anon.db, 'BhagavadGita', 'data', 'registrations', `T${stamp}`), { fullName: 'Test' }), true);
   await expect('the settings document is still writable', () => setDoc(doc(anon.db, 'BhagavadGita', 'data'), { testFlag: stamp }, { merge: true }), true);
 
+  console.log('Quiz ratings (optional, one per student per quiz)');
+  const rating = (quizId, regId, over = {}) => ({
+    quizId, registrationId: regId, quizTitle: 'Week 1: Arjuna\'s Dilemma', weekNumber: 1, rating: 5, ratedAt: serverTimestamp(), ...over,
+  });
+  const RATE = (c, id) => doc(c.db, 'quizRatings', id);
+  await expect('student A rates a quiz they submitted', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA)), true);
+  await expect('student A changes their rating', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { rating: 4 })), true);
+  await expect('6 stars is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { rating: 6 })), false);
+  await expect('0 stars is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { rating: 0 })), false);
+  await expect('a fractional rating is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { rating: 4.5 })), false);
+  await expect('a rating as text is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { rating: '5' })), false);
+  await expect('a wrong quiz title is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { quizTitle: 'Something else' })), false);
+  await expect('a wrong week number is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { weekNumber: 7 })), false);
+  await expect('an extra field is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { comment: 'x' })), false);
+  await expect('a client-chosen time is refused', () => setDoc(RATE(sa, `${Q1}_${RA}`), rating(Q1, RA, { ratedAt: ts(-H) })), false);
+  await expect('student B cannot rate a quiz they never submitted', () => setDoc(RATE(sb, `${Q1}_${RB}`), rating(Q1, RB)), false);
+  await expect('student B cannot rate as student A', () => setDoc(RATE(sb, `${Q1}_${RA}`), rating(Q1, RA)), false);
+  await expect('student B cannot write their rating under A\'s id', () => setDoc(RATE(sb, `${Q1}_${RA}`), rating(Q1, RB)), false);
+  await expect('an unlinked user cannot rate', () => setDoc(RATE(outsider, `${Q1}_${RA}`), rating(Q1, RA)), false);
+  await expect('a signed-out visitor cannot rate', () => setDoc(RATE(anon, `${Q1}_${RA}`), rating(Q1, RA)), false);
+  await expect('student A cannot delete their rating', () => deleteDoc(RATE(sa, `${Q1}_${RA}`)), false);
+  await expect('student B rates the retake quiz after submitting', () => setDoc(RATE(sb, `${Q2}_${RB}`), rating(Q2, RB, { quizTitle: 'Week 2', rating: 3 })), true);
+  await expect('every admin can read the ratings', () => getDocs(collection(anon.db, 'quizRatings')), true);
+
+  console.log('Suggestions with a rating (private: Super Admins and the writer only)');
+  const fb = (quizId, regId, over = {}) => ({ quizId, registrationId: regId, comment: 'More questions from chapter 2, please.', updatedAt: serverTimestamp(), ...over });
+  const FB = (c, id) => doc(c.db, 'quizFeedback', id);
+  await expect('student A sends a suggestion with their rating', () => setDoc(FB(sa, `${Q1}_${RA}`), fb(Q1, RA)), true);
+  await expect('student A updates their suggestion', () => setDoc(FB(sa, `${Q1}_${RA}`), fb(Q1, RA, { comment: 'Clearer instructions.' })), true);
+  await expect('student A reads their own suggestion', () => getDoc(FB(sa, `${Q1}_${RA}`)), true);
+  await expect('an empty suggestion is refused', () => setDoc(FB(sa, `${Q1}_${RA}`), fb(Q1, RA, { comment: '' })), false);
+  await expect('a suggestion over 1000 characters is refused', () => setDoc(FB(sa, `${Q1}_${RA}`), fb(Q1, RA, { comment: 'x'.repeat(1001) })), false);
+  await expect('a suggestion with an extra field is refused', () => setDoc(FB(sa, `${Q1}_${RA}`), fb(Q1, RA, { rating: 1 })), false);
+  await expect('a suggestion without a rating is refused', () => setDoc(FB(sa, `${QG}_${RA}`), fb(QG, RA)), false);
+  await expect('student B cannot write as student A', () => setDoc(FB(sb, `${Q1}_${RA}`), fb(Q1, RA)), false);
+  await expect('student B cannot read A\'s suggestion', () => getDoc(FB(sb, `${Q1}_${RA}`)), false);
+  await expect('a signed-out visitor cannot read suggestions', () => getDocs(collection(anon.db, 'quizFeedback')), false);
+  await expect('a signed-out visitor cannot read one suggestion', () => getDoc(FB(anon, `${Q1}_${RA}`)), false);
+  await expect('a regular Admin cannot read suggestions', () => getDocs(collection(qc.db, 'quizFeedback')), false);
+  await expect('a student cannot list suggestions', () => getDocs(collection(sa.db, 'quizFeedback')), false);
+  await expect('a Super Admin reads all suggestions', () => getDocs(collection(qa.db, 'quizFeedback')), true);
+  await expect('nobody can delete a suggestion', () => deleteDoc(FB(sa, `${Q1}_${RA}`)), false);
+
+  console.log('Profile edits by Super Admins (append-only log)');
+  const QA_ACCOUNT = `${adminId(SA)}@gfy-quiz.invalid`;
+  const editLog = (regId, over = {}) => ({
+    registrationId: regId, participantName: 'Arjuna', changes: [{ field: 'mobile', label: 'Mobile number', from: '+91 9000000001', to: '+91 9000000011' }],
+    changedFields: ['mobile'], reason: 'As requested', helpRequestId: 'abc', helpReference: 'HR-ABC123',
+    editedByEmail: SA, editedByName: 'Super', editedByAccount: QA_ACCOUNT, editedAt: serverTimestamp(), ...over,
+  });
+  const edit = (c, regId, logOver = {}, regUpdate = { updatedAt: serverTimestamp() }) => {
+    const b = writeBatch(c.db);
+    if (regUpdate) b.update(doc(c.db, 'BhagavadGita', 'data', 'registrations', regId), regUpdate);
+    b.set(doc(collection(c.db, 'profileEditLogs')), editLog(regId, logOver));
+    return b.commit();
+  };
+  await expect('Super Admin reads whether a participant set up the portal', () => getDoc(doc(qa.db, 'portalLinks', RA)), true);
+  await expect('another student cannot read that', () => getDoc(doc(sb.db, 'portalLinks', RA)), false);
+
+  const HINT = '+919000000001';
+  await setDoc(doc(anon.db, 'emailHints', HINT), { registrationId: RA, maskedEmail: 'ar•••••a1@example.com', updatedAt: serverTimestamp() });
+  await expect('a hint that still matches its registration cannot be deleted', () => deleteDoc(doc(anon.db, 'emailHints', HINT)), false);
+
+  await expect('Super Admin changes details with a log entry', () => edit(qa, RA, {}, { mobileNumberClean: '9000000011', mobile: '9000000011', updatedAt: serverTimestamp() }), true);
+  await expect('the old mobile number\'s hint can now be removed', () => deleteDoc(doc(anon.db, 'emailHints', HINT)), true);
+  await expect('a log entry without the registration change is refused', () => edit(qa, RA, {}, null), false);
+  await expect('a log naming another admin as the editor is refused', () => edit(qa, RA, { editedByEmail: AD }), false);
+  await expect('a log with someone else\'s account is refused', () => edit(qa, RA, { editedByAccount: `${adminId(AD)}@gfy-quiz.invalid` }), false);
+  await expect('a log with a client-chosen time is refused', () => edit(qa, RA, { editedAt: ts(-H) }), false);
+  await expect('a log with no changes is refused', () => edit(qa, RA, { changes: [], changedFields: [] }), false);
+  await expect('a log with an extra field is refused', () => edit(qa, RA, { approved: true }), false);
+  await expect('a log for a registration that does not exist is refused', () => edit(qa, `NOPE${stamp}`, {}, null), false);
+  await expect('a regular Admin\'s account cannot write the log', () => edit(qc, RA, { editedByEmail: AD, editedByAccount: `${adminId(AD)}@gfy-quiz.invalid` }), false);
+  await expect('a quiz manager who is not a Super Admin cannot write the log', () => edit(mgr, RA, { editedByEmail: MGR, editedByAccount: MGR }), false);
+  await expect('a student cannot write the log', () => edit(sa, RA, { editedByEmail: A, editedByAccount: A }), false);
+  await expect('a signed-out visitor cannot write the log', () => edit(anon, RA, { editedByEmail: SA }), false);
+  await expect('a verified real-email Super Admin can edit', () => edit(sup, RB, { editedByEmail: SAv, editedByAccount: SAv }), true);
+  {
+    const logs = await getDocs(collection(qa.db, 'profileEditLogs'));
+    const first = logs.docs[0];
+    await expect('Super Admin reads the log', () => Promise.resolve(logs), true);
+    await expect('nobody can change a log entry', () => updateDoc(doc(qa.db, 'profileEditLogs', first.id), { reason: 'changed' }), false);
+    // (Super Admins may only clear it with the staging wipe, tested at the end)
+    await expect('a regular Admin cannot delete a log entry', () => deleteDoc(doc(qc.db, 'profileEditLogs', first.id)), false);
+    await expect('a student cannot delete a log entry', () => deleteDoc(doc(sa.db, 'profileEditLogs', first.id)), false);
+  }
+  await expect('a regular Admin cannot read the log', () => getDocs(collection(qc.db, 'profileEditLogs')), false);
+  await expect('a student cannot read the log', () => getDocs(collection(sa.db, 'profileEditLogs')), false);
+  await expect('a signed-out visitor cannot read the log', () => getDocs(collection(anon.db, 'profileEditLogs')), false);
+
+  console.log('Leftovers of a deleted registration can be cleared (live ones cannot)');
+  const LOGIN_B = '+919000000002';
+  await expect('student B saves their mobile login', () => setDoc(doc(sb.db, 'portalLogins', LOGIN_B), {
+    uid: ub.uid, salt: 's', iv: 'i', data: 'd', updatedAt: serverTimestamp(),
+  }), true);
+  await expect('a live mobile login cannot be deleted by a visitor', () => deleteDoc(doc(anon.db, 'portalLogins', LOGIN_B)), false);
+  await expect('a live claim cannot be deleted', () => deleteDoc(doc(anon.db, 'portalLinks', RB)), false);
+  await expect('a live account pointer cannot be deleted by its owner', () => deleteDoc(doc(sb.db, 'portalAccounts', ub.uid)), false);
+  {
+    // An admin deletes registration RB
+    const res = await fetch(`${FS}/v1/projects/${PROJECT}/databases/(default)/documents/BhagavadGita/data/registrations/${RB}`, {
+      method: 'DELETE', headers: { Authorization: 'Bearer owner' },
+    });
+    if (!res.ok) throw new Error(`owner delete: ${res.status}`);
+  }
+  await expect('another student cannot delete B\'s account pointer', () => deleteDoc(doc(sa.db, 'portalAccounts', ub.uid)), false);
+  await expect('the leftover mobile login can now be removed', () => deleteDoc(doc(anon.db, 'portalLogins', LOGIN_B)), true);
+  await expect('the leftover claim can now be removed', () => deleteDoc(doc(anon.db, 'portalLinks', RB)), true);
+  await expect('a regular Admin cannot remove the leftover account pointer', () => deleteDoc(doc(qc.db, 'portalAccounts', ub.uid)), false);
+  await expect('a Super Admin removes the leftover account pointer with the registration', () => deleteDoc(doc(qa.db, 'portalAccounts', ub.uid)), true);
+  await expect('student A\'s live records are still protected', () => deleteDoc(doc(anon.db, 'portalLinks', RA)), false);
+
+  console.log('Staging test-data wipe (Super Admins, staging project only)');
+  // Runs last: it deletes what the tests above created
+  await expect('a student cannot delete their attempt', () => deleteDoc(doc(sa.db, 'quizAttempts', `${Q1}_${RA}_1`)), false);
+  await expect('a regular Admin cannot delete attempts', () => deleteDoc(doc(qc.db, 'quizAttempts', `${Q1}_${RA}_1`)), false);
+  await expect('a quiz manager who is not a Super Admin cannot delete attempts', () => deleteDoc(doc(mgr.db, 'quizAttempts', `${Q1}_${RA}_1`)), false);
+  await expect('a signed-out visitor cannot list portal logins', () => getDocs(collection(anon.db, 'portalLogins')), false);
+  await expect('a student cannot list email hints', () => getDocs(collection(sa.db, 'emailHints')), false);
+  await expect('Super Admin lists portal accounts for the wipe', () => getDocs(collection(qa.db, 'portalAccounts')), true);
+  await expect('Super Admin lists portal logins for the wipe', () => getDocs(collection(qa.db, 'portalLogins')), true);
+  await expect('Super Admin lists email hints for the wipe', () => getDocs(collection(qa.db, 'emailHints')), true);
+  for (const name of ['quizFeedback', 'quizRatings', 'quizAttempts', 'quizProgress', 'portalQuizKeys', 'portalQuizzes', 'profileEditLogs', 'portalLogins', 'portalAccounts', 'portalLinks', 'emailHints']) {
+    await expect(`Super Admin wipes ${name}`, async () => {
+      const snap = await getDocs(collection(qa.db, name));
+      const b = writeBatch(qa.db);
+      snap.docs.forEach((d) => b.delete(d.ref));
+      await b.commit();
+      const after = await getDocs(collection(qa.db, name));
+      if (!after.empty) throw new Error(`${after.size} left`);
+    }, true);
+  }
+  {
+    // Rules decide by the project the sign-in token was issued for
+    const rules = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'firestore.rules'), 'utf8');
+    const ok = /request\.auth\.token\.aud in \['gitaforyouth-stg', 'demo-gfy'\]/.test(rules) && !/forseva-21d12'\]/.test(rules);
+    ok ? pass++ : fail++;
+    console.log(ok ? '  PASS' : '  FAIL', 'the wipe is limited to the staging (and emulator) project, never production');
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await Promise.all(apps.map((a) => deleteApp(a)));
   process.exit(fail ? 1 : 0);

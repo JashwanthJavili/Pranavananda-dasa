@@ -8,7 +8,7 @@ import FancySelect from './FancySelect';
 import DateTimePicker from './DateTimePicker';
 import {
   QUESTION_TYPES, TYPE_ORDER, emptyQuestion, changeQuestionType, newOptionId, newQuestionId, validateDraft, hasOptions,
-  textLimit, MAX_OPTIONS, MIN_OPTIONS, MAX_ATTEMPTS_LIMIT, SCORE_POLICIES, MAX_QUESTIONS,
+  textLimit, MAX_OPTIONS, MIN_OPTIONS, MAX_ATTEMPTS_LIMIT, SCORE_POLICIES, MAX_QUESTIONS, formatWhen,
 } from '../../../quiz/quizModel';
 import QuizPreview from './QuizPreview';
 import { saveEditorCache, clearEditorCache } from '../../../quiz/editorCache';
@@ -136,7 +136,9 @@ export default function QuizEditor({
     return list;
   });
 
-  const save = async (publish) => {
+  // Save / Publish: check the quiz first, then ask before anything reaches the server
+  const [confirmSave, setConfirmSave] = useState(null); // { publish } while the dialog is open
+  const askSave = (publish) => {
     const forPublish = publish === true || (publish === undefined && isPublished);
     const v = validateDraft(draft, { forPublish });
     setErrors(v.errors);
@@ -145,6 +147,11 @@ export default function QuizEditor({
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    setConfirmSave({ publish });
+  };
+
+  const save = async (publish) => {
+    setConfirmSave(null);
     setBusy(publish === true ? 'publish' : publish === false ? 'draft' : 'save');
     try {
       await onSave(draft, publish);
@@ -402,15 +409,15 @@ export default function QuizEditor({
             <Eye className="w-4 h-4" /> Preview
           </button>
           {isPublished ? (
-            <button type="button" onClick={() => save(undefined)} disabled={Boolean(busy)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs sm:text-sm font-semibold disabled:opacity-60 cursor-pointer">
+            <button type="button" onClick={() => askSave(undefined)} disabled={Boolean(busy)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs sm:text-sm font-semibold disabled:opacity-60 cursor-pointer">
               {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save changes
             </button>
           ) : (
             <>
-              <button type="button" onClick={() => save(false)} disabled={Boolean(busy)} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-cream-300 bg-white text-xs sm:text-sm font-medium text-temple-800 hover:bg-cream-100 disabled:opacity-60 cursor-pointer">
+              <button type="button" onClick={() => askSave(false)} disabled={Boolean(busy)} className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-cream-300 bg-white text-xs sm:text-sm font-medium text-temple-800 hover:bg-cream-100 disabled:opacity-60 cursor-pointer">
                 {busy === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save draft
               </button>
-              <button type="button" onClick={() => save(true)} disabled={Boolean(busy)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold disabled:opacity-60 cursor-pointer">
+              <button type="button" onClick={() => askSave(true)} disabled={Boolean(busy)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold disabled:opacity-60 cursor-pointer">
                 {busy === 'publish' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Publish
               </button>
             </>
@@ -419,6 +426,82 @@ export default function QuizEditor({
       </div>
 
       {preview && <QuizPreview quiz={previewQuiz} draft={draft} onClose={() => setPreview(false)} />}
+      {confirmSave && (
+        <SaveConfirm
+          kind={confirmSave.publish === true ? 'publish' : confirmSave.publish === false ? 'draft' : 'save'}
+          draft={draft}
+          attemptCount={attemptCount}
+          onCancel={() => setConfirmSave(null)}
+          onConfirm={() => save(confirmSave.publish)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** "Are you sure?" before saving a draft, publishing, or changing a published quiz. */
+function SaveConfirm({ kind, draft, attemptCount, onCancel, onConfirm }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onCancel();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+  const title = draft.title.trim() || 'Untitled quiz';
+  const opens = draft.opensAt ? new Date(draft.opensAt) : null;
+  const n = draft.questions.length;
+  const copy = {
+    publish: {
+      heading: 'Publish this quiz?',
+      lines: [
+        opens && opens > new Date()
+          ? `Students will see it from ${formatWhen(opens)}.`
+          : 'Students will be able to see and attempt it straight away.',
+        `${n} question${n === 1 ? '' : 's'} · ${Number(draft.maxAttempts) === 1 ? 'only 1 attempt' : `${draft.maxAttempts} attempts`}${draft.closesAt ? ` · closes ${formatWhen(draft.closesAt)}` : ''}.`,
+      ],
+      action: 'Publish',
+      Icon: Send,
+      btn: 'bg-emerald-600 hover:bg-emerald-700',
+    },
+    draft: {
+      heading: 'Save as a draft?',
+      lines: ['The quiz stays hidden from students until you publish it.'],
+      action: 'Save draft',
+      Icon: Save,
+      btn: 'bg-saffron-500 hover:bg-saffron-600',
+    },
+    save: {
+      heading: 'Save changes to a published quiz?',
+      lines: [
+        'Students will see the updated quiz straight away.',
+        attemptCount > 0
+          ? `${attemptCount} student${attemptCount === 1 ? ' has' : 's have'} already attempted it. Their submitted answers stay as they are, and scores are worked out with the updated answer key.`
+          : '',
+      ].filter(Boolean),
+      action: 'Save changes',
+      Icon: Save,
+      btn: 'bg-saffron-500 hover:bg-saffron-600',
+    },
+  }[kind];
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-temple-900/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 space-y-4 shadow-soft-lg border border-cream-200 animate-fadeIn">
+        <div className="space-y-1">
+          <h3 id="save-confirm-title" className="text-lg font-bold text-temple-900">{copy.heading}</h3>
+          <p className="text-sm font-medium text-temple-700 break-words">{title}</p>
+        </div>
+        <ul className="space-y-1.5 text-sm text-temple-600">
+          {copy.lines.map((l) => <li key={l} className="leading-relaxed">{l}</li>)}
+        </ul>
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onCancel} className="w-1/2 py-2.5 rounded-xl border border-cream-300 bg-white text-sm font-medium text-temple-700 hover:bg-cream-100 cursor-pointer">
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} autoFocus className={`w-1/2 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-sm font-semibold cursor-pointer ${copy.btn}`}>
+            <copy.Icon className="w-4 h-4" /> {copy.action}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

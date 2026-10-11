@@ -5,6 +5,7 @@ import { findMaskedEmailByMobile } from '../../studentPortal';
 import { Field, Notice, PrimaryButton, MobileInput } from './ui';
 import { mobileProblem } from '../../utils/mobile';
 import { useOpenHelp } from './helpContext';
+import NotRegistered from './NotRegistered';
 
 /**
  * "Don't remember which email you used?" — look the registration up by mobile number
@@ -136,7 +137,10 @@ export default function FindEmailModal({ open, onClose }) {
             </div>
           )}
           {result?.status === 'not_found' && (
-            <Notice type="error">We could not find a registration with this mobile number. Please check the number and country code.</Notice>
+            <Notice type="info">You are registered with this mobile number, but we cannot show the email here. Kindly raise a request below and our team will help you.</Notice>
+          )}
+          {result?.status === 'not_registered' && (
+            <NotRegistered what="mobile" onNavigate={onClose} helpPrefill={{ countryCode, mobile: mobile.replace(/\D/g, '') }} />
           )}
           {result?.status === 'no_email' && (
             <Notice type="error">Your registration does not have an email address saved.</Notice>
@@ -144,11 +148,11 @@ export default function FindEmailModal({ open, onClose }) {
 
           {result?.status === 'found' ? (
             <PrimaryButton type="button" onClick={onClose}>Got it, back to setup</PrimaryButton>
-          ) : (
+          ) : result?.status === 'not_registered' ? null : (
             <PrimaryButton type="submit" loading={loading}>{loading ? 'Searching…' : 'Find my email'}</PrimaryButton>
           )}
 
-          {result && <HelpNote />}
+          {result && result.status !== 'not_registered' && <HelpNote />}
         </form>
       </div>
     </div>,

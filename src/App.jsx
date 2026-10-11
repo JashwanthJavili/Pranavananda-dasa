@@ -15,7 +15,7 @@ const StudentPortal = React.lazy(() => import('./components/StudentPortal/Studen
 // The student portal: #student-portal, or the return URL of a Firebase email link / password reset.
 function isStudentPortalUrl() {
   if (typeof window === 'undefined') return false;
-  if ((window.location.hash || '').toLowerCase() === '#student-portal') return true;
+  if (/^#student-portal(\/|$)/.test((window.location.hash || '').toLowerCase())) return true;
   const params = new URLSearchParams(window.location.search);
   return params.get('portal') === '1' || (params.get('mode') === 'signIn' && Boolean(params.get('oobCode')));
 }
@@ -33,7 +33,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const hash = (window.location.hash || '').toLowerCase();
       if (isStudentPortalUrl()) return 'portal';
-      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config' || hash === '#admin' || hash === '#admin-help' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config' || hash === '#admin' || hash === '#admin-help' || hash === '#admin-ratings' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
       if (hash === '#admin-login') return 'admin-login';
       if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
       try {
@@ -120,7 +120,7 @@ export default function App() {
           const hash = (typeof window !== 'undefined' ? (window.location.hash || '').toLowerCase() : '');
           if (prev === 'portal' || isStudentPortalUrl()) return 'portal';
           if (hash === '#register' || hash === '#registration') return 'register';
-          if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+          if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-ratings' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
           if (hash === '#admin-login') return 'admin-login';
           if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
 
@@ -249,13 +249,13 @@ export default function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = (window.location.hash || '').toLowerCase();
-      if (hash === '#student-portal') {
+      if (hash === '#student-portal' || hash.startsWith('#student-portal/')) {
         setCurrentView('portal');
         setLoginModalOpen(false);
       } else if (hash === '#register' || hash === '#registration') {
         setCurrentView('register');
         setLoginModalOpen(false);
-      } else if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
+      } else if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-ratings' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
         setCurrentView('admin');
         setLoginModalOpen(false);
       } else if (hash === '#admin-login') {

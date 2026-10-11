@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  MessageCircle, BookOpen, Copy, Check, User, ChevronRight, UserPen,
+  BookOpen, ChevronRight, UserPen, Clock, ArrowRight, CheckCircle2, Info,
 } from 'lucide-react';
+import { formatWhen } from '../../quiz/quizModel';
 import { useOpenHelp } from './helpContext';
 
 export const EDIT_DETAILS_CATEGORY = 'Edit my profile details';
@@ -12,12 +13,16 @@ function EditDetailsNote({ compact = false }) {
   const ask = () => openHelp({ category: EDIT_DETAILS_CATEGORY });
   if (compact) {
     return (
-      <p className="text-[11px] sm:text-xs text-temple-500 px-1">
-        Would you like to change any of your details?{' '}
-        <button type="button" onClick={ask} className="font-semibold text-saffron-700 hover:underline underline-offset-2 cursor-pointer">
-          Kindly request it through Need help
-        </button>
-      </p>
+      <div className="flex items-start gap-2.5 rounded-2xl border border-gold-200 bg-gold-50/70 px-4 py-3">
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-gold-600" />
+        <p className="text-xs sm:text-sm text-temple-700 leading-relaxed">
+          <span className="font-semibold text-temple-900">Note: </span>
+          Would you like to change any of your details?{' '}
+          <button type="button" onClick={ask} className="font-semibold text-saffron-700 hover:underline underline-offset-2 cursor-pointer">
+            Kindly request it through Need help.
+          </button>
+        </p>
+      </div>
     );
   }
   return (
@@ -54,42 +59,84 @@ function SectionTitle({ children, action }) {
   );
 }
 
-function RegistrationChip({ id }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    try {
-      navigator.clipboard?.writeText(id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch (e) {}
-  };
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      title="Copy registration ID"
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-gold-200 text-xs font-semibold text-temple-800 tracking-wide hover:border-gold-300 cursor-pointer"
-    >
-      <span className="text-temple-500 font-medium">Reg. ID</span>
-      {id}
-      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-temple-400" />}
-    </button>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
-export function DashboardView({ profile, whatsapp, quizSummary, onOpen }) {
-  const quizLine = !quizSummary
-    ? 'Loading…'
-    : quizSummary.open
-      ? `${quizSummary.open} quiz${quizSummary.open === 1 ? ' is' : 'zes are'} waiting for you`
-      : quizSummary.completed
-        ? `${quizSummary.completed} completed · thank you 🙏`
-        : quizSummary.total
-          ? 'The next quiz will open soon'
-          : 'The first quiz will appear here soon';
+/** Dashboard quiz card: the quiz to take now (or the next one to open) and progress so far. */
+function QuizCard({ summary, onOpen, onStartQuiz }) {
+  if (!summary) return <div className="h-44 rounded-3xl bg-cream-200/70 animate-pulse" />;
+  const { next, upcoming, completed, total } = summary;
+  const percent = total ? Math.round((completed / total) * 100) : 0;
+  const when = (v) => formatWhen(v).replace(/,? \d{4}/, ''); // year is obvious here
+
+  return (
+    <section className="rounded-3xl bg-cream-50 border border-cream-200 shadow-soft overflow-hidden">
+      <div className="flex items-center gap-3 px-5 sm:px-6 pt-5">
+        <div className="w-10 h-10 rounded-2xl bg-saffron-100 border border-saffron-200 flex items-center justify-center text-saffron-700">
+          <BookOpen className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-temple-900">Weekly quiz</h3>
+          <p className="text-xs text-temple-500">Reflect on what you have learnt</p>
+        </div>
+        <button type="button" onClick={() => onOpen('quizzes')} className="inline-flex items-center gap-0.5 text-xs font-semibold text-saffron-700 hover:text-saffron-800 cursor-pointer">
+          All quizzes <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="p-5 sm:p-6 pt-4 space-y-4">
+        {next ? (
+          <div className="rounded-2xl bg-gradient-to-br from-saffron-50 to-gold-50 border border-saffron-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1 min-w-0 space-y-1">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-saffron-700">
+                {next.weekNumber ? `Week ${next.weekNumber} · ` : ''}Open now
+              </p>
+              <p className="font-display text-xl font-bold text-temple-900 leading-snug">{next.title}</p>
+              {next.closesAt && (
+                <p className="flex items-center gap-1.5 text-xs text-temple-600">
+                  <Clock className="w-3.5 h-3.5" /> Closes {when(next.closesAt)}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => onStartQuiz(next.id)}
+              className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-sm font-semibold shadow-soft cursor-pointer"
+            >
+              Start quiz <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-cream-100 border border-cream-200 p-4 flex items-center gap-3">
+            <CheckCircle2 className={`w-6 h-6 shrink-0 ${total ? 'text-emerald-600' : 'text-temple-300'}`} />
+            <p className="text-sm text-temple-700">
+              {total ? "You're all caught up. Thank you 🙏" : 'The first quiz will appear here soon.'}
+              {upcoming?.opensAt && (
+                <span className="block text-xs text-temple-500 mt-0.5">
+                  Next quiz{upcoming.weekNumber ? ` (Week ${upcoming.weekNumber})` : ''} opens {when(upcoming.opensAt)}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
+        {total > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-temple-600">Your progress</span>
+              <span className="font-semibold text-temple-900">{completed} of {total} quiz{total === 1 ? '' : 'zes'} taken</span>
+            </div>
+            <div className="h-2 rounded-full bg-cream-200 overflow-hidden" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full rounded-full bg-gradient-to-r from-saffron-400 to-gold-400 transition-all" style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function DashboardView({ profile, quizSummary, onOpen, onStartQuiz }) {
   return (
     <div className="space-y-5 sm:space-y-6 animate-fadeIn">
       {/* Welcome */}
@@ -101,9 +148,8 @@ export function DashboardView({ profile, whatsapp, quizSummary, onOpen }) {
             Welcome, {firstName(profile.fullName)}
           </h2>
           <p className="text-sm text-temple-600 max-w-xl leading-relaxed">
-            We are grateful to have you with Gita for Youth. Here you can join our community, take the weekly quiz and see your registration details.
+            We are glad to have you with Gita for Youth.
           </p>
-          <RegistrationChip id={profile.registrationId} />
         </div>
       </section>
 
@@ -118,74 +164,9 @@ export function DashboardView({ profile, whatsapp, quizSummary, onOpen }) {
         </div>
       </figure>
 
-      <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
-        {/* Quizzes summary */}
-        <button
-          type="button"
-          onClick={() => onOpen('quizzes')}
-          className="text-left rounded-3xl bg-cream-50 border border-cream-200 p-5 sm:p-6 shadow-soft space-y-4 hover:border-gold-300 hover:shadow-soft-md transition cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-saffron-100 border border-saffron-200 flex items-center justify-center text-saffron-700">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-temple-900">Quizzes</h3>
-              <p className="text-xs text-temple-500">{quizLine}</p>
-            </div>
-            {quizSummary?.open > 0 && (
-              <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-saffron-500 text-white text-[11px] font-bold flex items-center justify-center">
-                {quizSummary.open}
-              </span>
-            )}
-            <ChevronRight className="w-5 h-5 text-temple-400" />
-          </div>
-          <p className="text-xs sm:text-sm text-temple-600">A short quiz each week to help you reflect on what you have learnt.</p>
-        </button>
+      <QuizCard summary={quizSummary} onOpen={onOpen} onStartQuiz={onStartQuiz} />
 
-        {/* WhatsApp */}
-        <section className="rounded-3xl bg-cream-50 border border-cream-200 p-5 sm:p-6 shadow-soft space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
-              <MessageCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-temple-900">WhatsApp Community</h3>
-              <p className="text-xs text-temple-500">Session updates and announcements</p>
-            </div>
-          </div>
-          {whatsapp === undefined ? (
-            <div className="h-11 rounded-xl bg-cream-200 animate-pulse" />
-          ) : whatsapp?.eligible && whatsapp.waInviteLink ? (
-            <a
-              href={whatsapp.waInviteLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-soft transition"
-            >
-              <MessageCircle className="w-4 h-4" />
-              {whatsapp.buttonText || 'Join Our WhatsApp Community'}
-            </a>
-          ) : (
-            <p className="text-xs sm:text-sm text-temple-600 bg-cream-100 border border-cream-200 rounded-xl px-3.5 py-3">
-              The community link will appear here soon. If you need anything meanwhile, kindly tap <strong>Need help?</strong> at the top.
-            </p>
-          )}
-        </section>
-      </div>
-
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={() => onOpen('profile')}
-          className="w-full flex items-center gap-3 rounded-2xl bg-white/70 border border-cream-200 px-4 py-3.5 text-left hover:border-gold-300 transition cursor-pointer"
-        >
-          <User className="w-5 h-5 text-saffron-600" />
-          <span className="flex-1 text-sm font-medium text-temple-800">View my registration details</span>
-          <ChevronRight className="w-4 h-4 text-temple-400" />
-        </button>
-        <EditDetailsNote compact />
-      </div>
+      <EditDetailsNote compact />
     </div>
   );
 }

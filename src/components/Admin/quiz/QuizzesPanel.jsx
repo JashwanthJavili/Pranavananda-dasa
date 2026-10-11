@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Plus, BookOpen, Pencil, Eye, Send, EyeOff, Trash2, Loader2, CalendarClock, ListChecks, Table2, RotateCcw, PenLine, History, FileSpreadsheet,
+  Plus, BookOpen, Pencil, Eye, Send, EyeOff, Trash2, Loader2, CalendarClock, ListChecks, Table2, RotateCcw, PenLine, History, FileSpreadsheet, Star,
 } from 'lucide-react';
+import { fetchAllQuizRatings, fetchQuizRatings, fetchQuizFeedback, summarizeRatings } from '../../../quiz/quizRatings';
+import { managerFirestore } from '../../../quiz/quizAdmin';
 import QuizManagerGate from './QuizManagerGate';
 import QuizEditor from './QuizEditor';
 import QuizPreview from './QuizPreview';
@@ -41,6 +43,15 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
   const [confirm, setConfirm] = useState(null); // { kind: 'unpublish' | 'delete', quiz }
   const [cacheTick, setCacheTick] = useState(0); // re-read device copies after leaving the editor
   const newCache = useMemo(() => loadEditorCache(null), [cacheTick, editing]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Students' optional star ratings, per quiz (read once when the panel opens)
+  const [ratings, setRatings] = useState([]);
+  useEffect(() => {
+    if (!manager.isManager) return undefined;
+    let alive = true;
+    fetchAllQuizRatings().then((r) => alive && setRatings(r)).catch((err) => console.warn('Quiz ratings not loaded:', err?.code || err));
+    return () => { alive = false; };
+  }, [manager.isManager]);
+  const ratingSummary = useMemo(() => summarizeRatings(ratings), [ratings]);
 
   if (!manager.isManager) {
     return (
@@ -91,8 +102,13 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
     setBusyId(quiz.id);
     try {
       const { downloadQuizWorkbook } = await import('../../../quiz/quizExport');
-      await downloadQuizWorkbook({ quiz, statusMap: quizData.tracking[quiz.id], answerKey: quizData.keys[quiz.id], participants });
-      notify('Excel sheet downloaded.');
+      // Read now, so the sheet never misses ratings that were still loading
+      const [quizRatings, suggestions] = await Promise.all([
+        fetchQuizRatings(quiz.id).catch(() => null),
+        managerFirestore() ? fetchQuizFeedback(managerFirestore(), quiz.id).catch(() => ({})) : {},
+      ]);
+      await downloadQuizWorkbook({ quiz, statusMap: quizData.tracking[quiz.id], answerKey: quizData.keys[quiz.id], participants, ratings: quizRatings || {}, suggestions });
+      notify(quizRatings ? 'Excel sheet downloaded.' : 'Excel sheet downloaded, but ratings could not be loaded, so they are not included.');
     } catch (err) {
       console.warn('Quiz export failed:', err);
       notify('Could not create the Excel sheet. Please try again.');
@@ -250,6 +266,7 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
               const avg = scored.length ? Math.round(scored.reduce((s, x) => s + x.score.percent, 0) / scored.length) : null;
               const pct = participantCount ? Math.min(100, Math.round((attempted / participantCount) * 100)) : 0;
               const busy = busyId === q.id || loadingEdit === q.id;
+              const rated = ratingSummary[q.id];
               return (
                 <li key={q.id} className="bg-cream-50 rounded-3xl border border-cream-200 shadow-soft hover:shadow-soft-md hover:border-gold-200 transition overflow-hidden">
                   <div className="p-4 sm:p-5 flex gap-3.5 sm:gap-4">
@@ -278,6 +295,12 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
                         <span className="inline-flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5 text-gold-500" />
                           {q.opensAt ? `Opens ${formatWhen(q.opensAt)}` : 'Opening time not set'}{q.closesAt ? ` · Closes ${formatWhen(q.closesAt)}` : ''}
                         </span>
+                        {rated?.count > 0 && (
+                          <span className="inline-flex items-center gap-1" title="Students' average rating">
+                            <Star className="w-3.5 h-3.5 fill-gold-400 text-gold-500" />
+                            <strong className="text-temple-800">{rated.average.toFixed(1)}</strong> · {rated.count} rating{rated.count === 1 ? '' : 's'}
+                          </span>
+                        )}
                       </p>
 
                       {hasEditorCache(q.id) && (

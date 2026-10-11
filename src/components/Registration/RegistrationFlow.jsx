@@ -13,6 +13,7 @@ import BrandLogo from '../BrandLogo';
 import { 
   saveRegistration, 
   checkDuplicateRegistration, 
+  registrationExists,
   fetchProgramSettings, 
   subscribeToProgramSettings 
 } from '../../firebase';
@@ -139,6 +140,19 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
       setSettings(initialSettings);
     }
   }, [initialSettings]);
+
+  // A registration remembered on this device may have been deleted by an admin since:
+  // then start a fresh form instead of showing "registered"
+  useEffect(() => {
+    if (!generatedId) return;
+    let cancelled = false;
+    registrationExists(generatedId).then((exists) => {
+      if (exists === false && !cancelled) handleRegisterAnother();
+    });
+    return () => { cancelled = true; };
+    // Only the registration remembered when the page opened
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToProgramSettings((latestSettings) => {

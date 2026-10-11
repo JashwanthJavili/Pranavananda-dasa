@@ -45,8 +45,10 @@ function fileName(quiz) {
  * Build and download the workbook.
  *  quiz: the quiz doc · statusMap: { [registrationId]: tracking status } · answerKey: { answers }
  *  participants: registrations (everyone, so Not Attempted rows are included)
+ *  ratings: { [registrationId]: 1–5 } students' optional star ratings
+ *  suggestions: { [registrationId]: text } what they said we could improve
  */
-export async function downloadQuizWorkbook({ quiz, statusMap = {}, answerKey, participants = [] }) {
+export async function downloadQuizWorkbook({ quiz, statusMap = {}, answerKey, participants = [], ratings = {}, suggestions = {} }) {
   const XLSX = await import('xlsx');
   const key = answerKey?.answers || {};
   const questions = quiz.questions || [];
@@ -72,6 +74,8 @@ export async function downloadQuizWorkbook({ quiz, statusMap = {}, answerKey, pa
       'Time Taken': duration(a?.timeTakenSec),
       'First Submitted': when(s?.firstSubmittedAt),
       'Last Submitted': when(s?.lastSubmittedAt),
+      'Rating (out of 5)': ratings[regIdOf(p)] || '',
+      'Suggestion': suggestions[regIdOf(p)] || '',
     };
     questions.forEach((q, qi) => {
       const v = a?.answers?.[q.id];
@@ -108,6 +112,9 @@ export async function downloadQuizWorkbook({ quiz, statusMap = {}, answerKey, pa
       ['Perfect scores', scores.filter((s) => s.correct === s.total).length],
     ] : []),
     ...(avgTime !== null ? [['Average time taken', formatDuration(avgTime)]] : []),
+    ['Ratings received', Object.keys(ratings).length],
+    ['Suggestions received', Object.keys(suggestions).length],
+    ...(Object.keys(ratings).length ? [['Average rating', `${(Object.values(ratings).reduce((x, y) => x + y, 0) / Object.keys(ratings).length).toFixed(1)} out of 5`]] : []),
     [],
     ['Exported on', formatWhen(new Date())],
   ];
@@ -164,7 +171,7 @@ export async function downloadQuizWorkbook({ quiz, statusMap = {}, answerKey, pa
   const responsesSheet = XLSX.utils.json_to_sheet(responses);
   responsesSheet['!cols'] = [
     { wch: 6 }, { wch: 14 }, { wch: 24 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 13 },
-    { wch: 9 }, { wch: 11 }, { wch: 9 }, { wch: 14 }, { wch: 22 }, { wch: 22 },
+    { wch: 9 }, { wch: 11 }, { wch: 9 }, { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 15 }, { wch: 40 },
     ...questions.flatMap((q) => [{ wch: q.type === 'paragraph' ? 50 : 34 }, { wch: 12 }]),
   ];
   responsesSheet['!autofilter'] = { ref: responsesSheet['!ref'] };
