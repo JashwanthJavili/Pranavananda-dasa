@@ -216,12 +216,15 @@ export default function StudentPortal({ onBackToHome }) {
         setStage('portal');
       }
       if (e.data === 'verified') {
-        const u = getCurrentStudent();
-        // If auth has not synced to this tab yet, onAuthStateChanged continues the flow.
-        if (u) {
-          setUser(u);
-          resolveUser(u);
-        }
+        // Verified in another tab: refresh this tab's sign-in, then continue
+        refreshVerification().catch(() => false).then(() => {
+          const u = getCurrentStudent();
+          // If auth has not synced to this tab yet, onAuthStateChanged continues the flow.
+          if (u) {
+            setUser(u);
+            resolveUser(u);
+          }
+        });
       }
     };
     return () => {

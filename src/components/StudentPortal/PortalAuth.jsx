@@ -310,6 +310,11 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
       ) : !notRegistered && (
         <PrimaryButton type="submit" loading={loading}>Continue</PrimaryButton>
       )}
+      {!alreadySetUp && (
+        <div className="text-center">
+          <LinkButton onClick={onLogin}>Already set up your account? Log in</LinkButton>
+        </div>
+      )}
     </form>
   );
 }

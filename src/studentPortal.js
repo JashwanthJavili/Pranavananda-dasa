@@ -174,9 +174,10 @@ const takeRememberedPassword = () => {
   return p;
 };
 
-/** Firebase's "verify your email" message, returning to the portal afterwards. */
+/** Firebase's "verify your email" message. No return link: after verifying, the student
+ *  closes that tab and the setup tab continues by itself. */
 export function sendVerificationEmail(user = auth.currentUser) {
-  return sendEmailVerification(user, { url: `${window.location.origin}/?portal=1&verified=1` });
+  return sendEmailVerification(user);
 }
 
 /**
