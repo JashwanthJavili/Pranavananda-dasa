@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Lock, MailCheck, Hourglass } from 'lucide-react';
 import { PortalCard, Heading, Notice, Field, TextInput, PasswordInput, PrimaryButton, LinkButton, MobileInput } from './ui';
 
@@ -128,14 +128,24 @@ export function VerifyEmail({ email, onVerified, onResend, onCancel }) {
     return () => clearTimeout(t);
   }, [cooldown]);
 
-  // Quietly look for the verification while this screen is open
+  // Quietly look for the verification while this screen is open, and straight away when the
+  // student comes back to this tab (from the email app or another tab)
+  const checkingNow = useRef(false);
   useEffect(() => {
-    const tick = () => document.visibilityState === 'visible' && onVerified(true);
-    const id = setInterval(tick, 5000);
+    const tick = async () => {
+      if (document.visibilityState !== 'visible' || checkingNow.current) return;
+      checkingNow.current = true;
+      try { await onVerified(true); } finally { checkingNow.current = false; }
+    };
+    const id = setInterval(tick, 3000);
     window.addEventListener('focus', tick);
+    window.addEventListener('pageshow', tick);
+    document.addEventListener('visibilitychange', tick);
     return () => {
       clearInterval(id);
       window.removeEventListener('focus', tick);
+      window.removeEventListener('pageshow', tick);
+      document.removeEventListener('visibilitychange', tick);
     };
   }, [onVerified]);
 

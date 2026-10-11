@@ -223,6 +223,8 @@ export async function createStudentAccount({ email, mobile, countryCode = '+91',
   }
 }
 
+let tokenRefreshedAt = 0;
+
 /** Has the signed-in student clicked the verification link yet? Refreshes their sign-in if so. */
 export async function refreshVerification() {
   const user = auth.currentUser;
@@ -230,6 +232,7 @@ export async function refreshVerification() {
   await user.reload();
   if (!auth.currentUser?.emailVerified) return false;
   await auth.currentUser.getIdToken(true); // the database rules read "verified" from this
+  tokenRefreshedAt = Date.now();
   return true;
 }
 
@@ -242,7 +245,9 @@ export async function finishPasswordSetup(user, sealed = null) {
   const password = takeRememberedPassword();
   if (!password && !sealed) return false;
   await updateDoc(doc(db, 'portalAccounts', user.uid), { passwordSetAt: serverTimestamp() });
-  await saveMobileLogin(user, password, password ? null : sealed).catch((err) => console.warn('Mobile login not saved:', err?.code || err));
+  // In the background (the dashboard need not wait); the copy sealed at setup skips the slow
+  // password-based encryption
+  saveMobileLogin(user, sealed ? null : password, sealed).catch((err) => console.warn('Mobile login not saved:', err?.code || err));
   return true;
 }
 
@@ -304,7 +309,8 @@ export async function getLinkedRegistrationId(uid) {
 export async function linkStudentAccount(user, { mobile, countryCode = '+91' }) {
   if (!user?.emailVerified) throw new Error('Email is not verified.');
   // The rules check "verified" in the sign-in token, which may predate the verification
-  await user.getIdToken(true);
+  // (skipped when it was refreshed just now)
+  if (Date.now() - tokenRefreshedAt > 30000) await user.getIdToken(true);
 
   const existing = await getLinkedRegistrationId(user.uid);
   if (existing) {
