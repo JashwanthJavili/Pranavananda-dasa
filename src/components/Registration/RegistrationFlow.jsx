@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Home, UserCheck } from 'lucide-react';
+import { Clock, Home, UserCheck, Wand2 } from 'lucide-react';
+import { SAMPLE_FILL_ENABLED, generateSampleData } from './sampleData';
 import StepIndicator from './StepIndicator';
 import StepPersonal from './StepPersonal';
 import StepContact from './StepContact';
@@ -12,6 +13,7 @@ import BrandLogo from '../BrandLogo';
 import { 
   saveRegistration, 
   checkDuplicateRegistration, 
+  registrationExists,
   fetchProgramSettings, 
   subscribeToProgramSettings 
 } from '../../firebase';
@@ -138,6 +140,19 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
       setSettings(initialSettings);
     }
   }, [initialSettings]);
+
+  // A registration remembered on this device may have been deleted by an admin since:
+  // then start a fresh form instead of showing "registered"
+  useEffect(() => {
+    if (!generatedId) return;
+    let cancelled = false;
+    registrationExists(generatedId).then((exists) => {
+      if (exists === false && !cancelled) handleRegisterAnother();
+    });
+    return () => { cancelled = true; };
+    // Only the registration remembered when the page opened
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToProgramSettings((latestSettings) => {
@@ -384,6 +399,17 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
           {/* Right: Actions (hidden on success screens) */}
           {currentStep !== 5 && lookupView !== 'found' ? (
             <nav className="flex items-center gap-2 flex-shrink-0">
+              {SAMPLE_FILL_ENABLED && lookupView === 'form' && (
+                <button
+                  type="button"
+                  onClick={() => { setFormData(generateSampleData()); setErrors({}); setDuplicateWarning(''); setSubmitError(''); }}
+                  title="Test only: fill the form with random sample data"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-full border border-dashed border-saffron-400 bg-white text-saffron-700 font-medium text-[11px] sm:text-sm cursor-pointer hover:bg-saffron-50"
+                >
+                  <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>Autofill</span>
+                </button>
+              )}
               {lookupView === 'form' && (
                 <button
                   type="button"

@@ -26,13 +26,18 @@ import {
   signOut,
   updatePassword
 } from 'firebase/auth';
-import { firebaseConfig } from './config/firebaseConfig';
+import { firebaseConfig, APP_ENV } from './config/firebaseConfig';
+import { withEmulatorConfig, connectToEmulators } from './config/emulators';
+
+// Staging and production must not share cached admins in the same browser origin.
+export const ADMIN_CACHE_KEY = APP_ENV === 'staging' ? 'gita_amrita_cached_admins_stg' : 'gita_amrita_cached_admins';
 
 
 // Initialize Firebase App, Auth & Firestore
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(withEmulatorConfig(firebaseConfig));
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+connectToEmulators(auth, db);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -43,6 +48,39 @@ export function sanitizeText(val, maxLength = 500) {
   if (val === null || val === undefined) return '';
   const str = String(val).trim();
   return str.replace(/[<>]/g, '').slice(0, maxLength);
+}
+
+// ---------------------------------------------------------------------------
+// Email hints: emailHints/{countryCode + mobile} holds ONLY a masked email, so the
+// "Don't remember which email you used?" lookup never sends a full email to the browser.
+// ---------------------------------------------------------------------------
+
+/**
+ * Hide most of an email: first 2 and last 1-2 characters of the name stay visible,
+ * e.g. jashwanth7@gmail.com -> ja••••••h7@gmail.com
+ */
+export function maskEmail(email) {
+  const [local = '', domain = ''] = String(email || '').trim().toLowerCase().split('@');
+  if (!local || !domain) return '';
+  let start = 2;
+  let end = local.length >= 7 ? 2 : 1;
+  if (local.length <= 3) { start = 1; end = 0; }
+  else if (local.length <= 4) { end = 0; }
+  const hidden = Math.min(8, Math.max(3, local.length - start - end));
+  return `${local.slice(0, start)}${'•'.repeat(hidden)}${end ? local.slice(-end) : ''}@${domain}`;
+}
+
+export const emailHintKey = (countryCode, mobileClean) => `${countryCode || '+91'}${mobileClean}`;
+
+/** Create or refresh the masked-email hint for a registration (best effort). */
+export async function saveEmailHint(registrationId, { countryCode, mobileNumberClean, email }) {
+  const masked = maskEmail(email);
+  if (!registrationId || !mobileNumberClean || !masked) return;
+  await setDoc(doc(db, 'emailHints', emailHintKey(countryCode, mobileNumberClean)), {
+    registrationId,
+    maskedEmail: masked,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /**
@@ -130,27 +168,19 @@ export function generateRegistrationId() {
 /**
  * Check if a mobile number or email is already registered (Parallel & Optimized)
  */
+/** Is this registration still in the database? null when the database could not be reached. */
+export async function registrationExists(registrationId) {
+  try {
+    const snap = await getDoc(doc(db, 'BhagavadGita', 'data', 'registrations', registrationId));
+    return snap.exists() && !snap.data().isDeleted;
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function checkDuplicateRegistration(mobile, email) {
   const cleanMobile = (mobile || '').replace(/\D/g, '').slice(-10);
   const cleanEmail = (email || '').trim().toLowerCase();
-
-  // Local device cache check
-  try {
-    const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
-    const localMatch = localRecords.find(r => 
-      !r.isDeleted && (
-        (cleanMobile && (r.mobile || '').replace(/\D/g, '').slice(-10) === cleanMobile) ||
-        (cleanEmail && (r.email || '').trim().toLowerCase() === cleanEmail)
-      )
-    );
-    if (localMatch) {
-      return {
-        isDuplicate: true,
-        field: cleanMobile && (localMatch.mobile || '').includes(cleanMobile) ? 'mobile' : 'email',
-        message: 'This mobile number or email is already registered on this device.'
-      };
-    }
-  } catch (e) {}
 
   // Parallel Firestore query with limit 1
   try {
@@ -182,9 +212,29 @@ export async function checkDuplicateRegistration(mobile, email) {
         }
       }
     }
+    // The database answered: it is the truth (a copy left in this browser may be deleted since)
+    return { isDuplicate: false };
   } catch (err) {
     console.warn('Firestore duplicate check query note:', err);
   }
+
+  // Database unreachable: check the copies saved on this device
+  try {
+    const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
+    const localMatch = localRecords.find(r => 
+      !r.isDeleted && (
+        (cleanMobile && (r.mobile || '').replace(/\D/g, '').slice(-10) === cleanMobile) ||
+        (cleanEmail && (r.email || '').trim().toLowerCase() === cleanEmail)
+      )
+    );
+    if (localMatch) {
+      return {
+        isDuplicate: true,
+        field: cleanMobile && (localMatch.mobile || '').includes(cleanMobile) ? 'mobile' : 'email',
+        message: 'This mobile number or email is already registered on this device.'
+      };
+    }
+  } catch (e) {}
 
   return { isDuplicate: false };
 }
@@ -347,6 +397,8 @@ export async function saveRegistration(registrationData) {
     });
     localStorage.setItem('gita_amrita_registrations', JSON.stringify(localRecords));
   } catch (e) {}
+
+  await saveEmailHint(registrationId, payload).catch((err) => console.warn('Email hint not saved:', err?.code || err));
 
   return { success: true, registrationId };
 }
@@ -527,6 +579,19 @@ export async function studentLogin(identifier, password) {
  */
 export const DEFAULT_ADMIN_USERS = [];
 
+// Changes to admin records go through the Super Admin's signed-in quiz-access session when
+// there is one: the Firestore rules only accept changes to Super Admin records from it.
+async function adminStore() {
+  try {
+    const { managerFirestore } = await import('./quiz/quizAdmin');
+    return managerFirestore() || db;
+  } catch (e) {
+    return db;
+  }
+}
+const SUPER_ADMIN_SESSION_ERROR = 'Your Super Admin access could not be confirmed for this change. Please log out, log in again and try once more.';
+const adminWriteError = (err) => (err?.code === 'permission-denied' ? SUPER_ADMIN_SESSION_ERROR : (err?.message || 'Could not save the change. Please try again.'));
+
 /**
  * Helper to determine if a user holds Super Admin privileges
  */
@@ -607,7 +672,7 @@ export async function fetchAllAdmins() {
   // 2. Merge local cached admins
   const legacyPlaceholders = ['jashwanthjavili7@gmail.com', 'admin@gitaamrita.com'];
   try {
-    const local = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const local = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     local.forEach(adm => {
       const emailKey = (adm.email || adm.id || '').toLowerCase();
       if (emailKey && !adminsMap.has(emailKey) && !adm.isDeleted && adm.status !== 'Revoked' && !legacyPlaceholders.includes(emailKey)) {
@@ -627,7 +692,7 @@ export async function fetchAllAdmins() {
   });
 
   try {
-    localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(result));
+    localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(result));
   } catch (e) {}
 
   return result;
@@ -638,7 +703,7 @@ export async function fetchAllAdmins() {
  */
 export function subscribeToAdmins(callback) {
   try {
-    const cached = localStorage.getItem('gita_amrita_cached_admins');
+    const cached = localStorage.getItem(ADMIN_CACHE_KEY);
     if (cached) {
       callback(JSON.parse(cached));
     }
@@ -697,7 +762,7 @@ export async function addAdminToFirestore({ email, name, password, role = 'Admin
   };
 
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, payload, { merge: true });
 
     // Ensure plaintext password is removed if previously present
@@ -714,16 +779,16 @@ export async function addAdminToFirestore({ email, name, password, role = 'Admin
 
     // Update local cache without plaintext password
     try {
-      const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+      const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
       const filtered = cached.filter(a => (a.email || '').toLowerCase() !== cleanEmail);
       filtered.push(payload);
-      localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(filtered));
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(filtered));
     } catch (e) {}
 
     return { success: true, admin: payload };
   } catch (err) {
     console.warn('Error granting admin in Firestore:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: adminWriteError(err) };
   }
 }
 
@@ -742,7 +807,7 @@ export async function updateAdminRoleInFirestore({ email, newRole, callerUser = 
   const docId = cleanEmail.replace(/[^a-z0-9]/g, '_');
 
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, { 
       role: allowedRole, 
       updatedBy: callerUser?.email || 'Super Admin', 
@@ -750,17 +815,17 @@ export async function updateAdminRoleInFirestore({ email, newRole, callerUser = 
     }, { merge: true });
 
     try {
-      const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+      const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
       const idx = cached.findIndex(a => (a.email || '').toLowerCase() === cleanEmail);
       if (idx !== -1) {
         cached[idx].role = allowedRole;
-        localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(cached));
+        localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cached));
       }
     } catch (e) {}
 
     return { success: true, role: allowedRole };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: adminWriteError(err) };
   }
 }
 
@@ -774,23 +839,26 @@ export async function removeAdminFromFirestore(adminIdOrEmail, callerUser = null
 
   const cleanKey = sanitizeText(adminIdOrEmail || '', 120).trim().toLowerCase();
   const docId = cleanKey.includes('@') ? cleanKey.replace(/[^a-z0-9]/g, '_') : cleanKey;
+  const store = await adminStore();
+  let denied = false;
+  const noteDenied = (err) => { if (err?.code === 'permission-denied') denied = true; };
 
   // 1. Delete from Firestore directly by document ID
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(store, 'BhagavadGita', 'data', 'admins', docId);
     await deleteDoc(adminRef);
-  } catch (err) {}
+  } catch (err) { noteDenied(err); }
 
   if (adminIdOrEmail && adminIdOrEmail !== docId) {
     try {
-      const directRef = doc(db, 'BhagavadGita', 'data', 'admins', adminIdOrEmail);
+      const directRef = doc(store, 'BhagavadGita', 'data', 'admins', adminIdOrEmail);
       await deleteDoc(directRef);
-    } catch (err) {}
+    } catch (err) { noteDenied(err); }
   }
 
   // 2. Query and delete all matching admin documents in the collection
   try {
-    const adminCol = collection(db, 'BhagavadGita', 'data', 'admins');
+    const adminCol = collection(store, 'BhagavadGita', 'data', 'admins');
     const snap = await getDocs(adminCol);
     for (const d of snap.docs) {
       const data = d.data();
@@ -799,22 +867,26 @@ export async function removeAdminFromFirestore(adminIdOrEmail, callerUser = null
         try {
           await deleteDoc(d.ref);
         } catch (e) {
-          await setDoc(d.ref, { isDeleted: true, status: 'Revoked', revokedAt: serverTimestamp() }, { merge: true });
+          noteDenied(e);
+          try {
+            await setDoc(d.ref, { isDeleted: true, status: 'Revoked', revokedAt: serverTimestamp() }, { merge: true });
+          } catch (e2) { noteDenied(e2); }
         }
       }
     }
   } catch (err) {
     console.warn('Revoke delete query note:', err);
   }
+  if (denied) return { success: false, error: SUPER_ADMIN_SESSION_ERROR };
 
   // 3. Purge from local cache immediately
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const filtered = cached.filter(a => {
       const emailLower = (a.email || '').toLowerCase();
       return emailLower !== cleanKey && a.id !== docId && a.id !== adminIdOrEmail && (a.id || '').toLowerCase() !== cleanKey;
     });
-    localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(filtered));
+    localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(filtered));
   } catch (e) {}
 
   return { success: true };
@@ -850,7 +922,7 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
   // Check Local storage cached admin password fallback
   if (!verified) {
     try {
-      const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+      const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
       const match = cached.find(a => (a.email || '').toLowerCase() === targetEmail);
       if (match) {
         verified = await verifyPasswordMatch(currentPassword, match.passwordHash, match.password);
@@ -865,7 +937,7 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
   // 2. Update Password Hash in Firestore and remove plaintext password
   const newHash = await hashPassword(newPassword);
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
       passwordHash: newHash,
       password: deleteField(),
@@ -873,26 +945,38 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore password update error:', err);
+    return { success: false, error: adminWriteError(err) };
   }
 
   // 3. Update Local Cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const idx = cached.findIndex(a => (a.email || '').toLowerCase() === targetEmail);
     if (idx !== -1) {
       cached[idx].passwordHash = newHash;
       delete cached[idx].password;
-      localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(cached));
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cached));
     }
   } catch (e) {}
 
-  // 4. Update in Firebase Authentication if currentUser is signed in
+  // 4. Update in Firebase Authentication if this same admin is signed in
+  // (never another account, e.g. a student portal login in the same browser)
   try {
-    if (auth.currentUser) {
+    if (auth.currentUser && (auth.currentUser.email || '').toLowerCase() === targetEmail) {
       await updatePassword(auth.currentUser, newPassword);
     }
   } catch (authErr) {
     console.warn('Firebase Auth updatePassword note:', authErr);
+  }
+
+  // 5. Keep the Super Admin's quiz-manager password the same as the admin password
+  if (isSuperAdminUser(callerUser)) {
+    try {
+      const { syncQuizManagerPassword } = await import('./quiz/quizAdmin');
+      await syncQuizManagerPassword(targetEmail, currentPassword, newPassword);
+    } catch (err) {
+      console.warn('Quiz access password not updated:', err?.code || err);
+    }
   }
 
   return { success: true, message: 'Password updated successfully!' };
@@ -921,7 +1005,7 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
   const newHash = await hashPassword(cleanPass);
 
   try {
-    const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
       passwordHash: newHash,
       password: deleteField(),
@@ -930,16 +1014,17 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore reset password error:', err);
+    return { success: false, error: adminWriteError(err) };
   }
 
   // Update Local Cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const idx = cached.findIndex(a => (a.email || '').toLowerCase() === targetEmail);
     if (idx !== -1) {
       cached[idx].passwordHash = newHash;
       delete cached[idx].password;
-      localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(cached));
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cached));
     }
   } catch (e) {}
 
@@ -965,7 +1050,7 @@ export async function isEmailAuthorizedAdmin(email) {
 
   // 2. Check local cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     const match = cached.find(a => !a.isDeleted && a.status !== 'Revoked' && (a.email || '').toLowerCase() === cleanEmail);
     if (match) return match;
   } catch (e) {}
@@ -1043,6 +1128,17 @@ export async function signInWithGoogleUnified() {
  * Admin Authentication (Checked directly against Firestore database records)
  */
 export async function adminLogin(usernameOrEmail, password) {
+  const result = await adminLoginCheck(usernameOrEmail, password);
+  // Super Admins also get the quiz-manager session with the same password (no second login).
+  if (result.success && isSuperAdminUser(result.admin)) {
+    import('./quiz/quizAdmin')
+      .then((m) => m.linkQuizManagerSession(result.admin.email, password))
+      .catch((err) => console.warn('Quiz access could not be linked:', err?.code || err));
+  }
+  return result;
+}
+
+async function adminLoginCheck(usernameOrEmail, password) {
   const cleanInput = (usernameOrEmail || '').trim().toLowerCase();
   
   // 1. Check Firestore database admin collection
@@ -1083,7 +1179,7 @@ export async function adminLogin(usernameOrEmail, password) {
 
   // 2. Check local cache
   try {
-    const cached = JSON.parse(localStorage.getItem('gita_amrita_cached_admins') || '[]');
+    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     for (const match of cached) {
       if (
         !match.isDeleted && 
@@ -1144,9 +1240,11 @@ export async function fetchAllRegistrations() {
   const registrationsMap = new Map();
 
   // 1. Fetch remote registrations from Firestore
+  let fromDatabase = false;
   try {
     const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
     const snapshot = await getDocs(regRef);
+    fromDatabase = true;
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
       if (data.isDeleted) return;
@@ -1167,7 +1265,22 @@ export async function fetchAllRegistrations() {
     console.warn('Firestore fetch registrations warning (using local):', err);
   }
 
-  // 2. Merge local storage registrations
+  // The database is the truth: browser copies of registrations that were since deleted
+  // (by another admin, another device or the staging wipe) must not show up as participants
+  if (fromDatabase) {
+    try {
+      const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
+      const kept = localRecords.filter((rec) => registrationsMap.has(rec.id || rec.registrationId));
+      if (kept.length !== localRecords.length) localStorage.setItem('gita_amrita_registrations', JSON.stringify(kept));
+      const completed = JSON.parse(localStorage.getItem('gita_amrita_completed_reg') || 'null');
+      if (completed?.registrationId && !registrationsMap.has(completed.registrationId)) {
+        localStorage.removeItem('gita_amrita_completed_reg');
+      }
+    } catch (e) {}
+    return Array.from(registrationsMap.values());
+  }
+
+  // 2. Database unreachable: fall back to the copies saved in this browser
   try {
     const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
     localRecords.forEach(rec => {
@@ -1267,6 +1380,12 @@ export async function updateParticipant(registrationId, updates) {
   try {
     const regRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
     await setDoc(regRef, { ...sanitizedUpdates, updatedAt: serverTimestamp() }, { merge: true });
+    if (['email', 'mobile', 'mobileNumberClean', 'countryCode'].some((k) => k in sanitizedUpdates)) {
+      const fresh = await getDoc(regRef);
+      if (fresh.exists()) {
+        await saveEmailHint(registrationId, fresh.data()).catch((err) => console.warn('Email hint not refreshed:', err?.code || err));
+      }
+    }
   } catch (err) {
     console.warn('Firestore update participant warning:', err);
   }
@@ -1293,6 +1412,24 @@ export async function deleteParticipant(registrationId, callerUser = null) {
     return { success: false, error: 'Access Denied: Only Super Administrators can delete participant records.' };
   }
 
+  // Remember the phone key so the masked-email hint can be removed afterwards.
+  let hintKey = null;
+  try {
+    const snap = await getDoc(doc(db, 'BhagavadGita', 'data', 'registrations', registrationId));
+    if (snap.exists() && snap.data().mobileNumberClean) {
+      hintKey = emailHintKey(snap.data().countryCode, snap.data().mobileNumberClean);
+    }
+  } catch (e) {}
+
+  // The student's portal records (read with the Super Admin's session), removed once the
+  // registration is gone so the same person can register and set up again.
+  const store = await adminStore();
+  let portal = null;
+  try {
+    const link = await getDoc(doc(store, 'portalLinks', registrationId));
+    if (link.exists()) portal = link.data();
+  } catch (e) {}
+
   // 1. Try physical deletion from Firestore
   try {
     const regRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
@@ -1305,6 +1442,25 @@ export async function deleteParticipant(registrationId, callerUser = null) {
       await setDoc(regRef, { isDeleted: true, status: 'Deleted', deletedAt: serverTimestamp() }, { merge: true });
     } catch (setErr) {
       console.warn('Firestore fallback delete error:', setErr);
+    }
+  }
+  if (portal) {
+    // The rules allow these only now that the registration no longer exists
+    const leftovers = [
+      doc(store, 'portalLogins', `${portal.countryCode || '+91'}${portal.mobileClean}`),
+      doc(store, 'portalAccounts', portal.uid),
+      doc(store, 'portalLinks', registrationId),
+    ];
+    for (const ref of leftovers) {
+      await deleteDoc(ref).catch((e) => console.warn('Portal record not removed:', e?.code || e));
+    }
+  }
+  if (hintKey) {
+    try {
+      const hint = await getDoc(doc(db, 'emailHints', hintKey));
+      if (hint.exists() && hint.data().registrationId === registrationId) await deleteDoc(doc(db, 'emailHints', hintKey));
+    } catch (e) {
+      console.warn('Email hint not removed:', e?.code || e);
     }
   }
 

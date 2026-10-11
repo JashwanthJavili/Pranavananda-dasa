@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Users, 
   Search, 
@@ -18,7 +18,6 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Loader2,
   Calendar,
   MapPin,
@@ -30,6 +29,7 @@ import {
   Sparkles,
   Database,
   ShieldCheck,
+  UserCog,
   UserPlus,
   ShieldAlert,
   Settings,
@@ -47,10 +47,29 @@ import {
   ArrowRightCircle,
   Palette,
   CheckCircle2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  LifeBuoy as HelpIcon,
+  BookOpenCheck,
+  Star,
 } from 'lucide-react';
 import BrandLogo, { KRISHNA_ICON_SRC } from '../BrandLogo';
 import WhatsAppConfigModule from './WhatsAppConfigModule';
+import HelpRequestsPanel from './HelpRequestsPanel';
+import QuizRatingsPanel from './QuizRatingsPanel';
+import StagingWipePanel from './StagingWipePanel';
+import { fetchRegistration } from '../../profileEdits';
+import HelpEmailsSettings from './HelpEmailsSettings';
+import SocialLinksSettings from './SocialLinksSettings';
+import QuizzesPanel from './quiz/QuizzesPanel';
+import StudentAnswersModal from './quiz/StudentAnswersModal';
+import FancySelect from '../common/FancySelect';
+import useQuizManager from './quiz/useQuizManager';
+import useQuizTracking from './quiz/useQuizTracking';
+import {
+  QuizTrackingBar, QuizStatusCell, quizColumnLabel, sortQuizzesByWeek, countableQuizzes, attemptedCount,
+  matchesQuizStatus, matchesQuizCount,
+} from './quiz/QuizTracking';
+import { subscribeToHelpRequests } from '../../helpRequests';
 import * as XLSX from 'xlsx';
 import { 
   fetchAllRegistrations, 
@@ -69,7 +88,8 @@ import {
   isSuperAdminUser,
   changeAdminPassword,
   resetAdminPasswordBySuperAdmin,
-  resetRegistrationSequenceAndArchive
+  resetRegistrationSequenceAndArchive,
+  ADMIN_CACHE_KEY,
 } from '../../firebase';
 
 const ALL_COLUMNS = [
@@ -106,13 +126,16 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       if ((hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') && isSuperAdminUser(adminUser)) {
         return 'settings';
       }
+      if (hash === '#admin-help') return 'help';
+      if (hash === '#admin-ratings') return 'ratings';
+      if (hash === '#admin-quizzes' && isSuperAdminUser(adminUser)) return 'quizzes';
     }
     return 'participants';
   });
 
-  // Sync tab changes with URL hash (Block non-Super Admins from settings)
+  // Sync tab changes with URL hash (Block non-Super Admins from settings and quizzes)
   const switchTab = (tab) => {
-    if (tab === 'settings' && !isSuperAdmin) {
+    if ((tab === 'settings' || tab === 'quizzes') && !isSuperAdmin) {
       setActiveTab('participants');
       window.location.hash = 'admin';
       return;
@@ -120,6 +143,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     setActiveTab(tab);
     if (tab === 'settings') {
       window.location.hash = 'settings';
+    } else if (tab === 'help') {
+      window.location.hash = 'admin-help';
+    } else if (tab === 'ratings') {
+      window.location.hash = 'admin-ratings';
+    } else if (tab === 'quizzes') {
+      window.location.hash = 'admin-quizzes';
     } else {
       window.location.hash = 'admin';
     }
@@ -130,6 +159,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       const hash = window.location.hash.toLowerCase();
       if ((hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') && isSuperAdmin) {
         setActiveTab('settings');
+      } else if (hash === '#admin-help') {
+        setActiveTab('help');
+      } else if (hash === '#admin-ratings') {
+        setActiveTab('ratings');
+      } else if (hash === '#admin-quizzes' && isSuperAdmin) {
+        setActiveTab('quizzes');
       } else {
         setActiveTab('participants');
       }
@@ -140,7 +175,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
   // If role changes or is normal Admin, enforce fallback to participants view
   useEffect(() => {
-    if (!isSuperAdmin && activeTab === 'settings') {
+    if (!isSuperAdmin && (activeTab === 'settings' || activeTab === 'quizzes')) {
       setActiveTab('participants');
       try {
         window.history.replaceState(null, '', '#admin');
@@ -261,6 +296,39 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
   const [notification, setNotification] = useState('');
 
+  // Help requests from the student portal (Admins and Super Admins)
+  const [helpRequests, setHelpRequests] = useState([]);
+  const [helpLoadError, setHelpLoadError] = useState(false);
+  useEffect(() => {
+    const unsub = subscribeToHelpRequests(
+      (list) => { setHelpRequests(list); setHelpLoadError(false); },
+      () => setHelpLoadError(true)
+    );
+    return () => unsub();
+  }, []);
+  const openHelpCount = helpRequests.filter((r) => (r.status || 'Open') === 'Open').length;
+
+  // Weekly quizzes (Super Admins, after the quiz manager sign-in)
+  const quizManager = useQuizManager(isSuperAdmin, adminUser?.email);
+  const quizData = useQuizTracking(isSuperAdmin && quizManager.isManager);
+  const trackedQuizzes = useMemo(
+    () => sortQuizzesByWeek((quizData.quizzes || []).filter((q) => q.publishedAt)),
+    [quizData.quizzes]
+  );
+  // Quizzes that have opened so far (used for "attempted all quizzes")
+  const countableTracked = useMemo(() => countableQuizzes(trackedQuizzes), [trackedQuizzes]);
+  const countableQuizCount = countableTracked.length;
+  const [quizFilter, setQuizFilter] = useState({ quizId: 'all', status: 'all' });
+  const [answersView, setAnswersView] = useState(null); // { participant, quiz }: a student's answers
+  const [sortBy, setSortBy] = useState('id');
+  const quizStatusFor = (item, quizId) => quizData.tracking[quizId]?.[item.registrationId || item.id] || null;
+  const openQuizTracking = (quizId) => {
+    setQuizFilter({ quizId, status: 'all' });
+    setSortBy('id');
+    setCurrentPage(1);
+    switchTab('participants');
+  };
+
   const showNotification = (msg) => {
     setNotification(msg);
     setTimeout(() => setNotification(''), 3500);
@@ -319,6 +387,15 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     return () => unsubAdmins();
   }, []);
 
+  // After a Super Admin changes a participant's details, show the saved values
+  const refreshRegistration = useCallback(async (regId) => {
+    try {
+      const fresh = await fetchRegistration(regId);
+      if (!fresh) return;
+      setRegistrations((prev) => prev.map((r) => ((r.registrationId || r.id) === regId ? { ...r, ...fresh, id: r.id } : r)));
+    } catch (e) {}
+  }, []);
+
   // Fetch data
   const loadData = async (forceSync = false) => {
     setLoading(true);
@@ -347,7 +424,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       if (adms) {
         setAdminsList(adms);
         try {
-          localStorage.setItem('gita_amrita_cached_admins', JSON.stringify(adms));
+          localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(adms));
         } catch (e) {}
       }
 
@@ -770,6 +847,44 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     });
   }, [registrations, searchQuery]);
 
+  // Quiz status filter and sorting on top of the search results
+  const visibleRegistrations = useMemo(() => {
+    let list = filteredRegistrations;
+    const activeQuiz = quizFilter.quizId !== 'all' && trackedQuizzes.some((q) => q.id === quizFilter.quizId) ? quizFilter.quizId : null;
+    const statusOf = (item) => (activeQuiz ? quizData.tracking[activeQuiz]?.[item.registrationId || item.id] : null);
+    // Across all quizzes that have opened so far
+    const countable = countableQuizzes(trackedQuizzes);
+    const doneOf = (item) => attemptedCount(countable, quizData.tracking, item.registrationId || item.id);
+    if (activeQuiz && quizFilter.status !== 'all') {
+      list = list.filter((item) => matchesQuizStatus(statusOf(item), quizFilter.status));
+    } else if (!activeQuiz && quizFilter.status !== 'all') {
+      list = list.filter((item) => matchesQuizCount(doneOf(item), countable.length, quizFilter.status));
+    }
+    const byId = (a, b) => String(a.registrationId || a.id || '').localeCompare(String(b.registrationId || b.id || ''), undefined, { numeric: true });
+    const sorted = [...list];
+    if (sortBy === 'default') {
+      // Newest registration first (registration ID breaks ties / records without a date)
+      const made = (item) => item.createdAt?.toMillis?.() || 0;
+      sorted.sort((a, b) => made(b) - made(a) || byId(b, a));
+    } else if (sortBy === 'name') sorted.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')) || byId(a, b));
+    else if (sortBy === 'id') sorted.sort(byId);
+    else if (activeQuiz && (sortBy === 'score-desc' || sortBy === 'score-asc')) {
+      // Not attempted always last
+      const pct = (item) => statusOf(item)?.score?.percent ?? (statusOf(item) ? 0 : -1);
+      sorted.sort((a, b) => {
+        const pa = pct(a), pb = pct(b);
+        if (pa < 0 || pb < 0) return pb - pa;
+        return (sortBy === 'score-desc' ? pb - pa : pa - pb) || byId(a, b);
+      });
+    } else if (!activeQuiz && (sortBy === 'quizzes-desc' || sortBy === 'quizzes-asc')) {
+      sorted.sort((a, b) => (sortBy === 'quizzes-desc' ? doneOf(b) - doneOf(a) : doneOf(a) - doneOf(b)) || byId(a, b));
+    } else if (activeQuiz && sortBy === 'recent') {
+      const t = (item) => statusOf(item)?.lastSubmittedAt?.toMillis?.() || 0;
+      sorted.sort((a, b) => t(b) - t(a) || byId(a, b));
+    }
+    return sorted;
+  }, [filteredRegistrations, quizFilter, sortBy, trackedQuizzes, quizData.tracking]);
+
   // Statistics Summary
   const stats = useMemo(() => {
     const total = registrations.length;
@@ -809,15 +924,20 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   }, [registrations]);
 
   // Pagination
-  const totalItems = filteredRegistrations.length;
+  const totalItems = visibleRegistrations.length;
   const itemsPerPage = pageSize === 'all' ? (totalItems || 1) : parseInt(pageSize, 10);
   const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
+  // Keep the page in range when filters shrink the list
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   const paginatedRegistrations = useMemo(() => {
-    if (pageSize === 'all') return filteredRegistrations;
+    if (pageSize === 'all') return visibleRegistrations;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredRegistrations.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredRegistrations, currentPage, itemsPerPage, pageSize]);
+    return visibleRegistrations.slice(startIndex, startIndex + itemsPerPage);
+  }, [visibleRegistrations, currentPage, itemsPerPage, pageSize]);
 
   // Export to Excel
   const handleExportExcel = () => {
@@ -844,7 +964,19 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         'Course Takeaway / Learnings': p.takeawayAspiration || '—',
         'Question for HG Pranavananda Prabhu': p.questionForPranavanandaPrabhu || '—',
         'Source of Discovery': (p.sourceOfDiscovery === 'Others' || p.sourceOfDiscovery === 'Other') && p.sourceOfDiscoveryOther ? `Other (${p.sourceOfDiscoveryOther})` : (p.sourceOfDiscovery || '—'),
-        'Registration Date': p.createdAtFormatted || p.date || 'Recent'
+        'Registration Date': p.createdAtFormatted || p.date || 'Recent',
+        // One status + score column per published quiz (Super Admins signed in as quiz managers)
+        ...Object.fromEntries(trackedQuizzes.flatMap((q) => {
+          const s = quizStatusFor(p, q.id);
+          const label = quizColumnLabel(q);
+          return [
+            [`${label} Status`, s ? 'Attempted' : 'Not Attempted'],
+            [`${label} Score`, s?.score?.total ? `${s.score.correct}/${s.score.total} (${s.score.percent}%)` : ''],
+          ];
+        })),
+        ...(countableQuizCount > 0 ? {
+          'Quizzes Attempted': `${attemptedCount(countableTracked, quizData.tracking, p.registrationId || p.id)} / ${countableQuizCount}`,
+        } : {}),
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -868,7 +1000,9 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         { wch: 35 },
         { wch: 35 },
         { wch: 25 },
-        { wch: 22 }
+        { wch: 22 },
+        ...trackedQuizzes.flatMap(() => [{ wch: 16 }, { wch: 14 }]),
+        ...(countableQuizCount > 0 ? [{ wch: 18 }] : []),
       ];
       worksheet['!cols'] = colWidths;
 
@@ -969,7 +1103,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       
       {/* Toast Notification (Peaceful Bottom-Center Floating Pill) */}
       {notification && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-lg w-auto px-5 py-3 rounded-2xl bg-temple-900/95 text-cream-50 text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-2xl backdrop-blur-md border border-saffron-400/40 animate-fadeIn transition-all">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 max-w-lg w-auto px-5 py-3 rounded-2xl bg-temple-900/95 text-cream-50 text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-2xl backdrop-blur-md border border-saffron-400/40 animate-fadeIn transition-all">
           <Sparkles className="w-4 h-4 text-saffron-400 flex-shrink-0 animate-pulse" />
           <span className="leading-snug text-center">{notification}</span>
         </div>
@@ -984,36 +1118,6 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             title="Gita for Youth"
           />
 
-          {/* Center: Clean Icon Navigation (Super Admin Only) */}
-          {isSuperAdmin && (
-            <div className="flex items-center gap-1 bg-cream-200/80 p-1 rounded-2xl border border-cream-300">
-              <button
-                onClick={() => switchTab('participants')}
-                className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
-                  activeTab === 'participants'
-                    ? 'bg-white text-saffron-700 shadow-soft font-bold'
-                    : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
-                }`}
-                title="Participants Registrations"
-                aria-label="Participants Registrations"
-              >
-                <Users className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => switchTab('settings')}
-                className={`p-2 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
-                  activeTab === 'settings'
-                    ? 'bg-white text-saffron-700 shadow-soft font-bold'
-                    : 'text-temple-500 hover:text-temple-900 hover:bg-cream-100/70'
-                }`}
-                title="System & Administrative Settings"
-                aria-label="Settings"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
-          )}
 
           {/* Right: Coordinator Details, Password Change & Logout */}
           <div className="flex items-center gap-2">
@@ -1058,8 +1162,45 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       </header>
 
       {/* Main Content Body */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 pt-5 pb-24 space-y-5">
         
+        {/* HELP REQUESTS (Admins and Super Admins) */}
+        {activeTab === 'help' && (
+          <HelpRequestsPanel
+            requests={helpRequests}
+            loadError={helpLoadError}
+            adminUser={adminUser}
+            notify={showNotification}
+            isSuperAdmin={isSuperAdmin}
+            manager={quizManager}
+            registrations={registrations}
+            onRegistrationUpdated={refreshRegistration}
+          />
+        )}
+
+        {/* QUIZ RATINGS (Admins and Super Admins) */}
+        {activeTab === 'ratings' && (
+          <QuizRatingsPanel
+            registrations={registrations}
+            quizzes={isSuperAdmin && quizManager.isManager ? quizData.quizzes : null}
+            canSeeFeedback={isSuperAdmin && quizManager.isManager}
+          />
+        )}
+
+        {/* WEEKLY QUIZZES (Super Admins) */}
+        {activeTab === 'quizzes' && isSuperAdmin && (
+          <QuizzesPanel
+            adminUser={adminUser}
+            manager={quizManager}
+            quizData={quizData}
+            participants={registrations}
+            participantCount={registrations.length}
+            notify={showNotification}
+            onTrack={openQuizTracking}
+            onLogout={onLogout}
+          />
+        )}
+
         {/* TAB 1: PARTICIPANTS MANAGEMENT VIEW */}
         {activeTab === 'participants' && (
           <div className="space-y-4 animate-fadeIn">
@@ -1169,20 +1310,20 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {/* Rows per page */}
                 <div className="flex items-center gap-1.5 text-xs text-temple-600">
                   <span className="text-[11px] font-medium hidden sm:inline">Show:</span>
-                  <div className="relative inline-flex items-center">
-                    <select
-                      value={pageSize}
-                      onChange={(e) => setPageSize(e.target.value)}
-                      className="appearance-none pl-3 pr-8 py-1.5 rounded-xl border border-cream-300 bg-white text-xs text-temple-800 focus:outline-none cursor-pointer font-medium shadow-2xs hover:border-cream-400 transition-colors"
-                    >
-                      <option value="10">10 rows</option>
-                      <option value="20">20 rows</option>
-                      <option value="30">30 rows</option>
-                      <option value="50">50 rows</option>
-                      <option value="all">All ({totalItems})</option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 absolute right-3 pointer-events-none text-temple-500" />
-                  </div>
+                  <FancySelect
+                    size="xs"
+                    ariaLabel="Rows per page"
+                    align="right"
+                    value={pageSize}
+                    onChange={(v) => setPageSize(v)}
+                    options={[
+                      { value: '10', label: '10 rows' },
+                      { value: '20', label: '20 rows' },
+                      { value: '30', label: '30 rows' },
+                      { value: '50', label: '50 rows' },
+                      { value: 'all', label: `All (${totalItems})` },
+                    ]}
+                  />
                 </div>
 
                 {/* Column Visibility Menu */}
@@ -1240,20 +1381,35 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   <span>Export Excel</span>
                 </button>
 
-                {/* Quick Database Backup */}
-                <button
-                  type="button"
-                  onClick={handleBackupDatabase}
-                  disabled={isBackingUp}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-saffron-600 hover:bg-saffron-700 active:bg-saffron-800 text-white font-medium text-xs transition-colors shadow-soft cursor-pointer disabled:opacity-50"
-                  title="Download Complete Database Backup Snapshot (.json)"
-                >
-                  <Database className={`w-3.5 h-3.5 ${isBackingUp ? 'animate-spin' : ''}`} />
-                  <span>{isBackingUp ? 'Backing up...' : 'Backup'}</span>
-                </button>
-
               </div>
             </div>
+
+            {/* Quiz tracking: filter / sort by quiz status (Super Admins) */}
+            {isSuperAdmin && (
+              <QuizTrackingBar
+                manager={quizManager}
+                quizData={quizData}
+                quizzes={trackedQuizzes}
+                filter={quizFilter}
+                onFilterChange={(f) => { setQuizFilter(f); setCurrentPage(1); }}
+                sortBy={sortBy}
+                onSortChange={(s) => { setSortBy(s); setCurrentPage(1); }}
+                participants={filteredRegistrations}
+                shownCount={totalItems}
+                onOpenQuizzes={() => switchTab('quizzes')}
+              />
+            )}
+
+            {/* A participant's answers for one quiz (from the Attempted badge) */}
+            {answersView && (
+              <StudentAnswersModal
+                participant={answersView.participant}
+                quiz={answersView.quiz}
+                status={quizStatusFor(answersView.participant, answersView.quiz.id)}
+                answerKey={quizData.keys?.[answersView.quiz.id]}
+                onClose={() => setAnswersView(null)}
+              />
+            )}
 
             {/* Participants Table */}
             <div className="bg-cream-50 rounded-2xl border border-cream-200 shadow-soft overflow-hidden">
@@ -1278,13 +1434,26 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                       {columnVisibility.question && <th className="py-2.5 px-3">Question</th>}
                       {columnVisibility.discovery && <th className="py-2.5 px-3">Discovery</th>}
                       {columnVisibility.date && <th className="py-2.5 px-3">Date</th>}
+                      {trackedQuizzes.map((q) => (
+                        <th
+                          key={q.id}
+                          className={`py-2.5 px-3 whitespace-nowrap ${quizFilter.quizId === q.id ? 'bg-gold-100 text-temple-900' : ''}`}
+                          title={`${q.title}${q.published ? '' : ' (unpublished)'}`}
+                        >
+                          {quizColumnLabel(q)}
+                          {!q.published && <span className="ml-1 normal-case font-medium text-amber-700">· hidden</span>}
+                        </th>
+                      ))}
+                      {countableQuizCount > 0 && (
+                        <th className="py-2.5 px-3 whitespace-nowrap" title="Quizzes attempted out of all quizzes that have opened">All quizzes</th>
+                      )}
                       {columnVisibility.actions && <th className="py-2.5 px-3 text-right">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-cream-200/80">
                     {paginatedRegistrations.length === 0 ? (
                       <tr>
-                        <td colSpan={18} className="py-12 text-center text-temple-500">
+                        <td colSpan={19 + trackedQuizzes.length} className="py-12 text-center text-temple-500">
                           <Users className="w-8 h-8 mx-auto text-temple-300 mb-2" />
                           <p className="font-semibold text-sm">No registrations found</p>
                           <p className="text-xs text-temple-400">Try adjusting your search query or sync the database.</p>
@@ -1402,6 +1571,26 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                 {item.createdAtFormatted || item.date || 'Recent'}
                               </td>
                             )}
+
+                            {trackedQuizzes.map((q) => (
+                              <td key={q.id} className={`py-3 px-3 ${quizFilter.quizId === q.id ? 'bg-gold-50/70' : ''}`}>
+                                <QuizStatusCell quiz={q} status={quizStatusFor(item, q.id)} onView={() => setAnswersView({ participant: item, quiz: q })} />
+                              </td>
+                            ))}
+                            {countableQuizCount > 0 && (() => {
+                              const done = attemptedCount(countableTracked, quizData.tracking, item.registrationId || item.id);
+                              const all = done === countableQuizCount;
+                              return (
+                                <td className="py-3 px-3">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold whitespace-nowrap ${
+                                    all ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : done ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-cream-200/80 border-cream-300 text-temple-500'
+                                  }`}
+                                  >
+                                    {all ? '✓ ' : ''}{done} / {countableQuizCount}
+                                  </span>
+                                </td>
+                              );
+                            })()}
 
                             {columnVisibility.actions && (
                               <td className="py-3 px-3 text-right">
@@ -1550,19 +1739,16 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   <label className="block text-[11px] font-semibold text-temple-700 uppercase">
                     Title Font Size
                   </label>
-                  <select
+                  <FancySelect
+                    size="sm"
+                    ariaLabel="Title font size"
+                    className="w-full sm:w-64"
                     value={Number(courseNameFontSizeDraft) || 18}
-                    onChange={(e) => setCourseNameFontSizeDraft(Number(e.target.value))}
-                    className="w-full sm:w-64 px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium cursor-pointer"
-                  >
-                    {[...new Set([...Array.from({ length: 32 }, (_, i) => i + 5), Number(courseNameFontSizeDraft) || 18])]
+                    onChange={(v) => setCourseNameFontSizeDraft(Number(v))}
+                    options={[...new Set([...Array.from({ length: 32 }, (_, i) => i + 5), Number(courseNameFontSizeDraft) || 18])]
                       .sort((x, y) => x - y)
-                      .map((size) => (
-                        <option key={size} value={size}>
-                          {size}px{size === 18 ? ' (Standard)' : ''}
-                        </option>
-                      ))}
-                  </select>
+                      .map((size) => ({ value: size, label: `${size}px${size === 18 ? ' (Standard)' : ''}` }))}
+                  />
                 </div>
 
                 {/* Header Live Preview */}
@@ -1792,49 +1978,37 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <span className="text-[11px] text-temple-500 font-medium block mb-1">Minutes</span>
-                            <div className="relative">
-                              <select
-                                value={Math.floor(queueWaitDraft / 60)}
-                                onChange={(e) => {
-                                  const m = Number(e.target.value);
-                                  const s = m === 4 ? 0 : (queueWaitDraft % 60);
-                                  const total = Math.max(2, Math.min(240, m * 60 + s));
-                                  setQueueWaitDraft(total);
-                                }}
-                                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium shadow-2xs"
-                              >
-                                <option value="0">0 min</option>
-                                <option value="1">1 min</option>
-                                <option value="2">2 min</option>
-                                <option value="3">3 min</option>
-                                <option value="4">4 min</option>
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-temple-500" />
-                            </div>
+                            <FancySelect
+                              size="sm"
+                              ariaLabel="Minutes"
+                              className="w-full"
+                              value={Math.floor(queueWaitDraft / 60)}
+                              onChange={(v) => {
+                                const m = Number(v);
+                                const s = m === 4 ? 0 : (queueWaitDraft % 60);
+                                const total = Math.max(2, Math.min(240, m * 60 + s));
+                                setQueueWaitDraft(total);
+                              }}
+                              options={[0, 1, 2, 3, 4].map((m) => ({ value: m, label: `${m} min` }))}
+                            />
                           </div>
 
                           <div>
                             <span className="text-[11px] text-temple-500 font-medium block mb-1">Seconds</span>
-                            <div className="relative">
-                              <select
-                                value={queueWaitDraft >= 240 ? 0 : (queueWaitDraft % 60)}
-                                disabled={Math.floor(queueWaitDraft / 60) >= 4}
-                                onChange={(e) => {
-                                  const m = Math.floor(queueWaitDraft / 60);
-                                  const s = Number(e.target.value);
-                                  const total = Math.max(2, Math.min(240, m * 60 + s));
-                                  setQueueWaitDraft(total);
-                                }}
-                                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium disabled:opacity-50 shadow-2xs"
-                              >
-                                {Array.from({ length: 60 }, (_, idx) => (
-                                  <option key={idx} value={idx}>
-                                    {idx} sec
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-temple-500" />
-                            </div>
+                            <FancySelect
+                              size="sm"
+                              ariaLabel="Seconds"
+                              className="w-full"
+                              value={queueWaitDraft >= 240 ? 0 : (queueWaitDraft % 60)}
+                              disabled={Math.floor(queueWaitDraft / 60) >= 4}
+                              onChange={(v) => {
+                                const m = Math.floor(queueWaitDraft / 60);
+                                const s = Number(v);
+                                const total = Math.max(2, Math.min(240, m * 60 + s));
+                                setQueueWaitDraft(total);
+                              }}
+                              options={Array.from({ length: 60 }, (_, idx) => ({ value: idx, label: `${idx} sec` }))}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1965,17 +2139,15 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         <label className="block text-[11px] font-semibold text-temple-700 uppercase">
                           Role
                         </label>
-                        <div className="relative">
-                          <select
-                            value={newAdminRole}
-                            onChange={(e) => setNewAdminRole(e.target.value)}
-                            className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all cursor-pointer font-medium"
-                          >
-                            <option value="Admin">Admin</option>
-                            <option value="Super Admin">Super Admin</option>
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-temple-500" />
-                        </div>
+                        <FancySelect
+                          ariaLabel="Role"
+                          value={newAdminRole}
+                          onChange={(v) => setNewAdminRole(v)}
+                          options={[
+                            { value: 'Admin', label: 'Admin', Icon: UserCog },
+                            { value: 'Super Admin', label: 'Super Admin', Icon: ShieldCheck },
+                          ]}
+                        />
                       </div>
                     </div>
 
@@ -2368,10 +2540,71 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               <WhatsAppConfigModule callerUser={adminUser} />
             </div>
 
+            {/* SECTION 7: HELP REQUEST EMAIL RECIPIENTS */}
+            <div className="pt-2">
+              <HelpEmailsSettings callerUser={adminUser} />
+            </div>
+
+            {/* SOCIAL MEDIA LINKS (shown on students' quiz results) */}
+            <div className="pt-2">
+              <SocialLinksSettings callerUser={adminUser} />
+            </div>
+
+            {/* SECTION 8: STAGING ONLY - wipe test data (not rendered on the live site) */}
+            <StagingWipePanel
+              manager={quizManager}
+              onDone={() => { loadData(true); quizData.reload?.(true); }}
+            />
+
           </div>
         )}
 
       </main>
+
+      {/* Footer navigation (Quizzes and Settings are Super Admin only) */}
+      <nav
+        aria-label="Admin sections"
+        className="fixed bottom-0 inset-x-0 z-40 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70 shadow-[0_-2px_10px_rgba(42,36,33,0.05)] pb-[env(safe-area-inset-bottom)]"
+      >
+        <div className="max-w-md mx-auto h-16 flex items-stretch justify-around px-2">
+          {[
+            { key: 'participants', label: 'Home', Icon: Users, title: 'Participant Registrations' },
+            { key: 'help', label: 'Contact Us', Icon: HelpIcon, title: 'Messages students sent through Contact Us', badge: openHelpCount },
+            { key: 'ratings', label: 'Ratings', Icon: Star, title: 'Quiz ratings from students' },
+            ...(isSuperAdmin
+              ? [
+                  { key: 'quizzes', label: 'Quizzes', Icon: BookOpenCheck, title: 'Weekly Quizzes' },
+                  { key: 'settings', label: 'Settings', Icon: Settings, title: 'System & Administrative Settings' },
+                ]
+              : []),
+          ].map(({ key, label, Icon, title, badge }) => {
+            const active = activeTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => switchTab(key)}
+                title={title}
+                aria-label={badge ? `${label} (${badge} open)` : label}
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                  active ? 'text-saffron-700' : 'text-temple-500 hover:text-temple-900'
+                }`}
+              >
+                <span className={`relative flex items-center justify-center w-10 h-7 rounded-full transition-colors ${active ? 'bg-saffron-100' : ''}`}>
+                  <Icon className="w-[18px] h-[18px]" />
+                  {badge > 0 && (
+                    <span className="absolute -top-1 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-saffron-500 text-white text-[10px] font-bold leading-4 text-center">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                </span>
+                <span className={active ? 'font-semibold' : ''}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* Participant Detail Modal */}
       {detailParticipant && (

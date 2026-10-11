@@ -10,6 +10,15 @@ import RegistrationFlow from './components/Registration/RegistrationFlow';
 const AdminDashboard = React.lazy(() => import('./components/Admin/AdminDashboard'));
 const AdminLogin = React.lazy(() => import('./components/Admin/AdminLogin'));
 const StudentDashboard = React.lazy(() => import('./components/Student/StudentDashboard'));
+const StudentPortal = React.lazy(() => import('./components/StudentPortal/StudentPortal'));
+
+// The student portal: #student-portal, or the return URL of a Firebase email link / password reset.
+function isStudentPortalUrl() {
+  if (typeof window === 'undefined') return false;
+  if (/^#student-portal(\/|$)/.test((window.location.hash || '').toLowerCase())) return true;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('portal') === '1' || (params.get('mode') === 'signIn' && Boolean(params.get('oobCode')));
+}
 
 export default function App() {
   const [programSettings, setProgramSettings] = useState(() => {
@@ -23,7 +32,8 @@ export default function App() {
   const [currentView, setCurrentView] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = (window.location.hash || '').toLowerCase();
-      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config' || hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+      if (isStudentPortalUrl()) return 'portal';
+      if (hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config' || hash === '#admin' || hash === '#admin-help' || hash === '#admin-ratings' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
       if (hash === '#admin-login') return 'admin-login';
       if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
       try {
@@ -108,8 +118,9 @@ export default function App() {
 
         setCurrentView((prev) => {
           const hash = (typeof window !== 'undefined' ? (window.location.hash || '').toLowerCase() : '');
+          if (prev === 'portal' || isStudentPortalUrl()) return 'portal';
           if (hash === '#register' || hash === '#registration') return 'register';
-          if (hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
+          if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-ratings' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings') return 'admin';
           if (hash === '#admin-login') return 'admin-login';
           if (hash === '#dashboard' || hash === '#student' || hash === '#student-dashboard' || hash === '#portal') return 'student';
 
@@ -187,6 +198,8 @@ export default function App() {
 
   const handleAdminLogout = () => {
     setAdminUser(null);
+    // Quiz access ends with the admin session
+    import('./quiz/quizAdmin').then((m) => m.quizManagerSignOut()).catch(() => {});
     try {
       localStorage.removeItem('gita_amrita_admin_session');
     } catch (e) {}
@@ -236,10 +249,13 @@ export default function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = (window.location.hash || '').toLowerCase();
-      if (hash === '#register' || hash === '#registration') {
+      if (hash === '#student-portal' || hash.startsWith('#student-portal/')) {
+        setCurrentView('portal');
+        setLoginModalOpen(false);
+      } else if (hash === '#register' || hash === '#registration') {
         setCurrentView('register');
         setLoginModalOpen(false);
-      } else if (hash === '#admin' || hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
+      } else if (hash === '#admin' || hash === '#admin-help' || hash === '#admin-ratings' || hash === '#admin-quizzes' ||hash === '#admin-dashboard' || hash === '#settings' || hash === '#admin-settings' || hash === '#wa-test' || hash === '#wa-config' || hash === '#whatsapp-config') {
         setCurrentView('admin');
         setLoginModalOpen(false);
       } else if (hash === '#admin-login') {
@@ -344,6 +360,21 @@ export default function App() {
     );
   }
 
+  if (currentView === 'portal') {
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-cream-100 flex items-center justify-center font-poppins text-temple-700">
+          <div className="w-10 h-10 border-2 border-saffron-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }>
+        <StudentPortal onBackToHome={() => {
+          try { window.history.replaceState(null, '', window.location.pathname); } catch (e) {}
+          goToHome();
+        }} />
+      </React.Suspense>
+    );
+  }
+
   if (currentView === 'student') {
     if (!studentUser) {
       return (
@@ -398,25 +429,16 @@ export default function App() {
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins selection:bg-saffron-100 selection:text-saffron-900 animate-fadeIn">
       
       {/* Top Navigation */}
-      <Navbar 
-        onOpenRegister={goToRegister} 
-        onOpenLogin={openLogin} 
-        onOpenAdmin={goToAdmin}
-        isAdmin={isAdmin}
-        studentUser={studentUser}
-        isRegistrationOpen={isRegistrationOpen}
-      />
+      <Navbar />
 
       {/* Main Content Sections */}
-      <main className="flex-1">
+      <main className="flex-1 flex">
         {/* 1. Hero Section */}
         <Hero onOpenRegister={goToRegister} />
       </main>
 
       {/* 2. Footer */}
-      <Footer 
-        onOpenLogin={openLogin} 
-      />
+      <Footer />
 
       {/* Login Modal */}
       <LoginModal 

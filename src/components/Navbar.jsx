@@ -1,50 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Menu, X } from 'lucide-react';
+import React from 'react';
+import { Home } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 
-export default function Navbar({ onOpenRegister, onOpenLogin, onOpenAdmin, isAdmin, studentUser, isRegistrationOpen = true }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
+export default function Navbar() {
   return (
-    <header
-      className={`sticky top-0 z-40 w-full transition-all duration-300 ${
-        scrolled
-          ? 'bg-cream-100/95 backdrop-blur-md shadow-soft border-b border-cream-300/80'
-          : 'bg-cream-100/80 backdrop-blur-sm border-b border-cream-200/60'
-      }`}
-    >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          
-          {/* Left: Brand & Title */}
+    <header className="sticky top-0 z-30 bg-cream-50/90 backdrop-blur-md border-b border-gold-200/70 shadow-soft">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-[72px] flex items-center justify-between gap-2">
+        <BrandLogo />
+        <nav className="flex items-center gap-2 flex-shrink-0">
           <a
-            href="#"
-            className="group focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 rounded-lg p-1"
+            href="https://pranavanandadas.com/home"
+            aria-label="Home"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-white hover:bg-cream-100 hover:border-gold-300 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 cursor-pointer"
           >
-            <BrandLogo />
+            <Home className="w-4 h-4" />
+            <span className="hidden sm:inline">Home</span>
           </a>
-
-          {/* Right: Actions */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <button
-              onClick={onOpenLogin}
-              className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl text-temple-800 hover:text-temple-900 bg-white hover:bg-cream-200/80 border border-cream-300 shadow-2xs transition-all focus:outline-none cursor-pointer"
-            >
-              {isAdmin ? 'Admin Panel' : 'Login'}
-            </button>
-          </div>
-
-        </div>
+        </nav>
       </div>
     </header>
   );

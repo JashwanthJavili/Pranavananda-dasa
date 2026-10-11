@@ -19,5 +19,8 @@ const staging = {
 
 // Vite mode decides the environment: only `--mode staging` uses the staging project.
 // Everything else (`npm run dev`, `npm run build`) uses production, as before.
-export const APP_ENV = import.meta.env.MODE === 'staging' ? 'staging' : 'production';
+// Both configs, for Node scripts (e.g. scripts/backfill-email-hints.mjs).
+export const firebaseConfigs = { staging, production };
+
+export const APP_ENV = import.meta.env?.MODE === 'staging' ? 'staging' : 'production';
 export const firebaseConfig = APP_ENV === 'staging' ? staging : production;

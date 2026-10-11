@@ -83,3 +83,47 @@
   animation: fallingPetal linear infinite;
 }
 
+/* ---- Landing page ---- */
+@keyframes lpRise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes lpSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes lpDrift {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, 30px) scale(1.15); }
+}
+@keyframes lpGlow {
+  0%, 100% { opacity: 0.45; transform: scale(0.96); }
+  50% { opacity: 0.8; transform: scale(1.04); }
+}
+@keyframes lpShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes lpTwinkle {
+  0%, 100% { opacity: 0; transform: translateY(0) scale(0.6); }
+  50% { opacity: 0.9; transform: translateY(-14px) scale(1); }
+}
+
+.lp-rise { opacity: 0; animation: lpRise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+.lp-spin { animation: lpSpin 80s linear infinite; }
+.lp-spin-rev { animation: lpSpin 120s linear infinite reverse; }
+.lp-drift { animation: lpDrift 18s ease-in-out infinite alternate; }
+.lp-glow { animation: lpGlow 6s ease-in-out infinite; }
+.lp-twinkle { opacity: 0; animation: lpTwinkle 5s ease-in-out infinite; }
+.lp-shimmer {
+  background-size: 200% auto;
+  animation: lpShimmer 8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-rise, .lp-spin, .lp-spin-rev, .lp-drift, .lp-glow, .lp-twinkle, .lp-shimmer {
+    animation: none !important;
+  }
+  .lp-rise { opacity: 1; }
+  .lp-twinkle { opacity: 0; }
+}
+
