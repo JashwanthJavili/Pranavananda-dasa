@@ -53,7 +53,7 @@ const TABS = [
 ];
 
 const NOT_FOUND_MSG =
-  "We couldn't match your verified email and mobile number to a registration. Please use the exact details you registered with, or contact the Gita for Youth team.";
+  "We couldn't match your email and mobile number to a registration. Please use the exact details you registered with, or contact the Gita for Youth team.";
 const CLAIMED_MSG =
   'This registration is already linked to another student account. If this is your registration, please contact the Gita for Youth team.';
 
@@ -76,7 +76,7 @@ export default function StudentPortal({ onBackToHome }) {
   if (justVerified.current === null) justVerified.current = takeJustVerified();
   // Notice shown on the signed-out screen (verified on another device: log in here)
   const [message, setMessage] = useState(() => (justVerified.current
-    ? { type: 'success', text: 'Your email is verified. Kindly log in with your email and the password you created.' }
+    ? { type: 'success', text: 'Your email is verified. Kindly sign in with your email and the password you created.' }
     : null));
   const [stepError, setStepError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -151,7 +151,7 @@ export default function StudentPortal({ onBackToHome }) {
       const ready = (await hasCreatedPassword(u)) || (await finishPasswordSetup(u, sealedLogin));
       if (!ready && viaDirectSetup) {
         // The page was reloaded, so the password typed at setup is no longer known here
-        await signOutWith('Your registration is linked. Kindly log in with your email and the password you created.', 'success');
+        await signOutWith('Your registration is linked. Kindly sign in with your email and the password you created.', 'success');
         return;
       }
       setStage(ready ? 'portal' : 'create-password');
@@ -314,7 +314,7 @@ export default function StudentPortal({ onBackToHome }) {
       setStage('portal');
     } catch (err) {
       if (err?.code === 'auth/requires-recent-login') {
-        await signOutWith('For your security, please request a new verification email to finish setting up your account.');
+        await signOutWith('For your security, please sign in again to finish setting up your account.');
       } else {
         setStepError(authErrorMessage(err));
       }
@@ -630,7 +630,7 @@ function PortalHome({ user, justVerified = false, onLogout, onBackToHome }) {
         <div className="fixed inset-0 z-50 bg-temple-900/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-xs bg-cream-50 rounded-3xl p-6 text-center space-y-4 shadow-soft-lg border border-cream-200">
             <h3 className="font-display text-2xl font-bold">Log out?</h3>
-            <p className="text-sm text-temple-600">You can log in again any time with your email or mobile number and your password.</p>
+            <p className="text-sm text-temple-600">You can sign in again any time with your email or mobile number and your password.</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirmLogout(false)} className="w-1/2 py-2.5 rounded-xl border border-cream-300 bg-white text-sm font-medium cursor-pointer">
                 Stay

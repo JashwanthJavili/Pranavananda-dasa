@@ -5,9 +5,9 @@ import {
 
 // Icon + short hint for each help category (keys match HELP_CATEGORIES in config/support.js).
 const META = {
-  'Unable to log in': { Icon: LogIn, hint: 'Email / mobile and password not working' },
+  'Unable to sign in': { Icon: LogIn, hint: 'Email / mobile and password not working' },
   'Forgot password / reset not working': { Icon: KeyRound, hint: 'Reset link missing or not working' },
-  'Problem with first-time setup': { Icon: UserCog, hint: 'Stuck while creating your account' },
+  'Problem with sign up': { Icon: UserCog, hint: 'Stuck while signing up' },
   'Edit my profile details': { Icon: UserPen, hint: 'Change your name, mobile, email or other details' },
   'My registration details are wrong': { Icon: FileWarning, hint: 'Something in your registration is incorrect' },
   'WhatsApp community link': { Icon: MessageCircle, hint: 'Cannot see or join the group' },

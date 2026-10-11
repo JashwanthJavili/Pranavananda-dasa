@@ -577,18 +577,18 @@ export function authErrorMessage(err) {
     case 'auth/user-not-found':
       return 'Incorrect email or password.';
     case 'portal/mobile-not-set-up':
-      return 'No portal account uses this mobile number yet. Log in with your email, or use First-time setup.';
+      return 'No portal account uses this mobile number yet. Sign in with your email, or sign up first.';
     case 'auth/quota-exceeded':
-      return 'We are unable to send verification emails right now because today\'s limit has been reached. Please try again tomorrow, or contact the Gita for Youth team.';
+      return 'We are unable to send emails right now because today\'s limit has been reached. Please try again tomorrow, or contact the Gita for Youth team.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Please wait a few minutes and try again.';
     case 'auth/expired-action-code':
     case 'auth/invalid-action-code':
-      return 'This verification link has expired or was already used. Please request a new one.';
+      return 'This link has expired or was already used. Please request a new one.';
     case 'auth/weak-password':
       return 'Please choose a stronger password (at least 8 characters).';
     case 'auth/requires-recent-login':
-      return 'For security, please verify your email again before setting a password.';
+      return 'For your security, please sign in again before setting a password.';
     case 'auth/operation-not-allowed':
       return 'Student sign-in is not enabled yet. Please contact the Gita for Youth team.';
     case 'auth/network-request-failed':

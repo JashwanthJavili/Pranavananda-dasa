@@ -319,7 +319,7 @@ function ConfirmDetails({ quiz, profile, onBack, onConfirm }) {
 
         <p className="text-xs text-temple-600 leading-relaxed text-center">
           Your score will be saved under these details, so kindly make sure everything is correct.
-          If anything is wrong, please let us know through <span className="font-semibold text-temple-800">Need help?</span> at the top.
+          If anything is wrong, please let us know through <span className="font-semibold text-temple-800">Contact Us</span> at the top.
         </p>
 
         <label className="flex items-center gap-2.5 cursor-pointer select-none">

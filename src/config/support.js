@@ -6,9 +6,9 @@
 export const formSubmitEndpoint = (email) => `https://formsubmit.co/ajax/${encodeURIComponent(email)}`;
 
 export const HELP_CATEGORIES = [
-  'Unable to log in',
+  'Unable to sign in',
   'Forgot password / reset not working',
-  'Problem with first-time setup',
+  'Problem with sign up',
   'Edit my profile details',
   'My registration details are wrong',
   'WhatsApp community link',

@@ -181,7 +181,7 @@ export default function HelpModal({ open, onClose, prefill }) {
                 onChange={set('message')}
                 placeholder={form.category === 'Edit my profile details'
                   ? 'For example: Please change my mobile number from 98xxxxxx10 to 98xxxxxx20.'
-                  : 'For example: I entered my mobile number and email, but I did not receive the verification email.'}
+                  : 'For example: I entered my registered mobile number and email, but it says my registration was not found.'}
                 className="w-full px-4 py-3 rounded-xl bg-white border border-cream-300 text-sm text-temple-900 placeholder:text-temple-400 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 resize-y min-h-[110px]"
               />
               <p className="text-[11px] text-temple-400 text-right">{form.message.length}/{MESSAGE_MAX}</p>

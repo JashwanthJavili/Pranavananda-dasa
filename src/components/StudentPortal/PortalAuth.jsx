@@ -442,7 +442,7 @@ function ForgotPassword({ onBack, onSetup, initialEmail = '', accountExists = fa
   );
 }
 
-/** Shown on Forgot password when the student has never set up their account. */
+/** Shown on Forgot password when the student has never signed up. */
 function SetupNeeded({ onSetup }) {
   return (
     <div className="rounded-2xl border border-gold-200 bg-gold-50 p-4 sm:p-5 space-y-4">
@@ -452,15 +452,15 @@ function SetupNeeded({ onSetup }) {
           <span className="block">Dear Devotee,</span>
         </h3>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          You are registered with us, but your login has not been created yet, so there is no password to reset. Kindly set up your account first.
+          You are registered with us, but you have not signed up for the portal yet, so there is no password to reset. Kindly sign up first.
         </p>
         <p className="pt-2 text-xs sm:text-sm font-medium text-temple-800">Kindly follow these simple steps:</p>
       </div>
       <ol className="space-y-2 text-xs sm:text-sm text-temple-700">
         {[
-          'Click "Complete first-time setup" below.',
-          'Enter your registered mobile number and email.',
-          'Open the link we send to your email and create your password.',
+          'Click "Complete sign up" below.',
+          'Enter your registered mobile number and email address.',
+          'Create your password. You will go straight to your dashboard.',
         ].map((step, i) => (
           <li key={step} className="flex items-start gap-2.5">
             <span className="shrink-0 w-5 h-5 rounded-full bg-saffron-500 text-white text-[11px] font-semibold flex items-center justify-center">{i + 1}</span>
