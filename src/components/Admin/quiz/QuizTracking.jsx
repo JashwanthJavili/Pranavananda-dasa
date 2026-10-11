@@ -31,8 +31,8 @@ export const STATUS_ALL = [
 
 // "Order by" choices
 const SORT_COMMON = [
+  { value: 'id', label: 'Registration ID (first come, first served)' },
   { value: 'default', label: 'Newest registration first' },
-  { value: 'id', label: 'Registration ID' },
   { value: 'name', label: 'Name (A to Z)' },
 ];
 const SORT_ONE = [

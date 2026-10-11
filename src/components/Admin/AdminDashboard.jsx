@@ -319,7 +319,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const countableQuizCount = countableTracked.length;
   const [quizFilter, setQuizFilter] = useState({ quizId: 'all', status: 'all' });
   const [answersView, setAnswersView] = useState(null); // { participant, quiz }: a student's answers
-  const [sortBy, setSortBy] = useState('default');
+  const [sortBy, setSortBy] = useState('id');
   const quizStatusFor = (item, quizId) => quizData.tracking[quizId]?.[item.registrationId || item.id] || null;
   const openQuizTracking = (quizId) => {
     setQuizFilter({ quizId, status: 'all' });
