@@ -392,14 +392,16 @@ function QuizIntro({ quiz, progress, registrationId, onBack, onBegin }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <button
-            type="button"
-            onClick={onBack}
-            className="py-3 rounded-xl border border-cream-300 bg-white text-sm font-semibold text-temple-700 hover:bg-cream-100 cursor-pointer"
-          >
-            Go back
-          </button>
+        <div className={`grid gap-2.5 ${ASK_CONFIRM_DETAILS ? 'grid-cols-2' : ''}`}>
+          {ASK_CONFIRM_DETAILS && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="py-3 rounded-xl border border-cream-300 bg-white text-sm font-semibold text-temple-700 hover:bg-cream-100 cursor-pointer"
+            >
+              Go back
+            </button>
+          )}
           <PrimaryButton onClick={onBegin} className="!py-3">
             {hasDraft ? 'Continue quiz' : 'Begin quiz'}
           </PrimaryButton>
