@@ -82,7 +82,7 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
           )}
         </div>
         <div className="space-y-1">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900 leading-tight">{msg.title}</h2>
+          <h2 className="font-display text-[1.8rem] sm:text-[2.15rem] font-bold text-temple-900 leading-tight">{msg.title}</h2>
           <p className="text-sm text-temple-600 max-w-md mx-auto">{msg.text}</p>
         </div>
         {Number.isFinite(shown.timeTakenSec) && (
@@ -106,9 +106,9 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
         <button
           type="button"
           onClick={() => document.getElementById('quiz-answers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-saffron-700 hover:text-saffron-800 hover:underline underline-offset-4 cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-white border border-saffron-300 text-sm sm:text-base font-semibold text-saffron-700 shadow-soft hover:bg-saffron-50 hover:border-saffron-400 hover:shadow-soft-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
         >
-          Review your answers <ChevronDown className="w-4 h-4" />
+          Check your answers <ChevronDown className="w-4 h-4" />
         </button>
       </section>
 

@@ -153,7 +153,7 @@ export function resultMessage(percent, total = 1) {
   if (percent === 100) return { title: 'Hari Bol! 🙏', text: 'You’ve answered all questions correctly. Keep learning and growing in Krishna consciousness.' };
   if (percent >= 80) return { title: 'Hari Bol! 🙏', text: 'You’ve done really well. Keep learning and growing in Krishna consciousness.' };
   if (percent >= 50) return { title: 'Hari Bol! 🙏', text: 'A good effort. Keep learning and growing in Krishna consciousness.' };
-  return { title: 'Hari Bol! 🙏', text: 'Every step of study is valuable. Keep learning and growing in Krishna consciousness.' };
+  return { title: 'Hari Bol! 🙏', text: 'Keep learning, every step counts.' };
 }
 
 /** Keep only answers that fit their question (type, option ids, length). */
