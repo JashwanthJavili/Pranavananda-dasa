@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Lock, MailCheck } from 'lucide-react';
+import { ShieldCheck, Lock, MailCheck, Hourglass } from 'lucide-react';
 import { PortalCard, Heading, Notice, Field, TextInput, PasswordInput, PrimaryButton, LinkButton, MobileInput } from './ui';
 
 /**
@@ -172,7 +172,20 @@ export function VerifyEmail({ email, onVerified, onResend, onCancel }) {
           subtitle={`We have sent a verification link to ${email}. Kindly open it and tap the link, then come back here. This page will continue by itself.`}
         />
         <Notice type="info">Can't find it? Please check your Spam or Promotions folder.</Notice>
-        {notYet && <Notice type="error">Your email is not verified yet. Kindly open the link in the email first.</Notice>}
+        {notYet && (
+          <div className="flex items-start gap-3 text-left rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 animate-fadeIn" role="status">
+            <span className="w-8 h-8 shrink-0 rounded-xl bg-white border border-amber-200 flex items-center justify-center text-amber-600">
+              <Hourglass className="w-4 h-4" />
+            </span>
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-amber-900">Not verified yet</p>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                Kindly open the email we sent to <strong className="break-all">{email}</strong> and tap the verification link.
+                This page will continue by itself.
+              </p>
+            </div>
+          </div>
+        )}
         {status && <Notice type={status.type}>{status.text}</Notice>}
         <PrimaryButton onClick={check} loading={checking}>I have verified my email</PrimaryButton>
         <div className="flex flex-col items-center gap-3">
