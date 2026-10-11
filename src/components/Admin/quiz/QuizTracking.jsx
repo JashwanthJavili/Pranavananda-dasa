@@ -31,8 +31,8 @@ export const STATUS_ALL = [
 
 // "Order by" choices
 const SORT_COMMON = [
-  { value: 'id', label: 'Registration ID (first come, first served)' },
-  { value: 'default', label: 'Newest registration first' },
+  { value: 'id', label: 'Order of registration' },
+  { value: 'default', label: 'Newest registrations first' },
   { value: 'name', label: 'Name (A to Z)' },
 ];
 const SORT_ONE = [
@@ -152,15 +152,22 @@ export function QuizTrackingBar({
 
   const showOptions = active ? STATUS_ONE : STATUS_ALL;
   const sortOptions = [...SORT_COMMON, ...(active ? SORT_ONE : SORT_ALL)];
-  const isFiltered = filter.quizId !== 'all' || filter.status !== 'all' || sortBy !== 'default';
+  const isFiltered = filter.quizId !== 'all' || filter.status !== 'all' || sortBy !== 'id';
 
   const changeQuiz = (quizId) => {
     // "Show" choices differ for one quiz and all quizzes, so switching between them resets it
     const sameMode = (quizId === 'all') === !active;
     onFilterChange({ quizId, status: sameMode ? filter.status : 'all' });
     const allowed = [...SORT_COMMON, ...(quizId === 'all' ? SORT_ALL : SORT_ONE)].map((o) => o.value);
-    if (!allowed.includes(sortBy)) onSortChange('default');
+    if (!allowed.includes(sortBy)) onSortChange('id');
   };
+
+  const Labeled = ({ label, children }) => (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[11px] font-medium text-temple-500">{label}</span>
+      {children}
+    </span>
+  );
 
   // A count chip that also works as a quick filter
   const Chip = ({ status, cls, children }) => (
@@ -175,38 +182,48 @@ export function QuizTrackingBar({
     </button>
   );
 
-  const updated = quizData.loadedAt
-    ? quizData.loadedAt.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toUpperCase()
-    : '';
+  const updated = quizData.loadedAt ? formatWhen(quizData.loadedAt) : '';
+  const students = (n) => `${n} student${n === 1 ? '' : 's'}`;
 
   return (
     <div className="bg-cream-50 rounded-2xl px-3 py-2.5 border border-cream-200 shadow-soft space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-temple-800 mr-1">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-temple-800">
           <BookOpenCheck className="w-4 h-4 text-saffron-600" /> Quiz progress
         </span>
-        <FancySelect
-          size="xs"
-          ariaLabel="Quiz"
-          className="max-w-[200px]"
-          value={active ? active.id : 'all'}
-          onChange={changeQuiz}
-          options={[
-            { value: 'all', label: 'All quizzes' },
-            ...quizzes.map((q) => ({ value: q.id, label: `${quizColumnLabel(q)}${q.weekNumber ? ` – ${q.title}` : ''}` })),
-          ]}
-        />
-        <FancySelect size="xs" ariaLabel="Show" value={filter.status} onChange={(status) => onFilterChange({ ...filter, status })} options={showOptions} />
-        <FancySelect size="xs" ariaLabel="Order by" value={sortBy} onChange={onSortChange} options={sortOptions} />
-        <button
-          type="button"
-          onClick={quizData.reload}
-          aria-label="Refresh quiz results"
-          title={updated ? `Refresh (last updated ${updated})` : 'Load results'}
-          className="ml-auto p-1.5 rounded-lg text-temple-500 hover:text-saffron-700 hover:bg-cream-100 cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${quizData.loading ? 'animate-spin text-saffron-600' : ''}`} />
-        </button>
+        <Labeled label="Quiz">
+          <FancySelect
+            size="xs"
+            ariaLabel="Quiz"
+            className="max-w-[200px]"
+            value={active ? active.id : 'all'}
+            onChange={changeQuiz}
+            options={[
+              { value: 'all', label: 'All quizzes' },
+              ...quizzes.map((q) => ({ value: q.id, label: `${quizColumnLabel(q)}${q.weekNumber ? ` – ${q.title}` : ''}` })),
+            ]}
+          />
+        </Labeled>
+        <Labeled label="Show">
+          <FancySelect size="xs" ariaLabel="Show" value={filter.status} onChange={(status) => onFilterChange({ ...filter, status })} options={showOptions} />
+        </Labeled>
+        <Labeled label="Sort by">
+          <FancySelect size="xs" ariaLabel="Sort by" value={sortBy} onChange={onSortChange} options={sortOptions} />
+        </Labeled>
+        <span className="ml-auto inline-flex items-center gap-2">
+          {updated && (
+            <span className="text-[11px] text-temple-400 whitespace-nowrap">
+              {quizData.loading ? 'Updating…' : `Last updated: ${updated}`}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={quizData.reload}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-temple-500 hover:text-saffron-700 hover:bg-cream-100 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${quizData.loading ? 'animate-spin text-saffron-600' : ''}`} /> Refresh
+          </button>
+        </span>
       </div>
 
       {quizData.error && <p className="text-xs text-red-600" role="alert">{quizData.error}</p>}
@@ -214,17 +231,17 @@ export function QuizTrackingBar({
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         {!active && countable.length > 0 && (
           <>
-            <Chip status="every" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{countOf('every')} took all</Chip>
-            <Chip status="some" cls="bg-amber-50 border-amber-200 text-amber-800">{countOf('some')} took some</Chip>
-            <Chip status="none" cls="bg-cream-200 border-cream-300 text-temple-600">{countOf('none')} took none</Chip>
+            <Chip status="every" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{students(countOf('every'))} took every quiz</Chip>
+            <Chip status="some" cls="bg-amber-50 border-amber-200 text-amber-800">{students(countOf('some'))} took only some quizzes</Chip>
+            <Chip status="none" cls="bg-cream-200 border-cream-300 text-temple-600">{students(countOf('none'))} took no quiz yet</Chip>
           </>
         )}
         {active && (
           <>
-            <Chip status="attempted" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{attempted} took it</Chip>
-            <Chip status="not" cls="bg-cream-200 border-cream-300 text-temple-600">{participants.length - attempted} did not</Chip>
+            <Chip status="attempted" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{students(attempted)} took this quiz</Chip>
+            <Chip status="not" cls="bg-cream-200 border-cream-300 text-temple-600">{students(participants.length - attempted)} have not taken it</Chip>
             {avg !== null && (
-              <span className="px-2 py-0.5 rounded-full bg-gold-50 border border-gold-200 text-temple-700 font-semibold">Avg {avg}%</span>
+              <span className="px-2 py-0.5 rounded-full bg-gold-50 border border-gold-200 text-temple-700 font-semibold">Average score {avg}%</span>
             )}
           </>
         )}
@@ -234,7 +251,7 @@ export function QuizTrackingBar({
         {isFiltered && (
           <button
             type="button"
-            onClick={() => { onFilterChange({ quizId: 'all', status: 'all' }); onSortChange('default'); }}
+            onClick={() => { onFilterChange({ quizId: 'all', status: 'all' }); onSortChange('id'); }}
             className="ml-auto inline-flex items-center gap-0.5 font-semibold text-saffron-700 hover:text-saffron-800 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" /> Clear

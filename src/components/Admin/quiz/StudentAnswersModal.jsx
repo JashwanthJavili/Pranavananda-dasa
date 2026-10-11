@@ -105,7 +105,8 @@ export default function StudentAnswersModal({ participant, quiz, status, answerK
                 {quiz.questions.map((q, i) => {
                   const mine = shown.answers?.[q.id];
                   const mark = markQuestion(q, mine, key);
-                  const m = MARK[mark === 'ungraded' && !mine ? 'unanswered' : mark];
+                  const opinion = mark === 'ungraded' && hasOptions(q.type || 'mcq');
+                  const m = mark === 'ungraded' && !mine ? MARK.unanswered : opinion ? { ...MARK.ungraded, label: 'Not scored' } : MARK[mark];
                   return (
                     <li key={q.id} className="rounded-2xl border border-cream-200 bg-white/80 p-3.5 space-y-2">
                       <div className="flex items-start justify-between gap-3">
@@ -127,8 +128,9 @@ export default function StudentAnswersModal({ participant, quiz, status, answerK
                                 key={o.id}
                                 className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs ${
                                   right ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                                    : picked ? 'border-red-200 bg-red-50 text-red-800'
-                                      : 'border-cream-200 bg-white text-temple-600'
+                                    : picked && opinion ? 'border-gold-300 bg-gold-50 text-temple-900'
+                                      : picked ? 'border-red-200 bg-red-50 text-red-800'
+                                        : 'border-cream-200 bg-white text-temple-600'
                                 }`}
                               >
                                 <span className="flex-1 min-w-0">{o.text}</span>

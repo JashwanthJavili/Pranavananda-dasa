@@ -7,7 +7,8 @@ import {
 const RESULT_TEXT = { correct: 'Correct', incorrect: 'Incorrect', unanswered: 'Not answered', ungraded: 'Written' };
 const resultText = (q, value, key) => {
   const m = markQuestion(q, value, key);
-  return m === 'ungraded' && (value === undefined || value === '') ? 'Not answered' : RESULT_TEXT[m];
+  if (m === 'ungraded' && (value === undefined || value === '')) return 'Not answered';
+  return m === 'ungraded' && hasOptions(q.type || 'mcq') ? 'Not scored' : RESULT_TEXT[m];
 };
 
 /** A student's answer as readable text (option texts instead of ids). */

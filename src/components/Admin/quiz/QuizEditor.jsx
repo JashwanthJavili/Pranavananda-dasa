@@ -308,13 +308,14 @@ export default function QuizEditor({
               <label htmlFor="qz-inst" className={labelCls}>Instructions for students</label>
               <span className="text-[10px] text-temple-400">{draft.instructions.length} / 2000</span>
             </div>
+            <p className="text-[11px] text-temple-400 mb-1">One point per line — shown to students as a numbered list.</p>
             <textarea
               id="qz-inst"
               rows={6}
               value={draft.instructions}
               onChange={(e) => update({ instructions: e.target.value })}
               maxLength={2000}
-              placeholder="e.g. Read Chapter 2 before you begin. Answer every question honestly — there is no timer."
+              placeholder={'1. Read Chapter 2 before you begin.\n2. Answer every question honestly — there is no timer.'}
               className={`${inputCls} resize-y min-h-[150px] leading-relaxed`}
             />
           </div>
@@ -538,6 +539,7 @@ function TypePicker({ onPick, onClose }) {
 }
 
 function QuestionCard({ q, index, total, error, autoFocus, onChange, onType, onMove, onDuplicate, onDelete }) {
+  const scored = q.scored !== false;
   const updateOption = (oid, text) => onChange({ options: q.options.map((o) => (o.id === oid ? { ...o, text } : o)) });
   const removeOption = (oid) => onChange({
     options: q.options.filter((o) => o.id !== oid),
@@ -588,13 +590,35 @@ function QuestionCard({ q, index, total, error, autoFocus, onChange, onType, onM
         {/* Answer area by type */}
         {hasOptions(q.type) ? (
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2 pb-1">
+              <span className="text-xs font-semibold text-temple-800">Is this a scored question?</span>
+              <div className="inline-flex p-0.5 rounded-xl bg-cream-200/80 border border-cream-300" role="radiogroup" aria-label="Is this a scored question?">
+                {[[true, 'Yes, it has a correct answer'], [false, 'No, it asks for an opinion']].map(([value, label]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    role="radio"
+                    aria-checked={scored === value}
+                    onClick={() => onChange({ scored: value })}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                      scored === value ? 'bg-white text-saffron-700 shadow-soft' : 'text-temple-600 hover:text-temple-900'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <p className="text-[11px] font-medium text-temple-500">
-              {q.type === 'mcq' ? 'Options — select the correct answer' : 'Options — tick every correct answer'}
+              {!scored ? 'Options' : q.type === 'mcq' ? 'Options — select the correct answer' : 'Options — tick every correct answer'}
             </p>
             {q.options.map((o, oi) => {
-              const isCorrect = q.type === 'mcq' ? q.correct === o.id : (q.correct || []).includes(o.id);
+              const isCorrect = scored && (q.type === 'mcq' ? q.correct === o.id : (q.correct || []).includes(o.id));
               return (
                 <div key={o.id} className="flex items-center gap-2">
+                  {!scored ? (
+                    <span aria-hidden className={`shrink-0 w-6 h-6 border-2 border-cream-400 bg-white ${q.type === 'mcq' ? 'rounded-full' : 'rounded-md'}`} />
+                  ) : (
                   <button
                     type="button"
                     onClick={() => toggleCorrect(o.id)}
@@ -607,6 +631,7 @@ function QuestionCard({ q, index, total, error, autoFocus, onChange, onType, onM
                   >
                     {isCorrect && <Check className="w-3.5 h-3.5" />}
                   </button>
+                  )}
                   <input
                     value={o.text}
                     onChange={(e) => updateOption(o.id, e.target.value)}
@@ -633,6 +658,11 @@ function QuestionCard({ q, index, total, error, autoFocus, onChange, onType, onM
               <button type="button" onClick={() => onChange({ options: [...q.options, { id: newOptionId(), text: '' }] })} className="ml-8 inline-flex items-center gap-1 text-xs font-semibold text-saffron-700 hover:underline cursor-pointer">
                 <Plus className="w-3.5 h-3.5" /> Add option
               </button>
+            )}
+            {!scored && (
+              <p className="flex items-start gap-1.5 text-[11px] text-temple-500 pt-1">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-px" /> This question is not scored. Students’ choices appear with their results.
+              </p>
             )}
           </div>
         ) : (

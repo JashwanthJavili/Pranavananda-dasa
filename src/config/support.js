@@ -8,7 +8,6 @@ export const SUPPORT_EMAIL = 'jashwanthjavili7@gmail.com';
 export const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${SUPPORT_EMAIL}`;
 
 export const HELP_CATEGORIES = [
-  'Not receiving the verification email',
   'Unable to log in',
   'Forgot password / reset not working',
   'Problem with first-time setup',
@@ -16,7 +15,7 @@ export const HELP_CATEGORIES = [
   'My registration details are wrong',
   'WhatsApp community link',
   'Quizzes',
-  'Something else',
+  'Others',
 ];
 
 export const HELP_STATUSES = ['Open', 'In Progress', 'Resolved'];

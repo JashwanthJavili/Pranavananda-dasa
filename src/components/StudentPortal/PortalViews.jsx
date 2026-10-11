@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  BookOpen, ChevronRight, UserPen, Clock, ArrowRight, CheckCircle2, Info,
+  BookOpen, ChevronRight, UserPen, Clock, ArrowRight, CheckCircle2,
 } from 'lucide-react';
 import { formatWhen } from '../../quiz/quizModel';
 import { useOpenHelp } from './helpContext';
@@ -14,12 +14,11 @@ function EditDetailsNote({ compact = false }) {
   if (compact) {
     return (
       <div className="flex items-start gap-2.5 rounded-2xl border border-gold-200 bg-gold-50/70 px-4 py-3">
-        <Info className="w-4 h-4 mt-0.5 shrink-0 text-gold-600" />
         <p className="text-xs sm:text-sm text-temple-700 leading-relaxed">
           <span className="font-semibold text-temple-900">Note: </span>
           Would you like to change any of your details?{' '}
           <button type="button" onClick={ask} className="font-semibold text-saffron-700 hover:underline underline-offset-2 cursor-pointer">
-            Kindly request it through Need help.
+            Kindly request it through Contact Us.
           </button>
         </p>
       </div>
@@ -33,7 +32,7 @@ function EditDetailsNote({ compact = false }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-temple-900">Want to edit your details?</p>
         <p className="text-xs text-temple-600 leading-relaxed">
-          Details cannot be changed here directly. Kindly send a request through <strong>Need help</strong> and tell us what
+          Details cannot be changed here directly. Kindly send a request through <strong>Contact Us</strong> and tell us what
           should be changed. The Gita for Youth team will update it for you.
         </p>
       </div>
@@ -62,10 +61,10 @@ function SectionTitle({ children, action }) {
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
-/** Dashboard quiz card: the quiz to take now (or the next one to open) and progress so far. */
+/** Dashboard quiz card: every quiz the student can still take right now, and progress so far. */
 function QuizCard({ summary, onOpen, onStartQuiz }) {
   if (!summary) return <div className="h-44 rounded-3xl bg-cream-200/70 animate-pulse" />;
-  const { next, upcoming, completed, total } = summary;
+  const { actionable, upcoming, completed, total } = summary;
   const percent = total ? Math.round((completed / total) * 100) : 0;
   const when = (v) => formatWhen(v).replace(/,? \d{4}/, ''); // year is obvious here
 
@@ -76,7 +75,7 @@ function QuizCard({ summary, onOpen, onStartQuiz }) {
           <BookOpen className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-temple-900">Weekly quiz</h3>
+          <h3 className="font-semibold text-temple-900">Weekly quiz{actionable.length > 1 ? 'zes' : ''}</h3>
           <p className="text-xs text-temple-500">Reflect on what you have learnt</p>
         </div>
         <button type="button" onClick={() => onOpen('quizzes')} className="inline-flex items-center gap-0.5 text-xs font-semibold text-saffron-700 hover:text-saffron-800 cursor-pointer">
@@ -85,26 +84,33 @@ function QuizCard({ summary, onOpen, onStartQuiz }) {
       </div>
 
       <div className="p-5 sm:p-6 pt-4 space-y-4">
-        {next ? (
-          <div className="rounded-2xl bg-gradient-to-br from-saffron-50 to-gold-50 border border-saffron-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex-1 min-w-0 space-y-1">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-saffron-700">
-                {next.weekNumber ? `Week ${next.weekNumber} · ` : ''}Open now
-              </p>
-              <p className="font-display text-xl font-bold text-temple-900 leading-snug">{next.title}</p>
-              {next.closesAt && (
-                <p className="flex items-center gap-1.5 text-xs text-temple-600">
-                  <Clock className="w-3.5 h-3.5" /> Closes {when(next.closesAt)}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => onStartQuiz(next.id)}
-              className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-sm font-semibold shadow-soft cursor-pointer"
-            >
-              Start quiz <ArrowRight className="w-4 h-4" />
-            </button>
+        {actionable.length > 0 ? (
+          <div className="space-y-3">
+            {actionable.length > 1 && (
+              <p className="text-xs font-semibold text-saffron-700">{actionable.length} quizzes open now</p>
+            )}
+            {actionable.map((q) => (
+              <div key={q.id} className="rounded-2xl bg-gradient-to-br from-saffron-50 to-gold-50 border border-saffron-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-saffron-700">
+                    {q.weekNumber ? `Week ${q.weekNumber} · ` : ''}Open now
+                  </p>
+                  <p className="font-display text-xl font-bold text-temple-900 leading-snug">{q.title}</p>
+                  {q.closesAt && (
+                    <p className="flex items-center gap-1.5 text-xs text-temple-600">
+                      <Clock className="w-3.5 h-3.5" /> Closes {when(q.closesAt)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onStartQuiz(q.id)}
+                  className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-sm font-semibold shadow-soft cursor-pointer"
+                >
+                  Start quiz <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="rounded-2xl bg-cream-100 border border-cream-200 p-4 flex items-center gap-3">

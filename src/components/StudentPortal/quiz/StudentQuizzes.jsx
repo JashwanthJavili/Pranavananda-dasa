@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import QuizPlayer, { SCREEN_HEIGHT } from './QuizPlayer';
 import QuizResults from './QuizResults';
+import { ASK_CONFIRM_DETAILS, FIRST_QUIZ_STEP } from '../portalRoute';
 import RateQuiz from './RateQuiz';
 import { Notice, PrimaryButton, FullScreenLoader, Spinner } from '../ui';
 import { availability, formatWhen, toDate } from '../../../quiz/quizModel';
@@ -42,7 +43,7 @@ function windowText(quiz) {
 function allowedSteps(quiz, progress) {
   const state = quizState(quiz, progress);
   const canAnswer = availability(quiz) === 'open' && (state === 'not-attempted' || state === 'in-progress');
-  const steps = canAnswer ? ['confirm', 'instructions', 'play'] : [];
+  const steps = canAnswer ? [...(ASK_CONFIRM_DETAILS ? ['confirm'] : []), 'instructions', 'play'] : [];
   if (state === 'in-progress') steps.push('submitted', 'results');
   if (state === 'completed') steps.push('results');
   return steps;
@@ -113,7 +114,7 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
       return <ConfirmDetails quiz={quiz} profile={profile} onBack={back} onConfirm={() => go(quiz.id, 'instructions')} />;
     }
     if (step === 'instructions') {
-      return <QuizIntro quiz={quiz} progress={progress[quiz.id]} registrationId={registrationId} onBack={() => go(quiz.id, 'confirm', { replace: true })} onBegin={() => go(quiz.id, 'play')} />;
+      return <QuizIntro quiz={quiz} progress={progress[quiz.id]} registrationId={registrationId} onBack={ASK_CONFIRM_DETAILS ? () => go(quiz.id, 'confirm', { replace: true }) : back} onBegin={() => go(quiz.id, 'play')} />;
     }
     if (step === 'play') {
       return (
@@ -134,7 +135,7 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
           progress={progress[quiz.id]}
           registrationId={registrationId}
           onBack={back}
-          onRetake={() => go(quiz.id, 'confirm')}
+          onRetake={() => go(quiz.id, FIRST_QUIZ_STEP)}
           onFinished={() => settleTo('results')}
         />
       );
@@ -172,7 +173,7 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
               quiz={q}
               progress={progress[q.id]}
               score={scores[q.id]}
-              onStart={() => go(q.id, 'confirm')}
+              onStart={() => go(q.id, FIRST_QUIZ_STEP)}
               onResults={() => go(q.id, 'results')}
               onSubmitted={() => go(q.id, 'submitted')}
             />
@@ -351,11 +352,15 @@ function QuizIntro({ quiz, progress, registrationId, onBack, onBegin }) {
   const n = (progress?.attempts || 0) + 1;
   const max = quiz.maxAttempts || 1;
   const hasDraft = Object.keys(loadAnswerDraft(quiz.id, registrationId, n)).length > 0;
+  const instructionLines = (quiz.instructions || '')
+    .split('\n')
+    .map((line) => line.trim().replace(/^[-•]\s*|^\d+[.)]\s*/, ''))
+    .filter(Boolean);
   const rows = [
-    ['Questions', quiz.questionCount || quiz.questions?.length || 0],
-    ['Attempts allowed', max === 1 ? 'Only one' : `${max} (this is attempt ${n})`],
-    ['Time limit', 'No time limit'],
-    quiz.closesAt && ['Submit before', formatWhen(quiz.closesAt)],
+    ['No of Questions', quiz.questionCount || quiz.questions?.length || 0],
+    ['Attempts Allowed', max === 1 ? '1' : `${max} (this is attempt ${n})`],
+    ['Time Limit', 'No time limit'],
+    quiz.closesAt && ['Submission Deadline', formatWhen(quiz.closesAt)],
   ].filter(Boolean);
 
   return (
@@ -366,24 +371,26 @@ function QuizIntro({ quiz, progress, registrationId, onBack, onBegin }) {
           <p className="text-xs sm:text-sm text-temple-500">{quiz.weekNumber ? `Week ${quiz.weekNumber} · ` : ''}{quiz.title}</p>
         </div>
 
-        <dl className="rounded-2xl bg-white border border-cream-200 divide-y divide-cream-200">
-          {rows.map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between gap-4 px-4 py-3">
-              <dt className="text-xs text-temple-500 shrink-0">{k}</dt>
-              <dd className="text-sm text-right font-semibold text-temple-900">{v}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-temple-900">Quiz Guide</h3>
+          <dl className="rounded-2xl bg-white border border-cream-200 divide-y divide-cream-200">
+            {rows.map(([k, v]) => (
+              <div key={k} className="flex items-baseline justify-between gap-4 px-4 py-3">
+                <dt className="text-xs text-temple-500 shrink-0">{k}</dt>
+                <dd className="text-sm text-right font-semibold text-temple-900">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
 
-        {quiz.instructions && (
-          <p className="text-sm text-temple-700 leading-relaxed whitespace-pre-line">{quiz.instructions}</p>
+        {instructionLines.length > 0 && (
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-temple-900">Instructions</h3>
+            <ol className="text-xs sm:text-sm text-temple-600 leading-relaxed space-y-1 list-decimal pl-5">
+              {instructionLines.map((line) => <li key={line}>{line}</li>)}
+            </ol>
+          </div>
         )}
-
-        <ul className="text-xs text-temple-600 leading-relaxed space-y-1 list-disc pl-5">
-          {max === 1 && <li className="font-semibold text-temple-800">Kindly read each question carefully before you submit.</li>}
-          <li>A timer shows how long you take, just for you.</li>
-          <li>{max > 1 ? 'Your score and the correct answers are shown after your final attempt.' : 'Your score and the correct answers are shown right after you submit.'}</li>
-        </ul>
 
         <div className="grid grid-cols-2 gap-2.5">
           <button
@@ -393,7 +400,9 @@ function QuizIntro({ quiz, progress, registrationId, onBack, onBegin }) {
           >
             Go back
           </button>
-          <PrimaryButton onClick={onBegin} className="!py-3">{hasDraft ? 'Continue quiz' : 'Begin quiz'}</PrimaryButton>
+          <PrimaryButton onClick={onBegin} className="!py-3">
+            {hasDraft ? 'Continue quiz' : 'Begin quiz'}
+          </PrimaryButton>
         </div>
       </section>
     </div>
@@ -550,9 +559,9 @@ export function useQuizSummary(quizzes, progress) {
     const now = new Date();
     const states = quizzes.map((q) => quizState(q, progress[q.id], now));
     const time = (v, none) => toDate(v)?.getTime() ?? none;
-    // The quiz to take next (closing soonest), else the next one to open
-    const next = quizzes.filter((q, i) => states[i] === 'not-attempted')
-      .sort((a, b) => time(a.closesAt, Infinity) - time(b.closesAt, Infinity))[0] || null;
+    // Every quiz the student can still take right now, closing soonest first (there may be more than one)
+    const actionable = quizzes.filter((q, i) => states[i] === 'not-attempted' || states[i] === 'in-progress')
+      .sort((a, b) => time(a.closesAt, Infinity) - time(b.closesAt, Infinity));
     const upcoming = quizzes.filter((q, i) => states[i] === 'upcoming')
       .sort((a, b) => time(a.opensAt, Infinity) - time(b.opensAt, Infinity))[0] || null;
     return {
@@ -560,7 +569,8 @@ export function useQuizSummary(quizzes, progress) {
       completed: states.filter((s) => s === 'completed' || s === 'in-progress').length,
       // Quizzes that have opened so far (taken, open now or missed)
       total: states.filter((s) => s !== 'upcoming').length,
-      next,
+      actionable,
+      next: actionable[0] || null,
       upcoming,
     };
   }, [quizzes, progress]);

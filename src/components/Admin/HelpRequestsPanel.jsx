@@ -75,9 +75,9 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-temple-900 flex items-center gap-2">
             <LifeBuoy className="w-5 h-5 text-saffron-600" />
-            Help Requests
+            Contact Us
           </h2>
-          <p className="text-xs text-temple-500">Questions and problems sent by students from the portal.</p>
+          <p className="text-xs text-temple-500">Questions and requests sent by students through Contact Us.</p>
         </div>
         {view === 'requests' && (
         <div className="relative w-full sm:w-72">
@@ -154,11 +154,11 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
       {/* List */}
       <div className="bg-cream-50 rounded-2xl border border-cream-200 shadow-soft overflow-hidden">
         {loadError ? (
-          <p className="px-4 py-10 text-center text-sm text-red-600">Help requests could not be loaded. Please refresh the page.</p>
+          <p className="px-4 py-10 text-center text-sm text-red-600">Contact Us messages could not be loaded. Please refresh the page.</p>
         ) : visible.length === 0 ? (
           <div className="px-4 py-12 text-center text-temple-500">
             <Inbox className="w-8 h-8 mx-auto text-temple-300 mb-2" />
-            <p className="font-semibold text-sm">{requests.length === 0 ? 'No help requests yet' : 'Nothing here'}</p>
+            <p className="font-semibold text-sm">{requests.length === 0 ? 'No messages yet' : 'Nothing here'}</p>
             <p className="text-xs text-temple-400">{requests.length === 0 ? 'Requests from students will appear here.' : 'Try another filter or search.'}</p>
           </div>
         ) : (

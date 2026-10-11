@@ -59,6 +59,7 @@ import QuizRatingsPanel from './QuizRatingsPanel';
 import StagingWipePanel from './StagingWipePanel';
 import { fetchRegistration } from '../../profileEdits';
 import HelpEmailsSettings from './HelpEmailsSettings';
+import SocialLinksSettings from './SocialLinksSettings';
 import QuizzesPanel from './quiz/QuizzesPanel';
 import StudentAnswersModal from './quiz/StudentAnswersModal';
 import FancySelect from '../common/FancySelect';
@@ -323,7 +324,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const quizStatusFor = (item, quizId) => quizData.tracking[quizId]?.[item.registrationId || item.id] || null;
   const openQuizTracking = (quizId) => {
     setQuizFilter({ quizId, status: 'all' });
-    setSortBy('default');
+    setSortBy('id');
     setCurrentPage(1);
     switchTab('participants');
   };
@@ -2544,6 +2545,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               <HelpEmailsSettings callerUser={adminUser} />
             </div>
 
+            {/* SOCIAL MEDIA LINKS (shown on students' quiz results) */}
+            <div className="pt-2">
+              <SocialLinksSettings callerUser={adminUser} />
+            </div>
+
             {/* SECTION 8: STAGING ONLY - wipe test data (not rendered on the live site) */}
             <StagingWipePanel
               manager={quizManager}
@@ -2563,7 +2569,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         <div className="max-w-md mx-auto h-16 flex items-stretch justify-around px-2">
           {[
             { key: 'participants', label: 'Home', Icon: Users, title: 'Participant Registrations' },
-            { key: 'help', label: 'Need help', Icon: HelpIcon, title: 'Help requests from students', badge: openHelpCount },
+            { key: 'help', label: 'Contact Us', Icon: HelpIcon, title: 'Messages students sent through Contact Us', badge: openHelpCount },
             { key: 'ratings', label: 'Ratings', Icon: Star, title: 'Quiz ratings from students' },
             ...(isSuperAdmin
               ? [

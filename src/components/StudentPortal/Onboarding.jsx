@@ -23,7 +23,7 @@ export function ConfirmLinkEmail({ onSubmit, onCancel, error, loading }) {
             subtitle="Looks like you opened the link on a different device. For your security, please enter the registered email this link was sent to and your registered mobile number."
           />
           <Field id="confirm-email" label="Registered email address">
-            <TextInput id="confirm-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <TextInput id="confirm-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email address" />
           </Field>
           <Field id="confirm-link-mobile" label="Registered mobile number">
             <MobileInput id="confirm-link-mobile" countryCode={countryCode} onCountryCodeChange={setCountryCode} value={mobile} onChange={setMobile} />
@@ -90,12 +90,12 @@ export function CreatePassword({ email, onSubmit, onCancel, error, loading }) {
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
             <ShieldCheck className="w-7 h-7" />
           </div>
-          <Heading title="Email verified" subtitle={`Create a password for ${email}. Next time, log in with your email or mobile number and this password.`} />
+          <Heading title="Registration found" subtitle={`Create a password for ${email}. Next time, log in with your email or mobile number and this password.`} />
           <Field id="new-password" label="Create password" hint="At least 8 characters, with letters and numbers.">
-            <PasswordInput id="new-password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="New password" />
+            <PasswordInput id="new-password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter a new password" />
           </Field>
           <Field id="confirm-password" label="Confirm password">
-            <PasswordInput id="confirm-password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" />
+            <PasswordInput id="confirm-password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter your password" />
           </Field>
           {(localError || error) && <Notice type="error">{localError || error}</Notice>}
           <PrimaryButton type="submit" loading={loading}>

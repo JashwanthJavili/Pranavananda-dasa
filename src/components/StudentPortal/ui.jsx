@@ -81,7 +81,7 @@ export function MobileInput({ id, countryCode, onCountryCodeChange, value, onCha
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(sanitizeMobileInput(e.target.value, countryCode))}
-        placeholder={countryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
+        placeholder="Enter your mobile number"
         className="flex-1"
       />
     </div>

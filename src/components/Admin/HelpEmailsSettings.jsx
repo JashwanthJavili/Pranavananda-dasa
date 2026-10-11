@@ -47,8 +47,8 @@ export default function HelpEmailsSettings({ callerUser }) {
     e.preventDefault();
     const email = draft.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) return setError('Please enter a valid email address.');
-    if (email === SUPPORT_EMAIL || emails.includes(email)) return setError('This email already receives help requests.');
-    if (await persist([...emails, email], '__add__', `${email} will now receive help requests.`)) setDraft('');
+    if (email === SUPPORT_EMAIL || emails.includes(email)) return setError('This email already receives Contact Us messages.');
+    if (await persist([...emails, email], '__add__', `${email} will now receive Contact Us messages.`)) setDraft('');
   };
 
   const remove = (email) => persist(emails.filter((x) => x !== email), email, `${email} removed.`);
@@ -60,9 +60,9 @@ export default function HelpEmailsSettings({ callerUser }) {
           <BellRing className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-temple-900">Help request emails</h3>
+          <h3 className="text-base font-bold text-temple-900">Contact Us emails</h3>
           <p className="text-xs text-temple-500 leading-relaxed">
-            When a student sends a "Need help" request, an email goes to every address below. Requests are also always saved in the Help tab.
+            When a student sends a message through Contact Us, an email goes to every address below. Messages are also always saved in the Contact Us tab.
           </p>
         </div>
       </div>

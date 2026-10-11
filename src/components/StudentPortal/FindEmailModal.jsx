@@ -75,7 +75,7 @@ export default function FindEmailModal({ open, onClose }) {
       <p className="text-xs sm:text-sm text-temple-700 leading-relaxed">
         <span className="font-semibold block">Hare Krishna 🙏</span>
         <span className="font-semibold block">Dear Devotee,</span>
-        If you still do not remember your email, kindly send a request through <strong>Need help</strong>. Our team will help you.
+        If you still do not remember your email, kindly send a request through <strong>Contact Us</strong>. Our team will help you.
       </p>
       <button
         type="button"
@@ -83,7 +83,7 @@ export default function FindEmailModal({ open, onClose }) {
         className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-saffron-300 bg-white text-saffron-800 text-sm font-semibold hover:bg-saffron-50 cursor-pointer"
       >
         <LifeBuoy className="w-4 h-4" />
-        Raise a request in Need help
+        Raise a request through Contact Us
       </button>
     </div>
   );

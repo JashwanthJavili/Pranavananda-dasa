@@ -174,33 +174,33 @@ const takeRememberedPassword = () => {
   return p;
 };
 
-/** Firebase's "verify your email" message. No return link: after verifying, the student
- *  closes that tab and the setup tab continues by itself. */
+/** Firebase's "verify your email" message. Kept for Forgot-password's "account exists on this
+ *  email" case, which still relies on Firebase's own reset-link email. */
 export function sendVerificationEmail(user = auth.currentUser) {
   return sendEmailVerification(user);
 }
 
 /**
- * Step 2: create the account with the student's password and send the verification email.
- * Returns { status: 'sent' | 'account_exists' } ('account_exists': this email already has a
+ * Step 2: create the account with the student's password. Proof of ownership is the matched
+ * mobile number + email from Step 1 (checkSetupDetails), so no verification email is sent —
+ * the student continues straight into the portal.
+ * Returns { status: 'ready' | 'account_exists' } ('account_exists': this email already has a
  * sign-in account, e.g. from an earlier setup; the student sets a password via Forgot password).
  */
 export async function createStudentAccount({ email, mobile, countryCode = '+91', password }) {
   const e = cleanEmail(email);
-  const pending = { email: e, mobile: cleanMobile(mobile), countryCode, sentAt: Date.now(), method: 'verify' };
-  // Saved first: signing in happens immediately and the portal needs the mobile to link later
+  const pending = { email: e, mobile: cleanMobile(mobile), countryCode, sentAt: Date.now(), method: 'direct' };
+  // Saved first: signing in happens immediately and the portal needs the mobile to link
   setPendingOnboarding(pending);
   rememberedPassword = password;
-  // The mobile login, sealed with the password now, so whichever tab of this browser opens
-  // after verification can save it without asking for the password again
+  // The mobile login, sealed with the password now, so this tab can save it without asking again
   const keepSealedLogin = () => sealEmail(e, password)
     .then((sealed) => setPendingOnboarding({ ...pending, mobileLogin: sealed }))
     .catch(() => {});
   try {
-    const { user } = await createUserWithEmailAndPassword(auth, e, password);
+    await createUserWithEmailAndPassword(auth, e, password);
     await keepSealedLogin();
-    await sendVerificationEmail(user);
-    return { status: 'sent' };
+    return { status: 'ready' };
   } catch (err) {
     rememberedPassword = null;
     if (err?.code === 'auth/email-already-in-use') {
@@ -208,10 +208,9 @@ export async function createStudentAccount({ email, mobile, countryCode = '+91',
       // if the password matches the old account, carry on with it
       try {
         rememberedPassword = password;
-        const { user } = await signInWithEmailAndPassword(auth, e, password);
+        await signInWithEmailAndPassword(auth, e, password);
         await keepSealedLogin();
-        if (!user.emailVerified) await sendVerificationEmail(user);
-        return { status: 'sent' };
+        return { status: 'ready' };
       } catch (signInErr) {
         rememberedPassword = null;
       }
@@ -302,16 +301,11 @@ export async function getLinkedRegistrationId(uid) {
 }
 
 /**
- * Step 3: link the signed-in (verified) account to the registration.
+ * Step 3: link the signed-in account to the registration.
  * Firestore rules re-check the email, mobile and that the registration is unclaimed.
  * Returns { status: 'linked' | 'already_linked_self' | 'claimed_by_other' | 'not_found' }.
  */
 export async function linkStudentAccount(user, { mobile, countryCode = '+91' }) {
-  if (!user?.emailVerified) throw new Error('Email is not verified.');
-  // The rules check "verified" in the sign-in token, which may predate the verification
-  // (skipped when it was refreshed just now)
-  if (Date.now() - tokenRefreshedAt > 30000) await user.getIdToken(true);
-
   const existing = await getLinkedRegistrationId(user.uid);
   if (existing) {
     setPendingOnboarding(null);

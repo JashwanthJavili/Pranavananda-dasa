@@ -85,9 +85,11 @@ service cloud.firestore {
     // STUDENT PORTAL (root level, so the open BhagavadGita/data wildcard does not apply)
     // ---------------------------------------------------------------------------
 
-    // Signed in through Firebase Auth with an email address Firebase has verified
+    // Signed in through Firebase Auth. Proof of email ownership comes from matching the
+    // registered mobile number + email together (checkSetupDetails), not from a verification
+    // email, so this only checks that the request is signed in.
     function isVerifiedStudent() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn();
     }
 
     function verifiedEmail() {

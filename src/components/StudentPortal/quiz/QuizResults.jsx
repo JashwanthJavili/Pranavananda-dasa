@@ -3,7 +3,19 @@ import { ArrowLeft, Check, X, Minus, PenLine, ChevronDown, Timer } from 'lucide-
 import ProgressRing from './ProgressRing';
 import { SCREEN_HEIGHT } from './QuizPlayer';
 import Celebration from './Celebration';
+import SocialFollowCard, { useSocialLinks } from '../SocialFollowCard';
 import { resultMessage, formatWhen, formatDuration, markQuestion, hasOptions } from '../../../quiz/quizModel';
+
+// The full star-burst celebration plays once per attempt (the first time its result is seen);
+// reopening the same result later only shows the quieter, continuous twinkle.
+function seenCelebration(quizId, attemptNumber) {
+  const storageKey = `gfy-celebrated-${quizId}-${attemptNumber}`;
+  try {
+    if (sessionStorage.getItem(storageKey)) return true;
+    sessionStorage.setItem(storageKey, '1');
+  } catch (e) { /* ignore */ }
+  return false;
+}
 
 const MARK_STYLE = {
   correct: { Icon: Check, label: 'Correct', pill: 'bg-emerald-50 border-emerald-200 text-emerald-700', bar: 'bg-emerald-400' },
@@ -21,6 +33,7 @@ const MARK_STYLE = {
  */
 export default function QuizResults({ quiz, attempts, counted, answerKey, onBack, backLabel = 'Back to quizzes', preview = false, extra = null }) {
   const key = answerKey?.answers || {};
+  const socialLinks = useSocialLinks();
   const [shownNumber, setShownNumber] = useState(counted?.attemptNumber);
   const shown = attempts.find((a) => a.attemptNumber === shownNumber) || counted || attempts[attempts.length - 1];
   if (!shown) return null;
@@ -28,6 +41,8 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
   const main = shown.score; // the attempt being viewed (★ marks the one that counts)
   const graded = main.total > 0;
   const perfect = graded && main.correct === main.total;
+  const strong = graded && !perfect && main.percent >= 50;
+  const fullCelebration = perfect && !seenCelebration(quiz.id, shown.attemptNumber);
   const msg = resultMessage(main.percent, main.total);
   const multiple = attempts.length > 1;
 
@@ -46,27 +61,28 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
       <div className="flex-1 flex flex-col justify-center gap-5">
 
       {/* Score */}
-      <section className="relative overflow-hidden rounded-3xl border border-gold-200/80 bg-gradient-to-b from-saffron-50 to-cream-50 shadow-soft-md px-5 py-7 sm:px-8 text-center space-y-4">
+      <section className="relative overflow-hidden rounded-3xl border border-gold-200/80 bg-gradient-to-b from-saffron-50 to-cream-50 shadow-soft-md px-5 py-5 sm:px-7 text-center space-y-3">
         <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-saffron-700">
           {preview ? 'Preview result' : quiz.weekNumber ? `Week ${quiz.weekNumber} · Result` : 'Result'}
         </p>
         <div className="relative flex justify-center">
-          {perfect && <Celebration key={shown.attemptNumber} />}
+          {fullCelebration && <Celebration key={shown.attemptNumber} />}
+          {(strong || (perfect && !fullCelebration)) && <Celebration key={shown.attemptNumber} simple />}
           {graded ? (
             <span key={shown.attemptNumber} className={`relative ${perfect ? 'gfy-pop' : ''}`}>
-              <ProgressRing percent={main.percent} size={120} stroke={10} tone={main.percent >= 50 ? 'emerald' : 'saffron'}>
-                <span className="text-3xl font-bold text-temple-900">{main.percent}%</span>
-                <span className="text-xs text-temple-500 mt-1">{main.correct} of {main.total}</span>
+              <ProgressRing percent={main.percent} size={96} stroke={5} tone={main.percent >= 50 ? 'emerald' : 'saffron'}>
+                <span className="text-xl font-bold text-temple-900">{main.percent}%</span>
+                <span className="text-[11px] text-temple-500 mt-0.5">{main.correct} of {main.total}</span>
               </ProgressRing>
             </span>
           ) : (
-            <div className="w-28 h-28 rounded-full bg-white border-4 border-emerald-300 flex items-center justify-center text-emerald-600">
-              <Check className="w-12 h-12" />
+            <div className="w-24 h-24 rounded-full bg-white border-4 border-emerald-300 flex items-center justify-center text-emerald-600">
+              <Check className="w-10 h-10" />
             </div>
           )}
         </div>
         <div className="space-y-1">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-temple-900 leading-tight">{msg.title}</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900 leading-tight">{msg.title}</h2>
           <p className="text-sm text-temple-600 max-w-md mx-auto">{msg.text}</p>
         </div>
         {Number.isFinite(shown.timeTakenSec) && (
@@ -80,13 +96,23 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
         </p>
 
         {graded && (
-          <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto pt-1">
+          <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
             <Stat value={count('correct')} label="Correct" cls="text-emerald-700" />
             <Stat value={count('incorrect')} label="Incorrect" cls="text-red-600" />
             <Stat value={count('unanswered')} label="Skipped" cls="text-temple-600" />
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => document.getElementById('quiz-answers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-saffron-700 hover:text-saffron-800 hover:underline underline-offset-4 cursor-pointer"
+        >
+          Review your answers <ChevronDown className="w-4 h-4" />
+        </button>
       </section>
+
+      <SocialFollowCard links={socialLinks} />
 
       {/* Attempts */}
       {multiple && (
@@ -116,13 +142,6 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
 
       {extra}
       </div>
-      <button
-        type="button"
-        onClick={() => document.getElementById('quiz-answers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        className="self-center inline-flex items-center gap-1.5 text-xs font-semibold text-saffron-700 hover:text-saffron-800 cursor-pointer"
-      >
-        See your answers <ChevronDown className="w-4 h-4 animate-bounce" />
-      </button>
       </div>
 
       {/* Review */}
@@ -174,8 +193,8 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
 
 function Stat({ value, label, cls }) {
   return (
-    <div className="rounded-2xl bg-white/80 border border-cream-200 py-2.5">
-      <span className={`block text-xl font-bold leading-none ${cls}`}>{value}</span>
+    <div className="rounded-2xl bg-white/80 border border-cream-200 py-2">
+      <span className={`block text-lg font-bold leading-none ${cls}`}>{value}</span>
       <span className="block text-[10px] font-semibold uppercase tracking-wider text-temple-400 mt-1">{label}</span>
     </div>
   );
@@ -185,6 +204,8 @@ function OptionReview({ q, mine, rightKey }) {
   const multi = q.type === 'checkbox';
   const isRight = (id) => (multi ? (rightKey || []).includes(id) : id === rightKey);
   const isMine = (id) => (multi ? (Array.isArray(mine) && mine.includes(id)) : id === mine);
+  // Opinion questions have no correct answer: the student's choice is shown neutrally
+  const scored = multi ? (rightKey || []).length > 0 : Boolean(rightKey);
   return (
     <ul className="grid gap-2">
       {q.options.map((o) => {
@@ -195,19 +216,21 @@ function OptionReview({ q, mine, rightKey }) {
             key={o.id}
             className={`flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-sm ${
               right ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                : picked ? 'border-red-200 bg-red-50 text-red-800'
-                  : 'border-cream-200 bg-white text-temple-600'
+                : picked && !scored ? 'border-gold-300 bg-gold-50 text-temple-900'
+                  : picked ? 'border-red-200 bg-red-50 text-red-800'
+                    : 'border-cream-200 bg-white text-temple-600'
             }`}
           >
             <span
               className={`w-5 h-5 shrink-0 flex items-center justify-center border-2 ${multi ? 'rounded-md' : 'rounded-full'} ${
                 right ? 'border-emerald-500 bg-emerald-500 text-white'
-                  : picked ? 'border-red-400 bg-red-400 text-white'
-                    : 'border-cream-300 bg-white'
+                  : picked && !scored ? 'border-gold-500 bg-gold-500 text-white'
+                    : picked ? 'border-red-400 bg-red-400 text-white'
+                      : 'border-cream-300 bg-white'
               }`}
               aria-hidden
             >
-              {right ? <Check className="w-3 h-3" /> : picked ? <X className="w-3 h-3" /> : null}
+              {right || (picked && !scored) ? <Check className="w-3 h-3" /> : picked ? <X className="w-3 h-3" /> : null}
             </span>
             <span className="flex-1 min-w-0">{o.text}</span>
             {picked && <span className="text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap opacity-80">Your answer</span>}

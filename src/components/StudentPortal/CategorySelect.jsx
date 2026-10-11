@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ChevronDown, Check, MailWarning, LogIn, KeyRound, UserCog, UserPen, FileWarning, MessageCircle, BookOpen, HelpCircle,
+  ChevronDown, Check, LogIn, KeyRound, UserCog, UserPen, FileWarning, MessageCircle, BookOpen, HelpCircle,
 } from 'lucide-react';
 
 // Icon + short hint for each help category (keys match HELP_CATEGORIES in config/support.js).
 const META = {
-  'Not receiving the verification email': { Icon: MailWarning, hint: 'The setup email did not arrive' },
   'Unable to log in': { Icon: LogIn, hint: 'Email / mobile and password not working' },
   'Forgot password / reset not working': { Icon: KeyRound, hint: 'Reset link missing or not working' },
   'Problem with first-time setup': { Icon: UserCog, hint: 'Stuck while creating your account' },
@@ -13,7 +12,7 @@ const META = {
   'My registration details are wrong': { Icon: FileWarning, hint: 'Something in your registration is incorrect' },
   'WhatsApp community link': { Icon: MessageCircle, hint: 'Cannot see or join the group' },
   Quizzes: { Icon: BookOpen, hint: 'Questions about quizzes' },
-  'Something else': { Icon: HelpCircle, hint: 'Anything not listed above' },
+  Others: { Icon: HelpCircle, hint: 'Anything else not listed above' },
 };
 const metaFor = (option) => META[option] || { Icon: HelpCircle, hint: '' };
 

@@ -104,7 +104,7 @@ export default function ProfileEditLogs({ manager, refreshKey = 0 }) {
         <div className="bg-cream-50 rounded-2xl border border-cream-200 px-4 py-12 text-center text-temple-500">
           <FileClock className="w-8 h-8 mx-auto text-temple-300 mb-2" />
           <p className="font-semibold text-sm">{state.logs.length ? 'Nothing matches your search' : 'No changes yet'}</p>
-          <p className="text-xs text-temple-400">{state.logs.length ? 'Try another search.' : 'Edits made from help requests will be recorded here.'}</p>
+          <p className="text-xs text-temple-400">{state.logs.length ? 'Try another search.' : 'Edits made from Contact Us messages will be recorded here.'}</p>
         </div>
       ) : (
         <ul className="space-y-3">

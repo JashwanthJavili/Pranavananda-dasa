@@ -28,7 +28,7 @@ import { OpenHelpContext } from './helpContext';
 import { mobileProblem } from '../../utils/mobile';
 import { ConfirmLinkEmail, ConfirmMobile, CreatePassword, VerifyEmail } from './Onboarding';
 import { DashboardView, ProfileView } from './PortalViews';
-import { usePortalRoute } from './portalRoute';
+import { usePortalRoute, FIRST_QUIZ_STEP } from './portalRoute';
 import { FullScreenLoader, Notice, PortalCard, PrimaryButton } from './ui';
 import { JUST_VERIFIED_KEY } from './EmailAction';
 
@@ -116,15 +116,9 @@ export default function StudentPortal({ onBackToHome }) {
     resolving.current = true;
     setStepError('');
     try {
-      // Account created, email not verified yet: wait for the verification link
-      if (!u.emailVerified) {
-        setStage('verify-email');
-        return;
-      }
-
-      // Set up with "verify your email" (the student already chose a password)
+      // Set up directly (mobile + email matched the registration; the student already chose a password)
       const setup = getPendingOnboarding();
-      const viaVerifyEmail = Boolean(setup?.method);
+      const viaDirectSetup = Boolean(setup?.method);
       const sealedLogin = setup?.email === u.email?.toLowerCase() ? setup.mobileLogin : null;
       let linked = await getLinkedRegistrationId(u.uid);
       if (!linked) {
@@ -155,23 +149,12 @@ export default function StudentPortal({ onBackToHome }) {
 
       // The password typed at setup / login finishes the account here; otherwise ask for one
       const ready = (await hasCreatedPassword(u)) || (await finishPasswordSetup(u, sealedLogin));
-      if (!ready && viaVerifyEmail) {
+      if (!ready && viaDirectSetup) {
         // The page was reloaded, so the password typed at setup is no longer known here
-        await signOutWith('Your email is verified and your registration is linked. Kindly log in with your email and the password you created.', 'success');
+        await signOutWith('Your registration is linked. Kindly log in with your email and the password you created.', 'success');
         return;
       }
-      const next = ready ? 'portal' : 'create-password';
-
-      // Opened from the email while the original tab is still open: continue over there.
-      if (openedFromLink.current && next === 'create-password' && (await isOtherTabOpen())) {
-        openedFromLink.current = false;
-        handedOffStage.current = next;
-        channel.current?.postMessage('verified');
-        setStage('verified-elsewhere');
-        return;
-      }
-      openedFromLink.current = false;
-      setStage(next);
+      setStage(ready ? 'portal' : 'create-password');
     } catch (err) {
       console.warn('Student portal resolve error:', err);
       setStepError('We could not load your account right now. Please check your connection and try again.');
@@ -452,11 +435,11 @@ function PortalFrame({ children, onBackToHome, right, helpPrefill, bottomNav = f
             <button
               type="button"
               onClick={() => openHelp()}
-              aria-label="Need help?"
+              aria-label="Contact Us"
               className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full shrink-0 border border-saffron-200 bg-saffron-50 hover:bg-saffron-100 text-saffron-800 font-medium text-xs sm:text-sm whitespace-nowrap shadow-soft cursor-pointer"
             >
               <LifeBuoy className="hidden sm:block w-4 h-4 shrink-0" />
-              <span>Need help?</span>
+              <span>Contact Us</span>
             </button>
             {right}
             {onBackToHome && (
@@ -602,11 +585,11 @@ function PortalHome({ user, justVerified = false, onLogout, onBackToHome }) {
         ) : profile === null ? (
           <div className="max-w-md mx-auto">
             <Notice type="error">
-              We could not load your registration details just now. Kindly try again in a little while, or tap Need help? at the top and we will look into it.
+              We could not load your registration details just now. Kindly try again in a little while, or tap Contact Us at the top and we will look into it.
             </Notice>
           </div>
         ) : tab === 'dashboard' ? (
-          <DashboardView profile={profile} quizSummary={quizSummary} onOpen={open} onStartQuiz={(id) => navigate('quizzes', id, 'confirm')} />
+          <DashboardView profile={profile} quizSummary={quizSummary} onOpen={open} onStartQuiz={(id) => navigate('quizzes', id, FIRST_QUIZ_STEP)} />
         ) : tab === 'quizzes' ? (
           <StudentQuizzes
             key={`quizzes-${tabVisit}`}

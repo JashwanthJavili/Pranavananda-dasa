@@ -24,7 +24,7 @@ export default function StagingWipePanel({ manager, onDone }) {
       </div>
       <p className="text-xs text-temple-700 leading-relaxed">
         Permanently deletes all participant data in the staging database (registrations, student accounts, quiz answers,
-        ratings, help requests and logs) so testing can start fresh. Admin accounts and settings are kept, and you can choose
+        ratings, Contact Us messages and logs) so testing can start fresh. Admin accounts and settings are kept, and you can choose
         whether to keep the quizzes. This button does not exist on the live site.
       </p>
       <button

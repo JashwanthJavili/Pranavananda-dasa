@@ -112,7 +112,7 @@ export default function HelpModal({ open, onClose, prefill }) {
             <div className="w-9 h-9 rounded-xl bg-saffron-100 border border-saffron-200 flex items-center justify-center text-saffron-700">
               <LifeBuoy className="w-5 h-5" />
             </div>
-            <h2 id="help-title" className="font-display text-xl sm:text-2xl font-bold text-temple-900">Need help?</h2>
+            <h2 id="help-title" className="font-display text-xl sm:text-2xl font-bold text-temple-900">Contact Us</h2>
           </div>
           <button
             type="button"
@@ -147,7 +147,7 @@ export default function HelpModal({ open, onClose, prefill }) {
         ) : (
           <form onSubmit={submit} className="px-5 sm:px-6 py-5 space-y-4" noValidate>
             <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-              Kindly tell us how we can help. Our team will reply to your email.
+              Need help with courses or other queries? We're here to serve.
             </p>
 
             {/* Honeypot: hidden from people, tempting for bots */}
@@ -188,11 +188,11 @@ export default function HelpModal({ open, onClose, prefill }) {
             </Field>
 
             <Field id="help-name" label="Your name">
-              <TextInput id="help-name" autoComplete="name" value={form.name} onChange={set('name')} placeholder="Full name" />
+              <TextInput id="help-name" autoComplete="name" value={form.name} onChange={set('name')} placeholder="Enter your full name" />
             </Field>
 
             <Field id="help-email" label="Your email (we will reply here)">
-              <TextInput id="help-email" type="email" autoComplete="email" value={form.email} onChange={set('email')} placeholder="you@example.com" />
+              <TextInput id="help-email" type="email" autoComplete="email" value={form.email} onChange={set('email')} placeholder="Enter your email address" />
             </Field>
 
             <Field id="help-mobile" label="Mobile number (optional)">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Star, Send } from 'lucide-react';
 import { Spinner } from '../ui';
 import {
@@ -18,6 +18,15 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [justSent, setJustSent] = useState(false);
+  const sectionRef = useRef(null);
+  const revealAfterRate = useRef(false);
+
+  // After a star is tapped, bring the comment box (or the thank-you) into view
+  useEffect(() => {
+    if (!revealAfterRate.current || saving) return;
+    revealAfterRate.current = false;
+    requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  }, [rating, saving]);
 
   useEffect(() => {
     let alive = true;
@@ -34,6 +43,7 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
     setHover(0); // show the message, not the star's label, once tapped
     if (saving || value === rating) return;
     const previous = rating;
+    revealAfterRate.current = true;
     setRating(value);
     setSaving(value);
     setError('');
@@ -73,7 +83,7 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
   const thanked = rating > 0 && (!askImprove || (feedback && !changed));
 
   return (
-    <section className={`rounded-2xl border border-cream-200 bg-white/80 px-4 py-4 text-center space-y-2 ${className}`} aria-labelledby={`rate-${quiz.id}`}>
+    <section ref={sectionRef} className={`scroll-mb-6 rounded-2xl border border-cream-200 bg-white/80 px-4 py-4 text-center space-y-2 ${className}`} aria-labelledby={`rate-${quiz.id}`}>
       <h3 id={`rate-${quiz.id}`} className="text-sm font-semibold text-temple-900">How was your experience?</h3>
       <div className="flex justify-center gap-1" role="radiogroup" aria-label="Rate your experience" onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((v) => (

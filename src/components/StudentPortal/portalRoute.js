@@ -8,6 +8,9 @@ import { PORTAL_HASH } from '../../studentPortal';
 
 export const PORTAL_TABS = ['dashboard', 'quizzes', 'profile'];
 export const QUIZ_STEPS = ['confirm', 'instructions', 'play', 'submitted', 'results'];
+// Set to true to ask students to confirm their details before each quiz again.
+export const ASK_CONFIRM_DETAILS = false;
+export const FIRST_QUIZ_STEP = ASK_CONFIRM_DETAILS ? 'confirm' : 'instructions';
 
 /** { tab, quizId, step } from a location hash (anything unknown falls back to the dashboard). */
 export function parsePortalHash(hash = window.location.hash) {
@@ -18,7 +21,7 @@ export function parsePortalHash(hash = window.location.hash) {
   if (parts[0].toLowerCase() !== PORTAL_HASH) return { tab: 'dashboard', quizId: null, step: null };
   const tab = PORTAL_TABS.includes((parts[1] || '').toLowerCase()) ? parts[1].toLowerCase() : 'dashboard';
   if (tab !== 'quizzes' || !parts[2]) return { tab, quizId: null, step: null };
-  const step = QUIZ_STEPS.includes((parts[3] || '').toLowerCase()) ? parts[3].toLowerCase() : 'confirm';
+  const step = QUIZ_STEPS.includes((parts[3] || '').toLowerCase()) ? parts[3].toLowerCase() : FIRST_QUIZ_STEP;
   return { tab, quizId: parts[2], step };
 }
 
@@ -26,7 +29,7 @@ export function parsePortalHash(hash = window.location.hash) {
 export function portalHash(tab = 'dashboard', quizId = null, step = null) {
   if (tab === 'dashboard' && !quizId) return `#${PORTAL_HASH}`;
   const path = [PORTAL_HASH, tab];
-  if (tab === 'quizzes' && quizId) path.push(encodeURIComponent(quizId), step || 'confirm');
+  if (tab === 'quizzes' && quizId) path.push(encodeURIComponent(quizId), step || FIRST_QUIZ_STEP);
   return `#${path.join('/')}`;
 }
 

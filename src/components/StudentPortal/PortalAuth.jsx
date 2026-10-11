@@ -45,8 +45,8 @@ export default function PortalAuth({ initialMessage }) {
         {mode !== 'sent' && mode !== 'forgot' && mode !== 'exists' && (
           <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-cream-200/70 border border-cream-300/70">
             {[
-              { key: 'login', label: 'Log in', Icon: KeyRound },
-              { key: 'setup', label: 'First-time setup', Icon: UserPlus },
+              { key: 'login', label: 'Sign in', Icon: KeyRound },
+              { key: 'setup', label: 'Sign up', Icon: UserPlus },
             ].map(({ key, label, Icon }) => (
               <button
                 key={key}
@@ -149,8 +149,8 @@ function LoginForm({ onForgot, onSetup }) {
 
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
-      <Heading title="Welcome back" subtitle="Log in to your Gita for Youth student portal." />
-      <div className="flex gap-4 text-xs sm:text-sm" role="radiogroup" aria-label="Log in with">
+      <Heading title="Welcome Back" subtitle="Gita for Youth Devotee Portal" />
+      <div className="flex gap-4 text-xs sm:text-sm" role="radiogroup" aria-label="Sign in with">
         {[['email', 'Email'], ['mobile', 'Mobile number']].map(([key, label]) => (
           <button
             key={key}
@@ -168,7 +168,7 @@ function LoginForm({ onForgot, onSetup }) {
       </div>
       {method === 'email' ? (
         <Field id="login-email" label="Email address">
-          <TextInput id="login-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setNotRegistered(null); }} placeholder="you@example.com" />
+          <TextInput id="login-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setNotRegistered(null); }} placeholder="Enter your email address" />
         </Field>
       ) : (
         <Field id="login-mobile" label="Mobile number">
@@ -176,7 +176,7 @@ function LoginForm({ onForgot, onSetup }) {
         </Field>
       )}
       <Field id="login-password" label="Password">
-        <PasswordInput id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" />
+        <PasswordInput id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
       </Field>
       {notRegistered ? (
         <NotRegistered
@@ -186,10 +186,10 @@ function LoginForm({ onForgot, onSetup }) {
       ) : (
         error && <Notice type="error">{error}</Notice>
       )}
-      {!notRegistered && <PrimaryButton type="submit" loading={loading}>Log in</PrimaryButton>}
+      {!notRegistered && <PrimaryButton type="submit" loading={loading}>Sign in</PrimaryButton>}
       <div className="flex items-center justify-between gap-2">
         <LinkButton onClick={onForgot}>Forgot password?</LinkButton>
-        <LinkButton onClick={onSetup}>First time here?</LinkButton>
+        <LinkButton onClick={onSetup}>New here? Sign up</LinkButton>
       </div>
     </form>
   );
@@ -249,7 +249,7 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
     setLoading(true);
     try {
       const res = await createStudentAccount({ email, mobile: digits, countryCode, password });
-      // 'sent': the portal now shows "verify your email" by itself
+      // 'ready': the portal signs the student straight in and continues to the dashboard
       if (res.status === 'account_exists') onAccountExists(email.trim());
     } catch (err) {
       setError(err?.code?.startsWith('auth/') ? authErrorMessage(err) : 'Something went wrong. Please try again.');
@@ -262,16 +262,16 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
       <form onSubmit={create} className="space-y-4" noValidate>
         <Heading
           title="Create your password"
-          subtitle={`Your registration is found. Create a password for ${email.trim()}. We will then send a verification email to this address.`}
+          subtitle="Your registration is found. Set a password to finish creating your account."
         />
         <Field id="setup-password" label="Create password" hint="At least 8 characters, with letters and numbers.">
-          <PasswordInput id="setup-password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} placeholder="New password" />
+          <PasswordInput id="setup-password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} placeholder="Enter a new password" />
         </Field>
         <Field id="setup-confirm" label="Confirm password">
-          <PasswordInput id="setup-confirm" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} placeholder="Re-enter password" />
+          <PasswordInput id="setup-confirm" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} placeholder="Re-enter your password" />
         </Field>
         {error && <Notice type="error">{error}</Notice>}
-        <PrimaryButton type="submit" loading={loading}>Create account and verify email</PrimaryButton>
+        <PrimaryButton type="submit" loading={loading}>Create account</PrimaryButton>
         <div className="text-center">
           <LinkButton onClick={() => { setStep('details'); setError(''); setPassword(''); setConfirm(''); }}>Change mobile or email</LinkButton>
         </div>
@@ -282,8 +282,8 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
   return (
     <form onSubmit={check} className="space-y-4" noValidate>
       <Heading
-        title="Set up your account"
-        subtitle="Already registered for Gita for Youth? Enter the mobile number and email you registered with."
+        title="Create Your Account"
+        subtitle="Already registered? Enter your registered mobile number and email address."
       />
       <Field id="setup-mobile" label="Registered mobile number">
         <MobileInput
@@ -294,11 +294,11 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
             onChange={(v) => { setMobile(v); reset(); }}
           />
       </Field>
-      <Field id="setup-email" label="Registered email address">
+      <Field id="setup-email" label="Registered Email Address">
         <LinkButton onClick={() => setFindEmailOpen(true)} className="block text-xs !mt-1 pb-1">
-          Don't remember which email you used?
+          Forgot your registered email?
         </LinkButton>
-        <TextInput id="setup-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); reset(); }} placeholder="you@example.com" />
+        <TextInput id="setup-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); reset(); }} placeholder="Enter your email address" />
       </Field>
       <FindEmailModal open={findEmailOpen} onClose={() => setFindEmailOpen(false)} />
       {error && <Notice type="error">{error}</Notice>}
@@ -312,7 +312,7 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
       )}
       {!alreadySetUp && (
         <div className="text-center">
-          <LinkButton onClick={onLogin}>Already set up your account? Log in</LinkButton>
+          <LinkButton onClick={onLogin}>Already have an account? Log in</LinkButton>
         </div>
       )}
     </form>
@@ -329,10 +329,10 @@ function AccountExists({ email, onReset, onLogin }) {
       </h3>
       <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
         An account already exists for {email}, perhaps from an earlier setup. Kindly set a new password using the link we
-        email you, then log in. Your registration will be linked automatically.
+        email you, then sign in. Your registration will be linked automatically.
       </p>
       <PrimaryButton type="button" onClick={onReset}>Email me a link to set my password</PrimaryButton>
-      <div className="text-center"><LinkButton onClick={onLogin}>I remember my password. Log in</LinkButton></div>
+      <div className="text-center"><LinkButton onClick={onLogin}>I remember my password. Sign in</LinkButton></div>
     </div>
   );
 }
@@ -386,7 +386,7 @@ function CheckEmail({ onStartOver, onLogin }) {
         <LinkButton onClick={resend} disabled={sending || cooldown > 0}>
           {sending ? 'Sending…' : cooldown > 0 ? `Resend email in ${cooldown}s` : 'Resend verification email'}
         </LinkButton>
-        <LinkButton onClick={() => onLogin(null)}>Already verified on another device? Log in</LinkButton>
+        <LinkButton onClick={() => onLogin(null)}>Already verified on another device? Sign in</LinkButton>
         <LinkButton onClick={onStartOver} className="text-temple-500 hover:text-temple-700">Use different details</LinkButton>
       </div>
     </div>
@@ -423,7 +423,7 @@ function ForgotPassword({ onBack, onSetup, initialEmail = '', accountExists = fa
     <form onSubmit={submit} className="space-y-4" noValidate>
       <Heading title="Reset your password" subtitle="Enter the email you registered with." />
       <Field id="forgot-email" label="Registered email address">
-        <TextInput id="forgot-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setStatus(null); }} placeholder="you@example.com" />
+        <TextInput id="forgot-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setStatus(null); }} placeholder="Enter your email address" />
       </Field>
       {status?.type === 'setup' ? (
         <SetupNeeded onSetup={() => onSetup({ email: email.trim() })} />
@@ -436,7 +436,7 @@ function ForgotPassword({ onBack, onSetup, initialEmail = '', accountExists = fa
         </>
       )}
       <div className="text-center">
-        <LinkButton onClick={onBack}>Back to log in</LinkButton>
+        <LinkButton onClick={onBack}>Back to sign in</LinkButton>
       </div>
     </form>
   );
@@ -468,8 +468,8 @@ function SetupNeeded({ onSetup }) {
           </li>
         ))}
       </ol>
-      <p className="text-xs sm:text-sm text-temple-600">After this, you can log in anytime with your email or mobile number. Thank you for your patience.</p>
-      <PrimaryButton type="button" onClick={onSetup}>Complete first-time setup</PrimaryButton>
+      <p className="text-xs sm:text-sm text-temple-600">After this, you can sign in anytime with your email or mobile number. Thank you for your patience.</p>
+      <PrimaryButton type="button" onClick={onSetup}>Complete sign up</PrimaryButton>
     </div>
   );
 }
@@ -484,10 +484,10 @@ function AlreadySetUp({ onLogin, onForgot }) {
           <span className="block">Dear Devotee,</span>
         </h3>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          Your account setup is already complete. Kindly log in with your email or mobile number and the password you created.
+          Your account setup is already complete. Kindly sign in with your email or mobile number and the password you created.
         </p>
       </div>
-      <PrimaryButton type="button" onClick={onLogin}>Go to log in</PrimaryButton>
+      <PrimaryButton type="button" onClick={onLogin}>Go to sign in</PrimaryButton>
       <p className="text-xs sm:text-sm text-temple-600 text-center">
         Forgot your password?{' '}
         <LinkButton onClick={onForgot}>Reset it here</LinkButton>

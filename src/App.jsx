@@ -429,25 +429,16 @@ export default function App() {
     <div className="min-h-screen bg-cream-100 flex flex-col font-poppins selection:bg-saffron-100 selection:text-saffron-900 animate-fadeIn">
       
       {/* Top Navigation */}
-      <Navbar 
-        onOpenRegister={goToRegister} 
-        onOpenLogin={openLogin} 
-        onOpenAdmin={goToAdmin}
-        isAdmin={isAdmin}
-        studentUser={studentUser}
-        isRegistrationOpen={isRegistrationOpen}
-      />
+      <Navbar />
 
       {/* Main Content Sections */}
-      <main className="flex-1">
+      <main className="flex-1 flex">
         {/* 1. Hero Section */}
         <Hero onOpenRegister={goToRegister} />
       </main>
 
       {/* 2. Footer */}
-      <Footer 
-        onOpenLogin={openLogin} 
-      />
+      <Footer />
 
       {/* Login Modal */}
       <LoginModal 

@@ -12,6 +12,7 @@
 //   paragraph  long text             never auto-marked
 //   mcq        multiple choice       key: the one correct option id
 //   checkbox   tick all that apply   key: every correct option id []
+// An mcq / checkbox question can be unscored (an opinion question): it has no key entry.
 // Student answers: short / paragraph -> text, mcq -> option id, checkbox -> [option ids].
 
 export const QUESTION_TYPES = {
@@ -148,11 +149,11 @@ export function formatDuration(seconds) {
 }
 
 export function resultMessage(percent, total = 1) {
-  if (!total) return { title: 'Submitted 🙏', text: 'Thank you for your thoughtful answers. May Krishna bless your sincere study.' };
-  if (percent === 100) return { title: 'Perfect score! 🙏', text: 'Every answer correct. May Krishna bless your sincere study.' };
-  if (percent >= 80) return { title: 'Wonderful! 🙏', text: 'You have understood this week’s teachings very well.' };
-  if (percent >= 50) return { title: 'Well done 🙏', text: 'A good effort. Review the answers below to deepen your understanding.' };
-  return { title: 'Keep going 🙏', text: 'Every step of study is valuable. Read through the correct answers below and revisit the verses.' };
+  if (!total) return { title: 'Hari Bol! 🙏', text: 'Thank you for your thoughtful answers. May Krishna bless your sincere study.' };
+  if (percent === 100) return { title: 'Hari Bol! 🙏', text: 'You’ve answered all questions correctly. Keep learning and growing in Krishna consciousness.' };
+  if (percent >= 80) return { title: 'Hari Bol! 🙏', text: 'You’ve done really well. Keep learning and growing in Krishna consciousness.' };
+  if (percent >= 50) return { title: 'Hari Bol! 🙏', text: 'A good effort. Keep learning and growing in Krishna consciousness.' };
+  return { title: 'Hari Bol! 🙏', text: 'Every step of study is valuable. Keep learning and growing in Krishna consciousness.' };
 }
 
 /** Keep only answers that fit their question (type, option ids, length). */
@@ -185,6 +186,7 @@ export function emptyQuestion(type = 'mcq') {
     text: '',
     description: '',
     required: true,
+    scored: true,
     options: hasOptions(type) ? [{ id: newOptionId(), text: '' }, { id: newOptionId(), text: '' }] : [],
     // mcq: option id · checkbox: option ids · short: accepted answers as typed ("a, b")
     correct: type === 'checkbox' ? [] : '',
@@ -200,7 +202,7 @@ export function changeQuestionType(q, type) {
   let correct = type === 'checkbox' ? [] : '';
   if (type === 'checkbox' && q.type === 'mcq' && q.correct) correct = [q.correct];
   if (type === 'mcq' && q.type === 'checkbox' && q.correct?.length) correct = q.correct[0];
-  return { ...q, type, options, correct };
+  return { ...q, type, options, correct, scored: q.scored !== false };
 }
 
 export function emptyDraft() {
@@ -208,7 +210,7 @@ export function emptyDraft() {
     title: '',
     weekNumber: '',
     description: '',
-    instructions: 'Read each question carefully and answer to the best of your understanding. You can move between questions before submitting.',
+    instructions: 'Please answer each question carefully.\nYou can review your answers before submitting.\nYour score and correct answers will be shown after submission.\nA timer tracks how long you take to complete the quiz.',
     opensAt: null,
     closesAt: null,
     maxAttempts: 1,
@@ -238,6 +240,7 @@ export function toDraft(quiz, key) {
         text: q.text || '',
         description: q.description || '',
         required: Boolean(q.required),
+        scored: !hasOptions(type) || (type === 'checkbox' ? Array.isArray(k) && k.length > 0 : typeof k === 'string' && k !== ''),
         options: (q.options || []).map((o) => ({ id: o.id, text: o.text || '' })),
         correct: type === 'checkbox'
           ? (Array.isArray(k) ? k : [])
@@ -282,6 +285,7 @@ export function validateDraft(draft, { forPublish = false } = {}) {
       const texts = filled.map((o) => clean(o.text, 300).toLowerCase());
       if (filled.length < MIN_OPTIONS) problem = `Add at least ${MIN_OPTIONS} options.`;
       else if (new Set(texts).size !== texts.length) problem = 'Two options have the same text.';
+      else if (q.scored === false) problem = '';
       else if (q.type === 'mcq' && !filled.some((o) => o.id === q.correct)) problem = 'Mark the correct answer.';
       else if (q.type === 'checkbox' && !filled.some((o) => (q.correct || []).includes(o.id))) problem = 'Tick at least one correct answer.';
     }
@@ -310,6 +314,7 @@ export function fromDraft(draft) {
   });
   const answers = {};
   draft.questions.forEach((q) => {
+    if (q.scored === false) return;
     const kept = new Set(q.options.filter((o) => clean(o.text, 300)).map((o) => o.id));
     if (q.type === 'mcq' && kept.has(q.correct)) answers[q.id] = q.correct;
     if (q.type === 'checkbox') {

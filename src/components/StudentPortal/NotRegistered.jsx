@@ -30,14 +30,12 @@ export default function NotRegistered({ what = 'both', onNavigate, helpPrefill }
       <div className="space-y-1">
         <h3 className="font-semibold text-temple-900 leading-snug">
           Hare Krishna 🙏
-          <span className="block">Dear Devotee,</span>
         </h3>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          We could not find a Gita for Youth registration with {WHAT[what] || WHAT.both}.
-          If you have not registered yet, kindly register first. It takes only a few minutes.
+          We couldn't find your registration. Please check your mobile number and email address.
         </p>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          Once registered, you can come back here and set up your account with the same mobile number and email.
+          If you haven't registered for Gita for Youth yet, please register first and then create your account.
         </p>
       </div>
       <PrimaryButton type="button" onClick={() => { onNavigate?.(); goToRegistration(); }}>
@@ -45,7 +43,7 @@ export default function NotRegistered({ what = 'both', onNavigate, helpPrefill }
         Register for Gita for Youth
       </PrimaryButton>
       <p className="text-xs text-temple-600 text-center leading-relaxed">
-        Already registered? Kindly check the details you entered, or{' '}
+        Already registered? Please check your details or click{' '}
         <LinkButton
           className="!text-xs"
           onClick={() => {
@@ -53,9 +51,9 @@ export default function NotRegistered({ what = 'both', onNavigate, helpPrefill }
             openHelp({ category: 'Problem with first-time setup', ...helpPrefill });
           }}
         >
-          ask us through Need help
+          Need Help
         </LinkButton>
-        .
+        {' '}for assistance.
       </p>
     </div>
   );
