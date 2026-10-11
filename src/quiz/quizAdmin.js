@@ -161,7 +161,8 @@ export async function listAllQuizzes() {
   const snap = await getDocs(collection(adb, 'portalQuizzes'));
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => (Number(b.weekNumber) || 0) - (Number(a.weekNumber) || 0) || toMillis(b.createdAt) - toMillis(a.createdAt));
+    // Latest added first (a just-created quiz has no server time yet: treat it as newest)
+    .sort((a, b) => (toMillis(b.createdAt) || Date.now()) - (toMillis(a.createdAt) || Date.now()));
 }
 
 export async function getQuizKey(quizId) {

@@ -9,8 +9,9 @@ import {
   progressId, attemptId, scoreAnswers, countedAttempt, availability, toDate, cleanAnswers,
 } from './quizModel';
 
-const sortQuizzes = (list) =>
-  [...list].sort((a, b) => (toDate(b.opensAt)?.getTime() || 0) - (toDate(a.opensAt)?.getTime() || 0));
+// Latest added first (published, else created)
+const addedAt = (q) => toDate(q.publishedAt || q.createdAt)?.getTime() || 0;
+const sortQuizzes = (list) => [...list].sort((a, b) => addedAt(b) - addedAt(a));
 
 export async function fetchPublishedQuizzes() {
   const snap = await getDocs(query(collection(db, 'portalQuizzes'), where('published', '==', true), limit(100)));
