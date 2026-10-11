@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { BellRing, Plus, Trash2, Loader2, Lock } from 'lucide-react';
-import { SUPPORT_EMAIL } from '../../config/support';
+import { BellRing, Plus, Trash2, Loader2 } from 'lucide-react';
 import { fetchHelpNotifyEmails, saveHelpNotifyEmails } from '../../helpRequests';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Super Admin setting: who gets emailed when a student raises a "Need help" request. */
+/** Super Admin setting: who gets emailed when a student sends a Contact Us message. */
 export default function HelpEmailsSettings({ callerUser }) {
   const [emails, setEmails] = useState(null); // null while loading
   const [draft, setDraft] = useState('');
@@ -47,7 +46,7 @@ export default function HelpEmailsSettings({ callerUser }) {
     e.preventDefault();
     const email = draft.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) return setError('Please enter a valid email address.');
-    if (email === SUPPORT_EMAIL || emails.includes(email)) return setError('This email already receives Contact Us messages.');
+    if (emails.includes(email)) return setError('This email already receives Contact Us messages.');
     if (await persist([...emails, email], '__add__', `${email} will now receive Contact Us messages.`)) setDraft('');
   };
 
@@ -71,18 +70,18 @@ export default function HelpEmailsSettings({ callerUser }) {
         <div className="flex items-center gap-2 text-xs text-temple-500">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading…
         </div>
+      ) : emails.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-cream-300 bg-white/60 px-4 py-4 text-xs text-temple-500 text-center">
+          No email addresses yet. Messages are only saved in the Contact Us tab until you add one.
+        </p>
       ) : (
         <ul className="bg-white border border-cream-200 rounded-2xl divide-y divide-cream-200">
-          <li className="flex items-center justify-between gap-3 px-4 py-3">
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-temple-900 truncate">{SUPPORT_EMAIL}</span>
-              <span className="block text-[11px] text-temple-500">Main inbox · always receives requests</span>
-            </span>
-            <Lock className="w-4 h-4 text-temple-300 shrink-0" aria-label="Cannot be removed" />
-          </li>
-          {emails.map((email) => (
+          {emails.map((email, i) => (
             <li key={email} className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="text-sm text-temple-900 truncate min-w-0">{email}</span>
+              <span className="min-w-0">
+                <span className="block text-sm text-temple-900 truncate">{email}</span>
+                {i === 0 && <span className="block text-[11px] text-temple-500">Main inbox · others receive a copy</span>}
+              </span>
               <button
                 type="button"
                 onClick={() => remove(email)}
@@ -119,7 +118,11 @@ export default function HelpEmailsSettings({ callerUser }) {
 
       {error && <p className="text-xs text-red-600" role="alert">{error}</p>}
       {message && <p className="text-xs text-emerald-700" role="status">{message}</p>}
-      <p className="text-[11px] text-temple-400">New addresses may find the first emails in their Spam folder. Marking one as "Not spam" fixes it.</p>
+      <p className="text-[11px] text-temple-400 leading-relaxed">
+        When a new address becomes the main inbox (first in the list), the first message sends it an activation email from
+        FormSubmit; kindly click "Activate" in it so messages are delivered. New addresses may also find the first emails in
+        their Spam folder. Marking one as "Not spam" fixes it.
+      </p>
     </div>
   );
 }

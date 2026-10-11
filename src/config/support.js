@@ -1,11 +1,9 @@
-// Where "Need help" requests are emailed. Every request is also saved in Firestore
-// (BhagavadGita/data/helpRequests) and shown to admins, so email is a notification only.
+// Contact Us messages are saved in Firestore (BhagavadGita/data/helpRequests) and shown to
+// admins; email is a notification only. The addresses are chosen by Super Admins in Settings.
 //
-// Sent through FormSubmit (https://formsubmit.co, free, no backend). SUPPORT_EMAIL is the
-// activated FormSubmit inbox and always receives every request; Super Admins can add more
-// addresses in Settings, which receive a copy (CC).
-export const SUPPORT_EMAIL = 'jashwanthjavili7@gmail.com';
-export const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${SUPPORT_EMAIL}`;
+// Sent through FormSubmit (https://formsubmit.co, free, no backend): the first address is the
+// FormSubmit inbox (it must confirm a one-time activation email), the others receive a copy (CC).
+export const formSubmitEndpoint = (email) => `https://formsubmit.co/ajax/${encodeURIComponent(email)}`;
 
 export const HELP_CATEGORIES = [
   'Unable to log in',

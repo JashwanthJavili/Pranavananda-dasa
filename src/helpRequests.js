@@ -16,7 +16,7 @@ import {
 import { db, sanitizeText, isSuperAdminUser } from './firebase';
 import { mobileProblem } from './utils/mobile';
 import { APP_ENV } from './config/firebaseConfig';
-import { SUPPORT_EMAIL, FORMSUBMIT_ENDPOINT, HELP_CATEGORIES, HELP_STATUSES } from './config/support';
+import { formSubmitEndpoint, HELP_CATEGORIES, HELP_STATUSES } from './config/support';
 
 const helpCol = () => collection(db, 'BhagavadGita', 'data', 'helpRequests');
 const COOLDOWN_KEY = 'gfy_help_last_sent';
@@ -69,7 +69,7 @@ function emailFields(id, data) {
 // ---------------------------------------------------------------------------
 const notifyRef = () => doc(db, 'BhagavadGita', 'data', 'config', 'helpNotifications');
 
-/** Extra emails that receive a copy of every help request (SUPPORT_EMAIL always does). */
+/** Emails that receive every Contact Us message (the first one is the main inbox). */
 export async function fetchHelpNotifyEmails() {
   const snap = await getDoc(notifyRef());
   const list = snap.exists() && Array.isArray(snap.data().emails) ? snap.data().emails : [];
@@ -79,7 +79,7 @@ export async function fetchHelpNotifyEmails() {
 export async function saveHelpNotifyEmails(emails, callerUser) {
   if (!isSuperAdminUser(callerUser)) throw new Error('Only Super Admins can change notification emails.');
   const clean = [...new Set(emails.map((e) => String(e).trim().toLowerCase()))]
-    .filter((e) => EMAIL_RE.test(e) && e !== SUPPORT_EMAIL);
+    .filter((e) => EMAIL_RE.test(e));
   await setDoc(notifyRef(), {
     emails: clean,
     updatedBy: callerUser?.email || 'Super Admin',
@@ -89,14 +89,15 @@ export async function saveHelpNotifyEmails(emails, callerUser) {
 }
 
 /**
- * Email the request to SUPPORT_EMAIL, with copies (CC) to the Super Admin's list.
+ * Email the request to the first address in the Super Admin's list, with copies (CC) to the rest.
  * Returns the addresses it was sent to; throws with the provider's reason on failure.
  */
 async function emailSupport(id, data) {
   const subject = `[Gita for Youth${APP_ENV === 'staging' ? ' - STAGING' : ''}] Help request ${helpReference(id)}: ${data.category}`;
-  const cc = (await fetchHelpNotifyEmails().catch(() => [])).filter((e) => e !== SUPPORT_EMAIL);
+  const [to, ...cc] = await fetchHelpNotifyEmails();
+  if (!to) throw new Error('No Contact Us email addresses are set in Settings.');
 
-  const res = await fetch(FORMSUBMIT_ENDPOINT, {
+  const res = await fetch(formSubmitEndpoint(to), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
@@ -120,7 +121,7 @@ async function emailSupport(id, data) {
   if (!res.ok || String(body?.success) !== 'true') {
     throw new Error(body?.message || `Email service responded ${res.status}`);
   }
-  return [SUPPORT_EMAIL, ...cc];
+  return [to, ...cc];
 }
 
 /**
