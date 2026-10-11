@@ -30,6 +30,21 @@ import { ConfirmLinkEmail, ConfirmMobile, CreatePassword, VerifyEmail } from './
 import { DashboardView, ProfileView } from './PortalViews';
 import { usePortalRoute } from './portalRoute';
 import { FullScreenLoader, Notice, PortalCard, PrimaryButton } from './ui';
+import { JUST_VERIFIED_KEY } from './EmailAction';
+
+/** True once, right after the student verified their email (set by the verification page). */
+function takeJustVerified() {
+  try {
+    // ?verified=1: back from Firebase's own "email verified" page
+    const fromUrl = new URLSearchParams(window.location.search).get('verified') === '1';
+    if (fromUrl) window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash || `#${PORTAL_HASH}`}`);
+    const v = fromUrl || sessionStorage.getItem(JUST_VERIFIED_KEY) === '1';
+    sessionStorage.removeItem(JUST_VERIFIED_KEY);
+    return v;
+  } catch (e) {
+    return false;
+  }
+}
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -57,7 +72,12 @@ const openChannel = () => (typeof BroadcastChannel !== 'undefined' ? new Broadca
 export default function StudentPortal({ onBackToHome }) {
   const [stage, setStage] = useState('loading');
   const [user, setUser] = useState(null);
-  const [message, setMessage] = useState(null); // notice shown on the signed-out screen
+  const justVerified = useRef(null);
+  if (justVerified.current === null) justVerified.current = takeJustVerified();
+  // Notice shown on the signed-out screen (verified on another device: log in here)
+  const [message, setMessage] = useState(() => (justVerified.current
+    ? { type: 'success', text: 'Your email is verified. Kindly log in with your email and the password you created.' }
+    : null));
   const [stepError, setStepError] = useState('');
   const [busy, setBusy] = useState(false);
   const resolving = useRef(false);
@@ -103,7 +123,9 @@ export default function StudentPortal({ onBackToHome }) {
       }
 
       // Set up with "verify your email" (the student already chose a password)
-      const viaVerifyEmail = Boolean(getPendingOnboarding()?.method);
+      const setup = getPendingOnboarding();
+      const viaVerifyEmail = Boolean(setup?.method);
+      const sealedLogin = setup?.email === u.email?.toLowerCase() ? setup.mobileLogin : null;
       let linked = await getLinkedRegistrationId(u.uid);
       if (!linked) {
         const pending = getPendingOnboarding();
@@ -132,7 +154,7 @@ export default function StudentPortal({ onBackToHome }) {
       setPendingOnboarding(null);
 
       // The password typed at setup / login finishes the account here; otherwise ask for one
-      const ready = (await hasCreatedPassword(u)) || (await finishPasswordSetup(u));
+      const ready = (await hasCreatedPassword(u)) || (await finishPasswordSetup(u, sealedLogin));
       if (!ready && viaVerifyEmail) {
         // The page was reloaded, so the password typed at setup is no longer known here
         await signOutWith('Your email is verified and your registration is linked. Kindly log in with your email and the password you created.', 'success');
@@ -384,7 +406,7 @@ export default function StudentPortal({ onBackToHome }) {
   else content = null;
 
   if (stage === 'portal' && user) {
-    return <PortalHome user={user} onLogout={() => signOutWith(null)} onBackToHome={onBackToHome} />;
+    return <PortalHome user={user} justVerified={justVerified.current} onLogout={() => signOutWith(null)} onBackToHome={onBackToHome} />;
   }
 
   return (
@@ -464,7 +486,8 @@ function PortalFrame({ children, onBackToHome, right, helpPrefill, bottomNav = f
   );
 }
 
-function PortalHome({ user, onLogout, onBackToHome }) {
+function PortalHome({ user, justVerified = false, onLogout, onBackToHome }) {
+  const [verifiedBanner, setVerifiedBanner] = useState(justVerified);
   // The page comes from the address (#student-portal/quizzes/...), so a refresh stays on it
   const [route, navigate] = usePortalRoute();
   const { tab } = route;
@@ -539,6 +562,15 @@ function PortalHome({ user, onLogout, onBackToHome }) {
       }}
     >
       <div className={`max-w-5xl w-full mx-auto px-4 sm:px-6 flex-1 ${focus ? 'py-5 sm:py-8' : 'pt-5 sm:pt-8 pb-8 sm:pb-12'}`}>
+        {verifiedBanner && !focus && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 animate-fadeIn" role="status">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+            <p className="flex-1 text-sm text-emerald-900">
+              <strong>Verification completed.</strong> Welcome to Gita for Youth 🙏
+            </p>
+            <button type="button" onClick={() => setVerifiedBanner(false)} aria-label="Dismiss" className="text-emerald-700 hover:text-emerald-900 text-lg leading-none px-1 cursor-pointer">×</button>
+          </div>
+        )}
         {/* Desktop tabs */}
         <nav className={`${focus ? 'hidden' : 'hidden sm:flex'} gap-1 p-1 mb-6 rounded-2xl bg-cream-200/70 border border-cream-300/70 w-fit`}>
           {TABS.map(({ key, label, Icon }) => (

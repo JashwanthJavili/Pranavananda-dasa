@@ -176,7 +176,7 @@ const takeRememberedPassword = () => {
 
 /** Firebase's "verify your email" message, returning to the portal afterwards. */
 export function sendVerificationEmail(user = auth.currentUser) {
-  return sendEmailVerification(user, { url: `${window.location.origin}/?portal=1` });
+  return sendEmailVerification(user, { url: `${window.location.origin}/?portal=1&verified=1` });
 }
 
 /**
@@ -190,8 +190,14 @@ export async function createStudentAccount({ email, mobile, countryCode = '+91',
   // Saved first: signing in happens immediately and the portal needs the mobile to link later
   setPendingOnboarding(pending);
   rememberedPassword = password;
+  // The mobile login, sealed with the password now, so whichever tab of this browser opens
+  // after verification can save it without asking for the password again
+  const keepSealedLogin = () => sealEmail(e, password)
+    .then((sealed) => setPendingOnboarding({ ...pending, mobileLogin: sealed }))
+    .catch(() => {});
   try {
     const { user } = await createUserWithEmailAndPassword(auth, e, password);
+    await keepSealedLogin();
     await sendVerificationEmail(user);
     return { status: 'sent' };
   } catch (err) {
@@ -202,6 +208,7 @@ export async function createStudentAccount({ email, mobile, countryCode = '+91',
       try {
         rememberedPassword = password;
         const { user } = await signInWithEmailAndPassword(auth, e, password);
+        await keepSealedLogin();
         if (!user.emailVerified) await sendVerificationEmail(user);
         return { status: 'sent' };
       } catch (signInErr) {
@@ -227,13 +234,14 @@ export async function refreshVerification() {
 
 /**
  * After linking: record the password and save the mobile-number login, using the password
- * typed in this tab. False if it is not known here (the student is then asked to create one).
+ * typed in this tab or the login sealed with it at setup (`sealed`, kept in this browser).
+ * False if neither is available (the student is then asked to log in).
  */
-export async function finishPasswordSetup(user) {
+export async function finishPasswordSetup(user, sealed = null) {
   const password = takeRememberedPassword();
-  if (!password) return false;
+  if (!password && !sealed) return false;
   await updateDoc(doc(db, 'portalAccounts', user.uid), { passwordSetAt: serverTimestamp() });
-  await saveMobileLogin(user, password).catch((err) => console.warn('Mobile login not saved:', err?.code || err));
+  await saveMobileLogin(user, password, password ? null : sealed).catch((err) => console.warn('Mobile login not saved:', err?.code || err));
   return true;
 }
 
@@ -383,24 +391,30 @@ async function deriveKey(password, salt) {
   );
 }
 
-/** (Re)write the encrypted mobile login for the signed-in student. Needs the plain password. */
-export async function saveMobileLogin(user, password) {
+/** The email encrypted with a key from the password: { salt, iv, data } (base64). */
+async function sealEmail(email, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(cleanEmail(email)));
+  return { salt: toB64(salt), iv: toB64(iv), data: toB64(data) };
+}
+
+/** (Re)write the encrypted mobile login for the signed-in student, from the plain password
+ *  or a login already sealed with it. */
+export async function saveMobileLogin(user, password, sealed = null) {
   const account = await getDoc(doc(db, 'portalAccounts', user.uid));
   if (!account.exists()) return;
   const link = await getDoc(doc(db, 'portalLinks', account.data().registrationId));
   if (!link.exists()) return;
   const { countryCode, mobileClean } = link.data();
 
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(password, salt);
-  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(cleanEmail(user.email)));
-
+  const { salt, iv, data } = sealed || (await sealEmail(user.email, password));
   await setDoc(doc(db, 'portalLogins', `${countryCode}${mobileClean}`), {
     uid: user.uid,
-    salt: toB64(salt),
-    iv: toB64(iv),
-    data: toB64(data),
+    salt,
+    iv,
+    data,
     updatedAt: serverTimestamp(),
   });
 }
