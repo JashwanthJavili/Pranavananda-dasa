@@ -488,6 +488,12 @@ function PortalFrame({ children, onBackToHome, right, helpPrefill, bottomNav = f
 
 function PortalHome({ user, justVerified = false, onLogout, onBackToHome }) {
   const [verifiedBanner, setVerifiedBanner] = useState(justVerified);
+  // The "Verification completed" welcome shows for 5 seconds
+  useEffect(() => {
+    if (!verifiedBanner) return undefined;
+    const t = setTimeout(() => setVerifiedBanner(false), 5000);
+    return () => clearTimeout(t);
+  }, [verifiedBanner]);
   // The page comes from the address (#student-portal/quizzes/...), so a refresh stays on it
   const [route, navigate] = usePortalRoute();
   const { tab } = route;
