@@ -153,8 +153,6 @@ export function QuizTrackingBar({
   const showOptions = active ? STATUS_ONE : STATUS_ALL;
   const sortOptions = [...SORT_COMMON, ...(active ? SORT_ONE : SORT_ALL)];
   const isFiltered = filter.quizId !== 'all' || filter.status !== 'all' || sortBy !== 'default';
-  const quizName = active ? `${quizColumnLabel(active)}${active.weekNumber ? ` (${active.title})` : ''}` : '';
-  const showLabel = showOptions.find((o) => o.value === filter.status)?.label || 'Everyone';
 
   const changeQuiz = (quizId) => {
     // "Show" choices differ for one quiz and all quizzes, so switching between them resets it
@@ -171,97 +169,75 @@ export function QuizTrackingBar({
       onClick={() => onFilterChange({ ...filter, status: filter.status === status ? 'all' : status })}
       aria-pressed={filter.status === status}
       title={filter.status === status ? 'Click again to show everyone' : 'Click to show only these'}
-      className={`px-2.5 py-1 rounded-full border font-semibold cursor-pointer transition ${cls} ${filter.status === status ? 'ring-2 ring-saffron-400/60' : 'hover:brightness-95'}`}
+      className={`px-2 py-0.5 rounded-full border font-semibold cursor-pointer transition ${cls} ${filter.status === status ? 'ring-2 ring-saffron-400/60' : 'hover:brightness-95'}`}
     >
       {children}
     </button>
   );
 
-  const Labelled = ({ label, children }) => (
-    <div className="flex flex-col gap-1 min-w-0">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-temple-500">{label}</span>
-      {children}
-    </div>
-  );
+  const updated = quizData.loadedAt
+    ? quizData.loadedAt.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toUpperCase()
+    : '';
 
   return (
-    <div className="bg-cream-50 rounded-2xl p-3 sm:p-4 border border-cream-200 shadow-soft space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-temple-800">
+    <div className="bg-cream-50 rounded-2xl px-3 py-2.5 border border-cream-200 shadow-soft space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-temple-800 mr-1">
           <BookOpenCheck className="w-4 h-4 text-saffron-600" /> Quiz progress
         </span>
-        <span className="hidden sm:inline text-[11px] text-temple-400">See who took which quiz and how they scored</span>
+        <FancySelect
+          size="xs"
+          ariaLabel="Quiz"
+          className="max-w-[200px]"
+          value={active ? active.id : 'all'}
+          onChange={changeQuiz}
+          options={[
+            { value: 'all', label: 'All quizzes' },
+            ...quizzes.map((q) => ({ value: q.id, label: `${quizColumnLabel(q)}${q.weekNumber ? ` – ${q.title}` : ''}` })),
+          ]}
+        />
+        <FancySelect size="xs" ariaLabel="Show" value={filter.status} onChange={(status) => onFilterChange({ ...filter, status })} options={showOptions} />
+        <FancySelect size="xs" ariaLabel="Order by" value={sortBy} onChange={onSortChange} options={sortOptions} />
         <button
           type="button"
           onClick={quizData.reload}
-          className="ml-auto inline-flex items-center gap-1 text-[11px] text-temple-500 hover:text-saffron-700 font-medium cursor-pointer"
-          title="Get the latest quiz results"
+          aria-label="Refresh quiz results"
+          title={updated ? `Refresh (last updated ${updated})` : 'Load results'}
+          className="ml-auto p-1.5 rounded-lg text-temple-500 hover:text-saffron-700 hover:bg-cream-100 cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${quizData.loading ? 'animate-spin text-saffron-600' : ''}`} />
-          {quizData.loadedAt
-            ? `Refresh · last updated ${quizData.loadedAt.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toUpperCase()}`
-            : 'Load results'}
         </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-        <Labelled label="Quiz">
-          <FancySelect
-            size="sm"
-            ariaLabel="Quiz"
-            value={active ? active.id : 'all'}
-            onChange={changeQuiz}
-            options={[
-              { value: 'all', label: 'All quizzes together' },
-              ...quizzes.map((q) => ({ value: q.id, label: `${quizColumnLabel(q)}${q.weekNumber ? ` – ${q.title}` : ''}` })),
-            ]}
-          />
-        </Labelled>
-        <Labelled label="Show">
-          <FancySelect size="sm" ariaLabel="Show" value={filter.status} onChange={(status) => onFilterChange({ ...filter, status })} options={showOptions} />
-        </Labelled>
-        <Labelled label="Order by">
-          <FancySelect size="sm" ariaLabel="Order by" align="right" value={sortBy} onChange={onSortChange} options={sortOptions} />
-        </Labelled>
       </div>
 
       {quizData.error && <p className="text-xs text-red-600" role="alert">{quizData.error}</p>}
 
-      {!active && countable.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          <Chip status="every" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{countOf('every')} took every quiz</Chip>
-          <Chip status="some" cls="bg-amber-50 border-amber-200 text-amber-800">{countOf('some')} took some</Chip>
-          <Chip status="none" cls="bg-cream-200 border-cream-300 text-temple-600">{countOf('none')} took none</Chip>
-          <span className="text-temple-400">
-            ({countable.length} quiz{countable.length === 1 ? ' has' : 'zes have'} opened so far)
-          </span>
-        </div>
-      )}
-      {active && (
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          <Chip status="attempted" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{attempted} took it</Chip>
-          <Chip status="not" cls="bg-cream-200 border-cream-300 text-temple-600">{participants.length - attempted} did not take it</Chip>
-          {avg !== null && (
-            <span className="px-2.5 py-1 rounded-full bg-gold-50 border border-gold-200 text-temple-700 font-semibold">
-              Average score {avg}%
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-cream-200 pt-2.5">
-        <p className="text-xs text-temple-600" aria-live="polite">
-          Showing <strong className="text-temple-900">{shownCount}</strong> of {participants.length} participants
-          {filter.status !== 'all' && <> · <span className="text-temple-800">{showLabel}</span></>}
-          {active && <> · {quizName}</>}
-        </p>
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        {!active && countable.length > 0 && (
+          <>
+            <Chip status="every" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{countOf('every')} took all</Chip>
+            <Chip status="some" cls="bg-amber-50 border-amber-200 text-amber-800">{countOf('some')} took some</Chip>
+            <Chip status="none" cls="bg-cream-200 border-cream-300 text-temple-600">{countOf('none')} took none</Chip>
+          </>
+        )}
+        {active && (
+          <>
+            <Chip status="attempted" cls="bg-emerald-50 border-emerald-200 text-emerald-700">{attempted} took it</Chip>
+            <Chip status="not" cls="bg-cream-200 border-cream-300 text-temple-600">{participants.length - attempted} did not</Chip>
+            {avg !== null && (
+              <span className="px-2 py-0.5 rounded-full bg-gold-50 border border-gold-200 text-temple-700 font-semibold">Avg {avg}%</span>
+            )}
+          </>
+        )}
+        <span className="text-temple-500 ml-1" aria-live="polite">
+          Showing <strong className="text-temple-900">{shownCount}</strong> of {participants.length}
+        </span>
         {isFiltered && (
           <button
             type="button"
             onClick={() => { onFilterChange({ quizId: 'all', status: 'all' }); onSortChange('default'); }}
-            className="inline-flex items-center gap-1 text-[11px] font-semibold text-saffron-700 hover:text-saffron-800 cursor-pointer"
+            className="ml-auto inline-flex items-center gap-0.5 font-semibold text-saffron-700 hover:text-saffron-800 cursor-pointer"
           >
-            <X className="w-3.5 h-3.5" /> Clear filters
+            <X className="w-3.5 h-3.5" /> Clear
           </button>
         )}
       </div>

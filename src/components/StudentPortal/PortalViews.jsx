@@ -153,17 +153,6 @@ export function DashboardView({ profile, quizSummary, onOpen, onStartQuiz }) {
         </div>
       </section>
 
-      {/* Verse */}
-      <figure className="relative overflow-hidden rounded-2xl border border-gold-200 bg-gradient-to-r from-cream-50 to-saffron-50/70 shadow-soft px-4 py-3 sm:px-5 sm:py-3.5 flex items-start gap-3">
-        <span aria-hidden className="shrink-0 font-display text-4xl leading-[0.8] text-gold-400 select-none">“</span>
-        <div className="min-w-0 flex-1 space-y-1">
-          <blockquote className="font-display text-[16px] italic font-semibold text-temple-900 leading-snug">
-            You have a right to perform your prescribed duty, but you are not entitled to the fruits of action.
-          </blockquote>
-          <figcaption className="text-right text-xs font-medium text-saffron-700" title="Bhagavad Gita, chapter 2, verse 47">— BG 2.47</figcaption>
-        </div>
-      </figure>
-
       <QuizCard summary={quizSummary} onOpen={onOpen} onStartQuiz={onStartQuiz} />
 
       <EditDetailsNote compact />
