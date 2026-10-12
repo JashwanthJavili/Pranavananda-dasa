@@ -34,63 +34,85 @@ const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'Seeker
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
+/** Small progress ring: quizzes taken out of all quizzes. */
+function ProgressRing({ done, total }) {
+  const r = 15;
+  const c = 2 * Math.PI * r;
+  const part = total ? done / total : 0;
+  return (
+    <div className="relative w-11 h-11 shrink-0" role="img" aria-label={`${done} of ${total} quizzes taken`}>
+      <svg viewBox="0 0 36 36" className="w-11 h-11 -rotate-90">
+        <circle cx="18" cy="18" r={r} fill="none" strokeWidth="3.5" className="stroke-cream-200" />
+        <circle
+          cx="18" cy="18" r={r} fill="none" strokeWidth="3.5" strokeLinecap="round"
+          className="stroke-saffron-500 transition-all"
+          strokeDasharray={c} strokeDashoffset={c * (1 - part)}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-temple-900 tabular-nums">
+        {done}/{total}
+      </span>
+    </div>
+  );
+}
+
 /** Dashboard quiz card: a short look at the open quizzes; the Quizzes section has everything else. */
 const SHOW_OPEN = 2;
 function QuizCard({ summary, onOpen, onStartQuiz }) {
-  if (!summary) return <div className="h-32 rounded-2xl bg-cream-200/70 animate-pulse" />;
+  if (!summary) return <div className="h-36 rounded-3xl bg-cream-200/70 animate-pulse" />;
   const { actionable, upcoming, completed, total } = summary;
-  const percent = total ? Math.round((completed / total) * 100) : 0;
   const when = (v) => formatWhen(v).replace(/,? \d{4}/, ''); // year is obvious here
   const shown = actionable.slice(0, SHOW_OPEN);
   const more = actionable.length - shown.length;
 
   return (
-    <section className="rounded-2xl bg-cream-50 border border-cream-200 shadow-soft overflow-hidden">
-      {/* Title + progress */}
-      <div className="px-4 pt-3.5 pb-3 space-y-2">
-        <div className="flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-xl bg-saffron-100 border border-saffron-200 flex items-center justify-center text-saffron-700">
-            <BookOpen className="w-4 h-4" />
-          </span>
-          <h3 className="flex-1 min-w-0 text-sm font-semibold text-temple-900">Weekly quiz</h3>
-          {total > 0 && (
-            <span className="text-[11px] font-semibold text-temple-600 tabular-nums">{completed}/{total} done</span>
-          )}
+    <section className="rounded-3xl bg-white border border-cream-200 shadow-soft overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 sm:px-5 py-3.5 bg-gradient-to-r from-saffron-50/80 via-cream-50 to-gold-50/80 border-b border-cream-200">
+        <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-saffron-400 to-saffron-600 text-white flex items-center justify-center shadow-soft">
+          <BookOpen className="w-4 h-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-display text-base sm:text-lg font-bold text-temple-900 leading-tight">Weekly Quiz</h3>
+          <p className="text-[11px] text-temple-500">Reflect on what you have learnt</p>
         </div>
-        {total > 0 && (
-          <div className="h-1.5 rounded-full bg-cream-200 overflow-hidden" role="progressbar" aria-label="Quizzes taken" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-gradient-to-r from-saffron-400 to-gold-400 transition-all" style={{ width: `${percent}%` }} />
-          </div>
-        )}
+        {total > 0 && <ProgressRing done={completed} total={total} />}
       </div>
 
       {/* Open quizzes (short) */}
-      <div className="px-3 pb-3 space-y-2">
+      <div className="p-3 sm:p-4 space-y-2">
         {shown.length > 0 ? shown.map((q) => (
-          <div key={q.id} className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-saffron-50 to-gold-50 border border-saffron-200 px-3 py-2.5">
-            <span className="shrink-0 w-10 h-10 rounded-lg bg-white border border-saffron-200 flex flex-col items-center justify-center leading-none">
-              <span className="text-[9px] font-bold uppercase text-saffron-600">Week</span>
-              <span className="text-sm font-bold text-temple-900 tabular-nums">{q.weekNumber || '–'}</span>
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-temple-900 truncate">{q.title}</p>
-              <p className="flex items-center gap-1 text-[11px] text-temple-500">
-                <Clock className="w-3 h-3 shrink-0" />
-                {q.closesAt ? `Closes ${when(q.closesAt)}` : 'Open now'}
+          <div
+            key={q.id}
+            className="relative flex items-center gap-3 rounded-2xl border border-cream-200 bg-cream-50/60 pl-4 pr-3 py-3 overflow-hidden"
+          >
+            <span aria-hidden className="absolute left-0 inset-y-0 w-1 bg-gradient-to-b from-saffron-400 to-gold-400" />
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-saffron-700">
+                {q.weekNumber ? `Week ${q.weekNumber}` : 'Quiz'}
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-px text-[9px] text-emerald-700 normal-case tracking-normal font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Open
+                </span>
               </p>
+              <p className="text-sm sm:text-base font-semibold text-temple-900 leading-snug truncate">{q.title}</p>
+              {q.closesAt && (
+                <p className="flex items-center gap-1 text-[11px] text-temple-500">
+                  <Clock className="w-3 h-3 shrink-0" /> Closes {when(q.closesAt)}
+                </p>
+              )}
             </div>
             <button
               type="button"
               onClick={() => onStartQuiz(q.id)}
-              className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold shadow-soft cursor-pointer"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold shadow-soft transition cursor-pointer"
             >
               Start <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         )) : (
-          <div className="flex items-center gap-2.5 rounded-xl bg-cream-100 border border-cream-200 px-3 py-2.5">
+          <div className="flex items-center gap-3 rounded-2xl border border-cream-200 bg-cream-50/60 px-3.5 py-3">
             <CheckCircle2 className={`w-5 h-5 shrink-0 ${total ? 'text-emerald-600' : 'text-temple-300'}`} />
-            <p className="text-xs text-temple-700">
+            <p className="text-xs sm:text-sm text-temple-700">
               {total ? "You're all caught up. Thank you 🙏" : 'The first quiz will appear here soon.'}
               {upcoming?.opensAt && (
                 <span className="block text-[11px] text-temple-500">
@@ -100,17 +122,17 @@ function QuizCard({ summary, onOpen, onStartQuiz }) {
             </p>
           </div>
         )}
-        {more > 0 && <p className="px-1 text-[11px] font-semibold text-saffron-700">+{more} more open</p>}
+        {more > 0 && <p className="px-1 text-[11px] font-semibold text-saffron-700">+{more} more open in Quizzes</p>}
       </div>
 
       {/* Everything else lives in Quizzes */}
       <button
         type="button"
         onClick={() => onOpen('quizzes')}
-        className="w-full flex items-center justify-between gap-2 border-t border-cream-200 bg-white/60 hover:bg-white px-4 py-2.5 text-xs text-temple-600 cursor-pointer"
+        className="group w-full flex items-center justify-between gap-2 border-t border-cream-200 px-4 sm:px-5 py-2.5 text-xs text-temple-600 hover:bg-cream-50 transition cursor-pointer"
       >
-        <span>For scores, answers and all quizzes, visit the <strong className="text-saffron-700">Quizzes</strong> section</span>
-        <ChevronRight className="w-4 h-4 shrink-0 text-saffron-600" />
+        <span>Scores, answers and all quizzes are in the <strong className="text-saffron-700">Quizzes</strong> section</span>
+        <ChevronRight className="w-4 h-4 shrink-0 text-saffron-600 transition-transform group-hover:translate-x-0.5" />
       </button>
     </section>
   );
