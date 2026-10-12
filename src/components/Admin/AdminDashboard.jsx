@@ -2578,7 +2578,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       {/* Footer navigation (Quizzes and Settings are Super Admin only) */}
       <nav
         aria-label="Admin sections"
-        className="fixed bottom-0 inset-x-0 z-40 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70 shadow-[0_-2px_10px_rgba(42,36,33,0.05)] pb-[env(safe-area-inset-bottom)]"
+        className="hide-while-typing fixed bottom-0 inset-x-0 z-40 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70 shadow-[0_-2px_10px_rgba(42,36,33,0.05)] pb-[env(safe-area-inset-bottom)]"
       >
         <div className="max-w-md mx-auto h-16 flex items-stretch justify-around px-2">
           {[

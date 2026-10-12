@@ -21,6 +21,17 @@ window.addEventListener('vite:preloadError', (event) => {
 // Pages left open move to the newest version by themselves (with a message)
 watchForUpdates();
 
+// While typing on a touch screen the keyboard is up: bottom bars step aside (see .hide-while-typing)
+const isTextField = (el) => el?.matches?.('textarea, select, [contenteditable="true"], input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"])');
+document.addEventListener('focusin', (e) => {
+  if (isTextField(e.target)) document.documentElement.classList.add('typing');
+});
+document.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (!isTextField(document.activeElement)) document.documentElement.classList.remove('typing');
+  }, 0);
+});
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>

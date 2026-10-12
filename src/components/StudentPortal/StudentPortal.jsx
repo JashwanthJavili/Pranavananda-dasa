@@ -609,7 +609,7 @@ function PortalHome({ user, justVerified = false, onLogout, onBackToHome }) {
 
       {/* Mobile bottom navigation */}
       {!focus && (
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70 grid grid-cols-3 pb-[env(safe-area-inset-bottom)]">
+      <nav className="hide-while-typing sm:hidden fixed bottom-0 inset-x-0 z-30 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70 grid grid-cols-3 pb-[env(safe-area-inset-bottom)]">
         {TABS.map(({ key, label, Icon }) => (
           <button
             key={key}

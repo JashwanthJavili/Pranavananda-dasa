@@ -143,11 +143,16 @@
    so short pages no longer scroll a little. */
 .min-h-screen { min-height: 100vh; min-height: 100dvh; }
 
-/* Phones zoom into any text box under 16px when it is tapped, and stay zoomed in. */
-@media (max-width: 639px) {
+/* Phones and tablets zoom into any text box under 16px when it is tapped, and stay zoomed in. */
+@media (max-width: 639px), (pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
   textarea,
   select {
     font-size: 16px !important;
   }
+}
+
+/* Touch screens: bottom bars hide while the keyboard is up, so they never float over the text box */
+@media (pointer: coarse) {
+  html.typing .hide-while-typing { display: none !important; }
 }

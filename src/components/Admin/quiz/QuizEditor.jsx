@@ -398,7 +398,7 @@ export default function QuizEditor({
       </section>
 
       {/* Actions (sits just above the admin footer navigation) */}
-      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 z-30 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70">
+      <div className="hide-while-typing fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 z-30 bg-cream-50/95 backdrop-blur-md border-t border-gold-200/70">
         <div className="max-w-3xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-end gap-2">
           {dirty && (
             <span className="mr-auto inline-flex items-center gap-1.5 text-[11px] text-temple-500 min-w-0" title="Your work is kept on this device until you save">
