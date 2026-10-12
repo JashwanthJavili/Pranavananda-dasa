@@ -8,7 +8,11 @@ const production = {
   appId: "1:137497887223:web:218ce234523691e1c76ef2"
 };
 
-const staging = {
+// The live build (`npm run build`, used for the live site) does not contain the staging project
+// at all, so the live site can only ever reach the live database (forseva-21d12).
+const IS_LIVE_BUILD = import.meta.env?.MODE === 'production';
+
+const staging = IS_LIVE_BUILD ? null : {
   apiKey: "AIzaSyB_uNZtOaPaX7sf8H_DlBCouuX622M2HxI",
   authDomain: "gitaforyouth-stg.firebaseapp.com",
   projectId: "gitaforyouth-stg",
@@ -33,8 +37,9 @@ const isLocal = !host || host === 'localhost' || host === '127.0.0.1'
   || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
 const modeEnv = import.meta.env?.MODE === 'staging' ? 'staging' : 'production';
 
-/** The database this address must use. */
-export const expectedEnvForThisAddress = () => (STAGING_SITES.includes(host) ? 'staging' : isLocal ? modeEnv : 'production');
+/** The database this address must use (a live build always uses the live database). */
+export const expectedEnvForThisAddress = () => (IS_LIVE_BUILD ? 'production'
+  : STAGING_SITES.includes(host) ? 'staging' : isLocal ? modeEnv : 'production');
 
-export const APP_ENV = expectedEnvForThisAddress();
-export const firebaseConfig = APP_ENV === 'staging' ? staging : production;
+export const APP_ENV = IS_LIVE_BUILD ? 'production' : expectedEnvForThisAddress();
+export const firebaseConfig = APP_ENV === 'staging' && staging ? staging : production;
