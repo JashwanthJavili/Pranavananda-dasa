@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ShieldAlert, Loader2, RefreshCw, LogOut, KeyRound } from 'lucide-react';
 import {
-  quizManagerAuthError, getQuizLinkIssue, quizAccountEmail, isQuizLinking, onQuizLinkingChanged,
+  quizManagerAuthError, getQuizLinkIssue, isQuizLinking, onQuizLinkingChanged,
 } from '../../../quiz/quizAdmin';
 
 function Shell({ icon: Icon, tone = 'saffron', title, children }) {
@@ -90,11 +90,10 @@ export default function QuizManagerGate({ manager, adminEmail, onLogout }) {
   const issue = getQuizLinkIssue();
   if (issue === 'mismatch') {
     return (
-      <Shell icon={KeyRound} title="Quiz access needs a quick fix">
+      <Shell icon={KeyRound} title="Please reset your password once">
         <p className="text-sm text-temple-600 leading-relaxed">
-          Your quiz access was set up with an older admin password (for example, before your password was reset by another Super Admin).
-          Please ask the project owner to remove the quiz access account <code className="font-mono text-xs break-all">{quizAccountEmail(adminEmail)}</code> in
-          Firebase Console → Authentication, then log out and log in again.
+          Quiz access is still using your old password. Please ask another Super Admin to reset your password
+          (Settings, the Reset Password button next to your name), then log out and log in with the new password. Everything works again after that.
         </p>
         {onLogout && (
           <button type="button" onClick={onLogout} className={`${btn} border border-cream-300 bg-white text-temple-800 font-medium`}>

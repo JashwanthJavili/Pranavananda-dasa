@@ -394,6 +394,32 @@ function submit(c, uid, quizId, regId, nAttempt, answers = { q1: 'a', q2: 'b' },
   await expect('a student cannot read the log', () => getDocs(collection(sa.db, 'profileEditLogs')), false);
   await expect('a signed-out visitor cannot read the log', () => getDocs(collection(anon.db, 'profileEditLogs')), false);
 
+  console.log('Password reset by another Super Admin: fresh quiz access (quizAccount)');
+  {
+    const SR = `reset${stamp}@example.com`;
+    const SRID = adminId(SR);
+    await ownerSet(`BhagavadGita/data/admins/${SRID}`, { email: SR, role: 'Super Admin', status: 'Active' });
+    const oldQa = client(); await createUserWithEmailAndPassword(oldQa.auth, `${SRID}@gfy-quiz.invalid`, 'OldPass#1');
+    await expect('before a reset, the usual quiz account works', () => getDocs(query(collection(oldQa.db, 'portalQuizKeys'))), true);
+    const early = client(); await createUserWithEmailAndPassword(early.auth, `${SRID}__abcd1234@gfy-quiz.invalid`, 'Evil#1234');
+    await expect('a renewed-looking account the record does not name is refused', () => getDocs(query(collection(early.db, 'portalQuizKeys'))), false);
+    const RENEWED = `${SRID}__k3j9x2pq@gfy-quiz.invalid`;
+    const fresh = client(); await createUserWithEmailAndPassword(fresh.auth, RENEWED, 'NewPass#1');
+    await expect('a regular Admin cannot name a quiz account on a Super Admin', () => setDoc(doc(qc.db, 'BhagavadGita', 'data', 'admins', SRID), { quizAccount: RENEWED }, { merge: true }), false);
+    await expect('a visitor cannot set quizAccount on a regular Admin', () => setDoc(doc(anon.db, 'BhagavadGita', 'data', 'admins', NEWAD), { quizAccount: `${NEWAD}__abcd1234@gfy-quiz.invalid` }, { merge: true }), false);
+    await expect('a visitor cannot create an admin record with quizAccount', () => setDoc(doc(anon.db, 'BhagavadGita', 'data', 'admins', `x${NEWAD}`), { email: 'x@example.com', role: 'Admin', quizAccount: 'x__abcd1234@gfy-quiz.invalid' }), false);
+    await expect('a visitor can still edit other fields of a regular Admin', () => setDoc(doc(anon.db, 'BhagavadGita', 'data', 'admins', `y${NEWAD}`), { email: 'y@example.com', role: 'Admin', status: 'Active' }), true);
+    await expect('Super Admin resets the password and names the fresh quiz account', () => setDoc(doc(qa.db, 'BhagavadGita', 'data', 'admins', SRID), { passwordHash: 'new', quizAccount: RENEWED }, { merge: true }), true);
+    await expect('the fresh quiz account works', () => getDocs(query(collection(fresh.db, 'portalQuizKeys'))), true);
+    await expect('the old quiz account (old password) stops working', () => getDocs(query(collection(oldQa.db, 'portalQuizKeys'))), false);
+    await expect('another renewed-looking account is still refused', () => getDocs(query(collection(early.db, 'portalQuizKeys'))), false);
+    await expect('the fresh account can manage admin records', () => setDoc(doc(fresh.db, 'BhagavadGita', 'data', 'admins', SRID), { name: 'Reset' }, { merge: true }), true);
+    await expect('the fresh account edits details with a log in its name', () => edit(fresh, RA, { editedByEmail: SR, editedByAccount: RENEWED }), true);
+    await expect('the fresh account cannot log as another admin', () => edit(fresh, RA, { editedByEmail: SA, editedByAccount: RENEWED }), false);
+    await ownerSet(`BhagavadGita/data/admins/${SRID}`, { email: SR, role: 'Super Admin', status: 'Revoked', quizAccount: RENEWED });
+    await expect('a revoked Super Admin\'s fresh account is refused', () => getDocs(query(collection(fresh.db, 'portalQuizKeys'))), false);
+  }
+
   console.log('Leftovers of a deleted registration can be cleared (live ones cannot)');
   const LOGIN_B = '+919000000002';
   await expect('student B saves their mobile login', () => setDoc(doc(sb.db, 'portalLogins', LOGIN_B), {

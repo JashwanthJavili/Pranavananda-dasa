@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { onQuizManagerChanged, refreshQuizManager, quizManagerSignOut, quizAccountEmail } from '../../../quiz/quizAdmin';
+import { onQuizManagerChanged, refreshQuizManager, quizManagerSignOut, isQuizAccountOf } from '../../../quiz/quizAdmin';
 
 /**
  * The quiz-manager Firebase session, linked automatically when a Super Admin logs in:
@@ -8,12 +8,12 @@ import { onQuizManagerChanged, refreshQuizManager, quizManagerSignOut, quizAccou
  */
 export default function useQuizManager(enabled = true, adminEmail = '') {
   const [state, setState] = useState({ status: enabled ? 'loading' : 'signed-out' });
-  const me = adminEmail ? quizAccountEmail(adminEmail) : '';
+  const me = String(adminEmail || '').trim().toLowerCase();
 
   useEffect(() => {
     if (!enabled) return undefined;
     return onQuizManagerChanged((next) => {
-      if (next.user && me && String(next.user.email || '').toLowerCase() !== me) {
+      if (next.user && me && !isQuizAccountOf(me, next.user.email)) {
         quizManagerSignOut();
         return;
       }

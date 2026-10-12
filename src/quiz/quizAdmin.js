@@ -5,7 +5,7 @@
 // that is listed in quizManagers/{email} (editable only in the Firebase Console).
 // This uses its own named Firebase app, so the quiz-manager session never mixes with a
 // student portal session in the same browser.
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, deleteApp } from 'firebase/app';
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, updatePassword,
@@ -32,7 +32,49 @@ const cleanEmail = (e) => String(e || '').trim().toLowerCase();
  * (e.g. testing_dev_com@gfy-quiz.invalid). It never clashes with a student portal account or
  * an older Firebase account on the real email. The .invalid domain never receives email.
  */
-export const quizAccountEmail = (adminEmail) => `${cleanEmail(adminEmail).replace(/[^a-z0-9]/g, '_')}@gfy-quiz.invalid`;
+export const quizAccountEmail = (adminEmail) => `${adminDocId(adminEmail)}@gfy-quiz.invalid`;
+const adminDocId = (adminEmail) => cleanEmail(adminEmail).replace(/[^a-z0-9]/g, '_');
+
+/**
+ * After a Super Admin resets another Super Admin's password, that admin gets a fresh quiz-access
+ * account (<doc id>__<8 letters/digits>@gfy-quiz.invalid) with the new password, named in their
+ * admin record as quizAccount. The rules then trust only that account for them.
+ */
+export const isQuizAccountOf = (adminEmail, account) => {
+  const a = cleanEmail(account);
+  const id = adminDocId(adminEmail);
+  return a === `${id}@gfy-quiz.invalid` || new RegExp(`^${id}__[a-z0-9]{8}@gfy-quiz[.]invalid$`).test(a);
+};
+
+/** The quiz-access account to sign in with: the one named in the admin record, else the usual one. */
+async function quizAccountFor(adminEmail) {
+  try {
+    const snap = await getDoc(doc(adb, 'BhagavadGita', 'data', 'admins', adminDocId(adminEmail)));
+    const named = cleanEmail(snap.exists() ? snap.data().quizAccount : '');
+    if (named && isQuizAccountOf(adminEmail, named)) return named;
+  } catch (e) { /* offline: try the usual account */ }
+  return quizAccountEmail(adminEmail);
+}
+
+/**
+ * Create a fresh quiz-access account with the given password (used when a Super Admin resets
+ * another Super Admin's password). Runs in a throwaway Firebase app, so the Super Admin doing
+ * the reset stays signed in as themselves. Returns the new account's email.
+ */
+export async function createRenewedQuizAccount(adminEmail, password) {
+  const suffix = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join('');
+  const email = `${adminDocId(adminEmail)}__${suffix}@gfy-quiz.invalid`;
+  const temp = initializeApp(withEmulatorConfig(firebaseConfig), `quiz-renew-${Date.now()}`);
+  try {
+    const tempAuth = getAuth(temp);
+    connectToEmulators(tempAuth, getFirestore(temp));
+    await createUserWithEmailAndPassword(tempAuth, email, password);
+    await signOut(tempAuth);
+    return email;
+  } finally {
+    deleteApp(temp).catch(() => {});
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Quiz manager session
@@ -113,7 +155,8 @@ export async function linkQuizManagerSession(email, password) {
 }
 
 async function linkSession(email, password) {
-  const e = quizAccountEmail(email);
+  const e = await quizAccountFor(email);
+  const renewed = e !== quizAccountEmail(email);
   const current = adminAuth.currentUser;
   if (current && cleanEmail(current.email) === e) {
     setQuizLinkIssue('');
@@ -129,6 +172,11 @@ async function linkSession(email, password) {
       setQuizLinkIssue('error');
       throw err;
     }
+    // A renewed account is created at the reset, never here
+    if (renewed) {
+      setQuizLinkIssue('mismatch');
+      throw err;
+    }
   }
   try {
     await createUserWithEmailAndPassword(adminAuth, e, password);
@@ -142,7 +190,7 @@ async function linkSession(email, password) {
 
 /** Keep the quiz-manager password in step when a Super Admin changes their admin password. */
 export async function syncQuizManagerPassword(email, currentPassword, newPassword) {
-  const e = quizAccountEmail(email);
+  const e = await quizAccountFor(email);
   await signInWithEmailAndPassword(adminAuth, e, currentPassword);
   await updatePassword(adminAuth.currentUser, newPassword);
   setQuizLinkIssue('');

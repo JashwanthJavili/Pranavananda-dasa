@@ -72,8 +72,11 @@ service cloud.firestore {
       match /admins/{adminId} {
         // Read is allowed so the Admin Login portal can verify coordinator credentials
         allow read: if true;
-        allow create: if !isSuperRole(request.resource.data) || isSuperAdminCaller();
-        allow update: if (!isSuperRole(resource.data) && !isSuperRole(request.resource.data)) || isSuperAdminCaller();
+        // quizAccount (which quiz-access account is trusted for this admin) is set by Super Admins only
+        allow create: if (!isSuperRole(request.resource.data) && !('quizAccount' in request.resource.data)) || isSuperAdminCaller();
+        allow update: if (!isSuperRole(resource.data) && !isSuperRole(request.resource.data)
+            && request.resource.data.get('quizAccount', '') == resource.data.get('quizAccount', ''))
+          || isSuperAdminCaller();
         allow delete: if !isSuperRole(resource.data) || isSuperAdminCaller();
       }
 
@@ -264,11 +267,24 @@ service cloud.firestore {
     // an active Super Admin, or of an email listed in quizManagers/{email} (Console only).
     // Super Admin records can only be created or changed by a signed-in Super Admin (see the
     // admins rules above), so nobody can make themselves a quiz manager.
-    // Quiz-access accounts are named <admin doc id>@gfy-quiz.invalid; a real email maps to
-    // the same doc id the admin dashboard uses (non a-z0-9 characters become _).
+    // Quiz-access accounts are named <admin doc id>@gfy-quiz.invalid, or, after a Super Admin
+    // reset that admin's password, <admin doc id>__<8 letters/digits>@gfy-quiz.invalid (the
+    // record's quizAccount). A real email maps to the same doc id the admin dashboard uses
+    // (non a-z0-9 characters become _).
+    function isQuizAccount() {
+      return request.auth.token.email.lower().matches('^[a-z0-9_]+@gfy-quiz[.]invalid$');
+    }
+
+    function isRenewedQuizAccount() {
+      return isQuizAccount() && request.auth.token.email.lower().matches('^[a-z0-9_]+__[a-z0-9]{8}@gfy-quiz[.]invalid$');
+    }
+
     function adminDocId() {
       let e = request.auth.token.email.lower();
-      return e.matches('^[a-z0-9_]+@gfy-quiz[.]invalid$') ? e.split('@')[0] : e.replace('[^a-z0-9]', '_');
+      let prefix = e.split('@')[0];
+      return !isQuizAccount() ? e.replace('[^a-z0-9]', '_')
+        : isRenewedQuizAccount() ? prefix.replace('__[a-z0-9]{8}$', '')
+        : prefix;
     }
 
     function adminRecord() {
@@ -279,11 +295,14 @@ service cloud.firestore {
       return d.get('role', '') in ['Super Admin', 'Super Administrator'];
     }
 
-    // A quiz-access account (<doc id>@gfy-quiz.invalid), or a real email Firebase has verified,
-    // so nobody can claim an admin's address by just creating an account with it
+    // A quiz-access account, or a real email Firebase has verified, so nobody can claim an
+    // admin's address by just creating an account with it. Once a record names its quizAccount,
+    // only that account is trusted (the one with the old password stops working).
     function trustedAdminEmail() {
       let e = request.auth.token.email.lower();
-      return e.matches('^[a-z0-9_]+@gfy-quiz[.]invalid$') || request.auth.token.email_verified == true;
+      let named = adminRecord().get('quizAccount', '');
+      return (isQuizAccount() && (named == '' ? !isRenewedQuizAccount() : e == named))
+        || (!isQuizAccount() && request.auth.token.email_verified == true);
     }
 
     function isActiveSuperAdmin() {
@@ -530,7 +549,7 @@ service cloud.firestore {
         // Attributed to the Super Admin who is signed in, not to anyone they name
         && d.editedByAccount == account
         && d.editedByEmail is string
-        && (by == account || by.replace('[^a-z0-9]', '_') + '@gfy-quiz.invalid' == account)
+        && (by == account || (isQuizAccount() && by.replace('[^a-z0-9]', '_') == adminDocId()))
         && d.editedAt == request.time
         // Written together with the registration change it records
         && exists(registrationPath(d.registrationId))
@@ -561,7 +580,7 @@ service cloud.firestore {
         // Attributed to the Super Admin who is signed in, not to anyone they name
         && d.deletedByAccount == account
         && d.deletedByEmail is string
-        && (by == account || by.replace('[^a-z0-9]', '_') + '@gfy-quiz.invalid' == account)
+        && (by == account || (isQuizAccount() && by.replace('[^a-z0-9]', '_') == adminDocId()))
         && d.deletedAt == request.time
         // Written together with hiding that same registration
         && exists(registrationPath(d.registrationId))

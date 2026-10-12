@@ -886,17 +886,42 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
   const docId = targetEmail.replace(/[^a-z0-9]/g, '_');
   const newHash = await hashPassword(cleanPass);
 
+  // A Super Admin's quiz access signs in with their password, and only they could change it.
+  // So they get a fresh quiz-access account with the new password, named in their record.
+  let quizAccount = null;
+  try {
+    const snap = await getDoc(doc(db, 'BhagavadGita', 'data', 'admins', docId));
+    if (snap.exists() && isSuperAdminUser(snap.data())) {
+      const { createRenewedQuizAccount } = await import('./quiz/quizAdmin');
+      quizAccount = await createRenewedQuizAccount(targetEmail, cleanPass);
+    }
+  } catch (err) {
+    console.warn('Quiz access for the new password was not prepared:', err?.code || err);
+    return { success: false, error: 'Could not reset the password right now. Please check your connection and try again.' };
+  }
+
   try {
     const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
       passwordHash: newHash,
       password: deleteField(),
       updatedAt: serverTimestamp(),
-      passwordResetBy: callerUser?.email || 'Super Admin'
+      passwordResetBy: callerUser?.email || 'Super Admin',
+      ...(quizAccount ? { quizAccount } : {}),
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore reset password error:', err);
     return { success: false, error: adminWriteError(err) };
+  }
+
+  // Reset their own password: move this session to the new quiz access right away
+  if (quizAccount && (callerUser?.email || '').trim().toLowerCase() === targetEmail) {
+    try {
+      const { linkQuizManagerSession } = await import('./quiz/quizAdmin');
+      await linkQuizManagerSession(targetEmail, cleanPass);
+    } catch (err) {
+      console.warn('Quiz access not re-linked:', err?.code || err);
+    }
   }
 
   // Update Local Cache
