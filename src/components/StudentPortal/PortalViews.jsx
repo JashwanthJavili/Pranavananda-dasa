@@ -88,11 +88,8 @@ function QuizCard({ summary, onOpen, onStartQuiz }) {
           >
             <span aria-hidden className="absolute left-0 inset-y-0 w-1 bg-gradient-to-b from-saffron-400 to-gold-400" />
             <div className="flex-1 min-w-0 space-y-0.5">
-              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-saffron-700">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-saffron-700">
                 {q.weekNumber ? `Week ${q.weekNumber}` : 'Quiz'}
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-px text-[9px] text-emerald-700 normal-case tracking-normal font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Open
-                </span>
               </p>
               <p className="text-sm sm:text-base font-semibold text-temple-900 leading-snug truncate">{q.title}</p>
               {q.closesAt && (
