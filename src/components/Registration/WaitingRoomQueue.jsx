@@ -189,6 +189,7 @@ export default function WaitingRoomQueue({
         {/* Top Home Link */}
         <a
           href="https://pranavanandadas.com/home"
+          onClick={onBackToHome ? (e) => { e.preventDefault(); onBackToHome(); } : undefined}
           className="inline-flex items-center justify-center px-4 sm:px-5 py-1.5 rounded-full bg-white/85 hover:bg-white border border-amber-200/70 text-temple-700 hover:text-saffron-700 font-medium text-xs sm:text-sm shadow-2xs hover:shadow-soft transition-all cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50"
         >
           Home

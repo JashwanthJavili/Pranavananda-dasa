@@ -17,7 +17,8 @@ export default function StepSuccess({
   onRegisterAnother,
   initialSettings,
   isReturning = false,
-  onBack
+  onBack,
+  onHome,
 }) {
   const [copied, setCopied] = useState(false);
   const [settings, setSettings] = useState(() => {
@@ -219,6 +220,7 @@ export default function StepSuccess({
 
         <a
           href="https://pranavanandadas.com/home"
+          onClick={onHome ? (e) => { e.preventDefault(); onHome(); } : undefined}
           className="w-full flex items-center justify-center py-3 px-4 rounded-xl bg-cream-50 hover:bg-cream-200/80 border border-cream-300 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all cursor-pointer transform hover:-translate-y-0.5 active:scale-[0.98]"
         >
           Home

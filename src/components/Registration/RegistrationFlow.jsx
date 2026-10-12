@@ -126,6 +126,12 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
     return { isRegistrationOpen: true, closedNotice: '', isQueueEnabled: false, queueWaitSeconds: 60, queueMessage: '' };
   });
 
+  // Home goes back to this site's landing page; the main website only when the landing page is turned off
+  const goHome = () => {
+    if (onBackToHome && showLandingPage !== false && settings.showLandingPage !== false) onBackToHome();
+    else window.location.href = 'https://pranavanandadas.com/home';
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [errors, setErrors] = useState({});
@@ -420,14 +426,15 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                   <span>Already Registered?</span>
                 </button>
               )}
-              <a
-                href="https://pranavanandadas.com/home"
+              <button
+                type="button"
+                onClick={goHome}
                 aria-label="Home"
                 className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-cream-300 bg-white hover:bg-cream-100 hover:border-gold-300 text-temple-700 hover:text-temple-900 font-medium text-xs sm:text-sm shadow-soft transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 cursor-pointer"
               >
                 <Home className="w-4 h-4" />
                 <span className="hidden sm:inline">Home</span>
-              </a>
+              </button>
             </nav>
           ) : (
             <div className="w-6" />
@@ -454,6 +461,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                   formData={foundReg}
                   initialSettings={settings}
                   onBack={() => { setFoundReg(null); setLookupView('form'); }}
+                  onHome={goHome}
                 />
               </div>
             </div>
@@ -481,12 +489,13 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
 
               {/* Action Button */}
               <div className="pt-2">
-                <a
-                  href="https://pranavanandadas.com/home"
+                <button
+                  type="button"
+                  onClick={goHome}
                   className="w-full py-3 sm:py-3.5 px-5 rounded-2xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs sm:text-sm shadow-soft hover:shadow-soft-md transition-all flex items-center justify-center cursor-pointer"
                 >
                   Home
-                </a>
+                </button>
               </div>
 
               {/* Footer Stamp */}
@@ -500,7 +509,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
               waitSeconds={settings.queueWaitSeconds || 60}
               customMessage={settings.queueMessage || ''}
               onAdmitted={() => setIsQueuePassed(true)}
-              onBackToHome={showLandingPage !== false && settings.showLandingPage !== false ? onBackToHome : null}
+              onBackToHome={goHome}
             />
           ) : (
             <div className="max-w-2xl mx-auto w-full">
@@ -563,6 +572,7 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
                       registrationId={generatedId}
                       formData={formData}
                       onRegisterAnother={handleRegisterAnother}
+                      onHome={goHome}
                       initialSettings={settings}
                     />
                   )}
