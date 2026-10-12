@@ -2,7 +2,7 @@ import React from 'react';
 import {
   BookOpen, ChevronRight, UserPen, Clock, ArrowRight, CheckCircle2,
   Mail, Phone, MapPin, Home, Hash, GraduationCap, Briefcase, Cake, User, CalendarDays,
-  BadgeCheck, HelpCircle, Heart, Target, Compass,
+  HelpCircle, Heart, Target, Compass,
 } from 'lucide-react';
 import { formatWhen } from '../../quiz/quizModel';
 import { useOpenHelp } from './helpContext';
@@ -184,7 +184,6 @@ export function ProfileView({ profile }) {
   const education = p.education === 'Other' && p.otherEducation ? p.otherEducation : p.education;
   const source = p.sourceOfDiscovery === 'Others' && p.sourceOfDiscoveryOther ? p.sourceOfDiscoveryOther : p.sourceOfDiscovery;
   const joined = formatDate(p.createdAt);
-  const confirmed = /confirmed|active|approved/i.test(p.status || '');
   const reflections = [
     [HelpCircle, 'My question for Pranavananda Prabhu', p.questionForPranavanandaPrabhu],
     [Heart, 'What inspired me to join', p.inspirationToJoin],
@@ -207,14 +206,6 @@ export function ProfileView({ profile }) {
               {p.registrationId && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-white/80 border border-saffron-200 px-2.5 py-0.5 text-xs font-bold text-temple-900 tabular-nums">
                   <Hash className="w-3 h-3 text-saffron-600" />{p.registrationId}
-                </span>
-              )}
-              {p.status && (
-                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
-                  confirmed ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white/80 border-cream-300 text-temple-600'
-                }`}
-                >
-                  {confirmed && <BadgeCheck className="w-3 h-3" />}{p.status}
                 </span>
               )}
             </div>
