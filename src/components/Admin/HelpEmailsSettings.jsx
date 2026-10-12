@@ -53,13 +53,13 @@ export default function HelpEmailsSettings({ callerUser }) {
   const remove = (email) => persist(emails.filter((x) => x !== email), email, `${email} removed.`);
 
   return (
-    <div className="w-full bg-cream-50 rounded-3xl border border-cream-200 shadow-soft p-5 sm:p-6 space-y-5 text-left">
+    <div className="w-full bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-5 text-left">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-700 shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-700 shrink-0">
           <BellRing className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-temple-900">Contact Us emails</h3>
+          <h3 className="text-sm font-bold text-temple-900">Contact Us emails</h3>
           <p className="text-xs text-temple-500 leading-relaxed">
             When a student sends a message through Contact Us, an email goes to every address below. Messages are also always saved in the Contact Us tab.
           </p>

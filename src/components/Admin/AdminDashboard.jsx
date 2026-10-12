@@ -1694,25 +1694,25 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             </div>
 
             {/* COMPACT SYSTEM OVERVIEW STRIP */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div className="bg-white rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 border border-cream-200 shadow-2xs flex items-center justify-between">
+            <div className={`grid grid-cols-2 gap-3 ${settingsSection ? 'hidden lg:grid' : ''}`}>
+              <div className="bg-white rounded-2xl px-4 py-3 border border-cream-200 shadow-2xs flex items-center justify-between">
                 <div>
                   <span className="text-[10px] sm:text-[11px] uppercase tracking-wide text-temple-500 font-semibold block">
                     Total Registrations
                   </span>
-                  <span className="text-lg sm:text-2xl font-bold text-temple-900 font-mono">
+                  <span className="text-lg font-bold text-temple-900 tabular-nums">
                     {stats.total}
                   </span>
                 </div>
                 <Users className="w-5 h-5 text-temple-400 hidden sm:block" />
               </div>
 
-              <div className="bg-white rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 border border-cream-200 shadow-2xs flex items-center justify-between">
+              <div className="bg-white rounded-2xl px-4 py-3 border border-cream-200 shadow-2xs flex items-center justify-between">
                 <div>
                   <span className="text-[10px] sm:text-[11px] uppercase tracking-wide text-emerald-700 font-semibold block">
                     Today Registrations
                   </span>
-                  <span className="text-lg sm:text-2xl font-bold text-emerald-800 font-mono">
+                  <span className="text-lg font-bold text-emerald-800 tabular-nums">
                     {stats.todayCount}
                   </span>
                 </div>
@@ -1731,18 +1731,21 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'branding' && (
                   <>
                     {/* SECTION 2: GLOBAL COURSE & HEADER BRANDING */}
-                    <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
-                      <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
-                        <Palette className="w-4 h-4 text-saffron-600" />
-                        <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
-                          Header &amp; Course Branding
-                        </h2>
+                    <div className="bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-600 shrink-0">
+                          <Palette className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="text-sm font-bold text-temple-900">Header &amp; branding</h2>
+                          <p className="text-[11px] text-temple-500">How the course name appears at the top of the website</p>
+                        </div>
                       </div>
 
-                      <form onSubmit={handleSaveCourseTitle} className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-4 shadow-2xs">
+                      <form onSubmit={handleSaveCourseTitle} className="p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                           <div className="space-y-1">
-                            <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                            <label className="block text-xs font-medium text-temple-700">
                               Course Name <span className="text-saffron-600">*</span>
                             </label>
                             <input
@@ -1751,12 +1754,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               placeholder="e.g. Gita for Youth"
                               value={courseNameDraft}
                               onChange={(e) => setCourseNameDraft(e.target.value)}
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
+                              className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
                             />
                           </div>
 
                           <div className="space-y-1">
-                            <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                            <label className="block text-xs font-medium text-temple-700">
                               Header Subtitle
                             </label>
                             <input
@@ -1764,14 +1767,14 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               placeholder="Optional tagline/subtitle"
                               value={courseSubtitleDraft}
                               onChange={(e) => setCourseSubtitleDraft(e.target.value)}
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
+                              className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all font-medium"
                             />
                           </div>
                         </div>
 
                         {/* Font Size Dropdown */}
                         <div className="space-y-2 pt-2 border-t border-cream-100">
-                          <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                          <label className="block text-xs font-medium text-temple-700">
                             Title Font Size
                           </label>
                           <FancySelect
@@ -1787,7 +1790,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         </div>
 
                         {/* Header Live Preview */}
-                        <div className="p-3.5 rounded-2xl bg-cream-100/60 border border-cream-200/80 flex items-center justify-between">
+                        <div className="p-3 rounded-xl bg-white border border-cream-200 flex items-center justify-between">
                           <span className="text-[11px] text-temple-500 font-medium">Header Live Preview:</span>
                           <BrandLogo 
                             title={courseNameDraft || 'Gita for Youth'} 
@@ -1801,7 +1804,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                           <button
                             type="button"
                             onClick={handleResetBrandingDraft}
-                            className="px-3.5 py-2 rounded-xl bg-cream-100 hover:bg-cream-200 active:bg-cream-300 text-temple-700 font-semibold text-xs border border-cream-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                            className="px-3 py-2 rounded-lg bg-cream-100 hover:bg-cream-200 active:bg-cream-300 text-temple-700 font-semibold text-xs border border-cream-300 transition-all flex items-center gap-1.5 cursor-pointer"
                           >
                             <RotateCcw className="w-3.5 h-3.5 text-temple-500" />
                             <span>Reset Defaults</span>
@@ -1810,7 +1813,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                           <button
                             type="submit"
                             disabled={isUpdatingBranding}
-                            className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            className="px-3.5 py-2 rounded-lg bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                           >
                             {isUpdatingBranding ? (
                               <>
@@ -1832,17 +1835,20 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'registration' && (
                   <>
                     {/* SECTION 3: REGISTRATION SETTINGS */}
-                    <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
-                      <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
-                        <Power className="w-4 h-4 text-saffron-600" />
-                        <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
-                          Registration &amp; Website Flow Controls
-                        </h2>
+                    <div className="bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-600 shrink-0">
+                          <Power className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="text-sm font-bold text-temple-900">Registration &amp; waiting room</h2>
+                          <p className="text-[11px] text-temple-500">Landing page, open or pause, and the queue</p>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
                         {/* Landing Page Display Mode */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white border border-cream-200 gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 gap-3">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-xl bg-saffron-50 text-saffron-600 flex items-center justify-center flex-shrink-0 border border-saffron-100">
                               <Globe className="w-4 h-4" />
@@ -1857,7 +1863,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               type="button"
                               onClick={() => handleToggleLandingPage(true)}
                               disabled={isUpdatingLandingPage}
-                              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                 settings.showLandingPage !== false
                                   ? 'bg-emerald-600 text-white shadow-soft ring-2 ring-emerald-500/20'
                                   : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
@@ -1872,7 +1878,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               type="button"
                               onClick={() => handleToggleLandingPage(false)}
                               disabled={isUpdatingLandingPage}
-                              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                 settings.showLandingPage === false
                                   ? 'bg-amber-600 text-white shadow-soft ring-2 ring-amber-500/20'
                                   : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
@@ -1886,7 +1892,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         </div>
 
                         {/* Registration Switch Row */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-white border border-cream-200 gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 gap-3">
                           <div>
                             <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
                               Enable Registration Form
@@ -1901,7 +1907,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               type="button"
                               onClick={() => handleToggleRegistrationStatus(true)}
                               disabled={isUpdatingStatus || settings.isRegistrationOpen}
-                              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                              className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                 settings.isRegistrationOpen
                                   ? 'bg-emerald-600 text-white shadow-soft ring-2 ring-emerald-500/20'
                                   : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
@@ -1914,7 +1920,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               type="button"
                               onClick={() => setStatusConfirmTarget(false)}
                               disabled={isUpdatingStatus || !settings.isRegistrationOpen}
-                              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                              className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                 !settings.isRegistrationOpen
                                   ? 'bg-amber-600 text-white shadow-soft ring-2 ring-amber-500/20'
                                   : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
@@ -1926,9 +1932,9 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         </div>
 
                         {/* Custom Closed Notice Message Form */}
-                        <form onSubmit={handleSaveNoticeMessage} className="p-4 rounded-2xl bg-white border border-cream-200 space-y-3">
+                        <form onSubmit={handleSaveNoticeMessage} className="p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 space-y-3">
                           <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-temple-800 uppercase tracking-wide">
+                            <label className="block text-xs font-semibold text-temple-800">
                               Registration Paused Notice Message
                             </label>
                             <p className="text-xs text-temple-500">
@@ -1941,13 +1947,13 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             value={closedNoticeDraft}
                             onChange={(e) => setClosedNoticeDraft(e.target.value)}
                             placeholder="e.g. Registrations for Gita for Youth are currently paused. Please contact program coordinators for upcoming schedules."
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none leading-relaxed"
+                            className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none leading-relaxed"
                           />
 
                           <div className="flex justify-end">
                             <button
                               type="submit"
-                              className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all cursor-pointer"
+                              className="px-3.5 py-2 rounded-lg bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-2xs transition-all cursor-pointer"
                             >
                               Save Notice Message
                             </button>
@@ -1955,7 +1961,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         </form>
 
                         {/* Traffic Surge & Virtual Waiting Room Controls */}
-                        <div className="p-4 rounded-2xl bg-white border border-cream-200 space-y-4">
+                        <div className="p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 space-y-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cream-100 pb-3">
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-2">
@@ -1974,7 +1980,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                 type="button"
                                 onClick={() => handleToggleQueueMode(false)}
                                 disabled={isUpdatingQueue || !settings.isQueueEnabled}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                   !settings.isQueueEnabled
                                     ? 'bg-emerald-600 text-white shadow-soft'
                                     : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
@@ -1987,7 +1993,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                 type="button"
                                 onClick={() => handleToggleQueueMode(true)}
                                 disabled={isUpdatingQueue || settings.isQueueEnabled}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                   settings.isQueueEnabled
                                     ? 'bg-saffron-600 text-white shadow-soft ring-2 ring-saffron-500/20'
                                     : 'bg-cream-100 text-temple-600 hover:bg-cream-200'
@@ -2004,7 +2010,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               {/* Clean Wait Duration Selector */}
                               <div className="lg:col-span-6 space-y-2">
                                 <div className="flex items-center justify-between">
-                                  <label className="block text-xs font-semibold text-temple-750 uppercase tracking-wider">
+                                  <label className="block text-xs font-medium text-temple-700">
                                     Queue Wait Duration
                                   </label>
                                   <span className="text-xs font-semibold text-saffron-800 bg-saffron-50 px-2.5 py-0.5 rounded-lg border border-saffron-200">
@@ -2053,7 +2059,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
                               {/* Custom Queue Guidance Message */}
                               <div className="lg:col-span-6 space-y-2">
-                                <label className="block text-xs font-semibold text-temple-750 uppercase tracking-wider">
+                                <label className="block text-xs font-medium text-temple-700">
                                   Queue Message (Optional)
                                 </label>
                                 <textarea
@@ -2061,7 +2067,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   value={queueMsgDraft}
                                   onChange={(e) => setQueueMsgDraft(e.target.value)}
                                   placeholder="e.g. Registrations are being admitted in an orderly queue. Please wait a moment..."
-                                  className="w-full px-3 py-2.5 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none shadow-2xs"
+                                  className="w-full px-3 py-2.5 rounded-lg border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all resize-none shadow-2xs"
                                 />
                               </div>
                             </div>
@@ -2072,7 +2078,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               </span>
                               <button
                                 type="submit"
-                                className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all cursor-pointer"
+                                className="px-3.5 py-2 rounded-lg bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-2xs transition-all cursor-pointer"
                               >
                                 Save Queue Settings
                               </button>
@@ -2086,7 +2092,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'whatsapp' && (
                   <>
                     {/* SECTION 6: WHATSAPP COMMUNITY JOINING SETTINGS */}
-                    <div className="pt-2">
+                    <div>
                       <WhatsAppConfigModule callerUser={adminUser} />
                     </div>
                   </>
@@ -2094,7 +2100,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'contactEmails' && (
                   <>
                     {/* SECTION 7: HELP REQUEST EMAIL RECIPIENTS */}
-                    <div className="pt-2">
+                    <div>
                       <HelpEmailsSettings callerUser={adminUser} />
                     </div>
                   </>
@@ -2102,7 +2108,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'social' && (
                   <>
                     {/* SOCIAL MEDIA LINKS (shown on students' quiz results) */}
-                    <div className="pt-2">
+                    <div>
                       <SocialLinksSettings callerUser={adminUser} />
                     </div>
                   </>
@@ -2111,12 +2117,15 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   <>
                     {/* SECTION 3: ADMIN MANAGEMENT & ROLE-BASED ACCESS CONTROL (Super Admin Only) */}
                     {isSuperAdmin && (
-                      <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
-                        <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
-                          <ShieldCheck className="w-4 h-4 text-saffron-600" />
-                          <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
-                            Coordinator Access &amp; Role Management
-                          </h2>
+                      <div className="bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-600 shrink-0">
+                            <ShieldCheck className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <h2 className="text-sm font-bold text-temple-900">Admins &amp; roles</h2>
+                            <p className="text-[11px] text-temple-500">Who can open this dashboard, and what they can do</p>
+                          </div>
                         </div>
 
                         {/* Error Message */}
@@ -2128,10 +2137,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         )}
 
                         {/* Form: Add New Administrator */}
-                        <div className="p-4 rounded-2xl bg-white border border-cream-200 space-y-3">
+                        <div className="p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 space-y-3">
                           <div className="flex items-center gap-2">
                             <UserPlus className="w-4 h-4 text-saffron-600" />
-                            <h3 className="text-xs font-semibold uppercase tracking-wider text-temple-800">
+                            <h3 className="text-sm font-semibold text-temple-900">
                               Grant Admin Access to New Coordinator
                             </h3>
                           </div>
@@ -2140,7 +2149,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
                               {/* Email */}
                               <div className="sm:col-span-4 space-y-1">
-                                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                                <label className="block text-xs font-medium text-temple-700">
                                   Email Address <span className="text-saffron-600">*</span>
                                 </label>
                                 <input
@@ -2152,13 +2161,13 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                     setNewAdminEmail(e.target.value);
                                     if (adminActionError) setAdminActionError('');
                                   }}
-                                  className="w-full px-3 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                                  className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
                                 />
                               </div>
 
                               {/* Full Name */}
                               <div className="sm:col-span-3 space-y-1">
-                                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                                <label className="block text-xs font-medium text-temple-700">
                                   Full Name / Title <span className="text-saffron-600">*</span>
                                 </label>
                                 <input
@@ -2167,13 +2176,13 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   placeholder="e.g. Madhava Das"
                                   value={newAdminName}
                                   onChange={(e) => setNewAdminName(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                                  className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
                                 />
                               </div>
 
                               {/* Initial Password with Eye toggle */}
                               <div className="sm:col-span-3 space-y-1">
-                                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                                <label className="block text-xs font-medium text-temple-700">
                                   Initial Password <span className="text-saffron-600">*</span>
                                 </label>
                                 <div className="relative">
@@ -2186,7 +2195,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                       setNewAdminPassword(e.target.value);
                                       if (adminActionError) setAdminActionError('');
                                     }}
-                                    className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                                    className="w-full pl-3 pr-9 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 placeholder:text-temple-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
                                   />
                                   <button
                                     type="button"
@@ -2201,7 +2210,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
                               {/* Role Selector: Admin or Super Admin */}
                               <div className="sm:col-span-2 space-y-1">
-                                <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                                <label className="block text-xs font-medium text-temple-700">
                                   Role
                                 </label>
                                 <FancySelect
@@ -2220,7 +2229,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               <button
                                 type="submit"
                                 disabled={isAddingAdmin || !newAdminEmail.trim() || !newAdminPassword.trim()}
-                                className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                className="px-3.5 py-2 rounded-lg bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                               >
                                 {isAddingAdmin ? (
                                   <>
@@ -2241,7 +2250,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         {/* List of Authorized Administrators */}
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-temple-800">
+                            <h3 className="text-sm font-semibold text-temple-900">
                               Authorized Coordinators ({adminsList.length})
                             </h3>
                           </div>
@@ -2256,12 +2265,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               return (
                                 <div
                                   key={adm.email || adm.id}
-                                  className="p-3.5 sm:p-4 rounded-2xl bg-white border border-cream-200/90 shadow-2xs hover:border-cream-300 transition-all flex flex-col gap-3 text-left"
+                                  className="p-3 rounded-xl bg-cream-50/60 border border-cream-200 hover:border-cream-300 transition-all flex flex-col gap-3 text-left"
                                 >
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     {/* Left: Avatar & Coordinator Info */}
                                     <div className="flex items-center gap-3 min-w-0">
-                                      <div className={`w-10 h-10 rounded-xl font-bold text-xs flex items-center justify-center flex-shrink-0 border uppercase shadow-2xs ${
+                                      <div className={`w-9 h-9 rounded-full font-bold text-xs flex items-center justify-center flex-shrink-0 border uppercase shadow-2xs ${
                                         isAdmSuper 
                                           ? 'bg-purple-50 text-purple-700 border-purple-200' 
                                           : 'bg-saffron-50 text-saffron-700 border-saffron-200'
@@ -2316,7 +2325,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                           setShowResetConfirmPass(false);
                                           setResetPasswordError('');
                                         }}
-                                        className="px-3 py-1.5 rounded-xl border border-saffron-200 bg-saffron-50/80 hover:bg-saffron-100 text-saffron-800 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                        className="px-2.5 py-1.5 rounded-lg border border-saffron-200 bg-saffron-50/80 hover:bg-saffron-100 text-saffron-800 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                                         title={`Reset password for ${adm.name || adm.email}`}
                                       >
                                         <KeyRound className="w-3.5 h-3.5 text-saffron-600" />
@@ -2327,7 +2336,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                         <button
                                           type="button"
                                           onClick={() => setAdminDeleteConfirm(adm)}
-                                          className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                          className="px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50/60 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                                           title="Revoke admin access"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" />
@@ -2370,18 +2379,21 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'password' && (
                   <>
                     {/* SECTION 4: SECURITY & PASSWORD CREDENTIALS */}
-                    <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
-                      <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
-                        <KeyRound className="w-4 h-4 text-saffron-600" />
-                        <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
-                          Security &amp; Account Credentials
-                        </h2>
+                    <div className="bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-600 shrink-0">
+                          <KeyRound className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="text-sm font-bold text-temple-900">My password</h2>
+                          <p className="text-[11px] text-temple-500">Change the password you log in with</p>
+                        </div>
                       </div>
 
                       {/* Change Password Form with Eye Toggles */}
-                      <div className="p-4 sm:p-5 rounded-2xl bg-white border border-cream-200 space-y-3 max-w-2xl">
+                      <div className="space-y-3">
                         <div className="space-y-1">
-                          <h3 className="text-xs font-semibold text-temple-800 uppercase tracking-wide">
+                          <h3 className="text-sm font-semibold text-temple-900">
                             Change Coordinator Password
                           </h3>
                           <p className="text-xs text-temple-500">
@@ -2402,7 +2414,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
                         <form onSubmit={handleChangePasswordSubmit} className="space-y-3">
                           <div className="space-y-1">
-                            <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                            <label className="block text-xs font-medium text-temple-700">
                               Current Password <span className="text-saffron-600">*</span>
                             </label>
                             <div className="relative">
@@ -2412,7 +2424,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                 placeholder="Enter your current password"
                                 value={currentPasswordInput}
                                 onChange={(e) => setCurrentPasswordInput(e.target.value)}
-                                className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                                className="w-full pl-3 pr-9 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
                               />
                               <button
                                 type="button"
@@ -2426,7 +2438,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                              <label className="block text-xs font-medium text-temple-700">
                                 New Password <span className="text-saffron-600">*</span>
                               </label>
                               <div className="relative">
@@ -2436,7 +2448,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   placeholder="Min 6 characters"
                                   value={newPasswordInput}
                                   onChange={(e) => setNewPasswordInput(e.target.value)}
-                                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                                  className="w-full pl-3 pr-9 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
                                 />
                                 <button
                                   type="button"
@@ -2449,7 +2461,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             </div>
 
                             <div className="space-y-1">
-                              <label className="block text-[11px] font-semibold text-temple-700 uppercase">
+                              <label className="block text-xs font-medium text-temple-700">
                                 Confirm New Password <span className="text-saffron-600">*</span>
                               </label>
                               <div className="relative">
@@ -2459,7 +2471,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   placeholder="Re-enter new password"
                                   value={confirmPasswordInput}
                                   onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-cream-300 bg-cream-50 text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
+                                  className="w-full pl-3 pr-9 py-2 rounded-lg border border-cream-300 bg-white text-temple-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-saffron-500/20 focus:border-saffron-500 transition-all"
                                 />
                                 <button
                                   type="button"
@@ -2476,7 +2488,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             <button
                               type="submit"
                               disabled={passwordChangeLoading || !currentPasswordInput || !newPasswordInput || !confirmPasswordInput}
-                              className="px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-medium text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                              className="px-3.5 py-2 rounded-lg bg-saffron-500 hover:bg-saffron-600 active:bg-saffron-700 text-white font-semibold text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                             >
                               {passwordChangeLoading ? (
                                 <>
@@ -2499,21 +2511,24 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'backup' && (
                   <>
                     {/* SECTION 5: BACKUP & DATA MANAGEMENT */}
-                    <div className="bg-cream-50 rounded-3xl p-5 sm:p-6 border border-cream-200 shadow-soft space-y-4">
-                      <div className="flex items-center gap-2 border-b border-cream-200 pb-3">
-                        <Database className="w-4 h-4 text-saffron-600" />
-                        <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-temple-800">
-                          Backup &amp; Data Management
-                        </h2>
+                    <div className="bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-600 shrink-0">
+                          <Database className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="text-sm font-bold text-temple-900">Backup &amp; export</h2>
+                          <p className="text-[11px] text-temple-500">Download a copy of the registrations</p>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 
                         {/* Excel Export Card */}
-                        <div className="p-4 rounded-2xl bg-white border border-cream-200 shadow-2xs space-y-3 flex flex-col justify-between">
+                        <div className="p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 space-y-3 flex flex-col justify-between">
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2 text-emerald-700">
-                              <FileSpreadsheet className="w-5 h-5" />
+                              <FileSpreadsheet className="w-4 h-4" />
                               <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
                                 Export to Excel (.xlsx)
                               </h3>
@@ -2526,7 +2541,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                           <button
                             type="button"
                             onClick={handleExportExcel}
-                            className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs transition-colors shadow-soft flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full py-2 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs transition-colors shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <FileSpreadsheet className="w-4 h-4" />
                             <span>Download Excel Spreadsheet</span>
@@ -2534,10 +2549,10 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                         </div>
 
                         {/* Complete JSON Database Snapshot Card */}
-                        <div className="p-4 rounded-2xl bg-white border border-cream-200 shadow-2xs space-y-3 flex flex-col justify-between">
+                        <div className="p-3.5 rounded-xl bg-cream-50/60 border border-cream-200 space-y-3 flex flex-col justify-between">
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2 text-saffron-700">
-                              <Database className="w-5 h-5" />
+                              <Database className="w-4 h-4" />
                               <h3 className="text-xs sm:text-sm font-semibold text-temple-900">
                                 Full Database Backup (.json)
                               </h3>
@@ -2551,7 +2566,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             type="button"
                             onClick={handleBackupDatabase}
                             disabled={isBackingUp}
-                            className="w-full py-2.5 px-4 rounded-xl bg-saffron-600 hover:bg-saffron-700 active:bg-saffron-800 text-white font-semibold text-xs transition-colors shadow-soft flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            className="w-full py-2 px-3.5 rounded-lg bg-saffron-600 hover:bg-saffron-700 active:bg-saffron-800 text-white font-semibold text-xs transition-colors shadow-2xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                           >
                             <Database className={`w-4 h-4 ${isBackingUp ? 'animate-spin' : ''}`} />
                             <span>{isBackingUp ? 'Generating Backup Snapshot...' : 'Download JSON Snapshot'}</span>
@@ -2560,11 +2575,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
                         {/* Developer Reset Sequence & Auto-Archive to Trash Card (staging only, never live) */}
                         {isStagingBuild() && (
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 shadow-2xs space-y-3 flex flex-col justify-between">
+                        <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-3 flex flex-col justify-between">
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 text-amber-900">
-                                <RotateCcw className="w-5 h-5 text-amber-700" />
+                                <RotateCcw className="w-4 h-4 text-amber-700" />
                                 <h3 className="text-xs sm:text-sm font-bold text-amber-950">
                                   Reset Sequence
                                 </h3>
@@ -2584,7 +2599,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                               setResetConfirmText('');
                               setShowResetModal(true);
                             }}
-                            className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs transition-colors shadow-soft flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full py-2 px-3.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs transition-colors shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <RotateCcw className="w-4 h-4" />
                             <span>Reset Counter to BG26-100</span>
@@ -2596,7 +2611,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
                       {/* Latest Backup Log Metadata */}
                       {lastBackupInfo && (
-                        <div className="p-3 rounded-2xl bg-white/80 border border-cream-200 text-xs flex items-center justify-between">
+                        <div className="p-3 rounded-xl bg-cream-50/60 border border-cream-200 text-xs flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <CheckCircle className="w-4 h-4 text-emerald-600" />
                             <span>Latest Export: <strong>{lastBackupInfo.type}</strong> ({lastBackupInfo.count} records)</span>
@@ -2612,7 +2627,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'protection' && (
                   <>
                     {/* DATA PROTECTION (deleting registrations is off by default) */}
-                    <div className="pt-2">
+                    <div>
                       <DataProtectionSettings callerUser={adminUser} enabled={canDeleteRegs} onChange={setCanDeleteRegs} />
                     </div>
                   </>
@@ -2620,7 +2635,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 {settingsSection === 'deletionLog' && (
                   <>
                     {/* DELETION LOG (permanent: who deleted which participant, and when) */}
-                    <div className="pt-2">
+                    <div>
                       <DeletionLogs manager={quizManager} refreshKey={deletionLogKey} />
                     </div>
                   </>

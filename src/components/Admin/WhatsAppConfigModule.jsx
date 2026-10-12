@@ -134,7 +134,7 @@ export default function WhatsAppConfigModule({ callerUser = null, onSaved = null
 
   if (loading) {
     return (
-      <div className="bg-white/80 backdrop-blur-md rounded-3xl p-10 text-center border border-cream-200/90 shadow-soft w-full space-y-3">
+      <div className="bg-white rounded-2xl p-8 text-center border border-cream-200/90 shadow-soft w-full space-y-3">
         <div className="w-9 h-9 border-3 border-saffron-500 border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-xs text-temple-600 font-semibold tracking-wide">Loading WhatsApp Configurations...</p>
       </div>
@@ -175,7 +175,7 @@ export default function WhatsAppConfigModule({ callerUser = null, onSaved = null
             </div>
 
             <div className="space-y-1.5">
-              <h3 className="text-base font-bold text-temple-900">
+              <h3 className="text-sm font-bold text-temple-900">
                 {settings.waFeatureEnabled ? 'Disable WhatsApp Access?' : 'Enable WhatsApp Access?'}
               </h3>
               <p className="text-xs text-temple-600 leading-relaxed">
@@ -191,14 +191,14 @@ export default function WhatsAppConfigModule({ callerUser = null, onSaved = null
               <button
                 type="button"
                 onClick={() => setConfirmToggleModal(false)}
-                className="w-1/2 py-3 px-4 rounded-xl border border-cream-300 bg-cream-50 hover:bg-cream-100 text-temple-700 font-semibold text-xs transition-colors cursor-pointer"
+                className="w-1/2 py-3 px-4 rounded-lg border border-cream-300 bg-white hover:bg-cream-100 text-temple-700 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmToggleFeature}
-                className={`w-1/2 py-3 px-4 rounded-xl font-bold text-xs text-white shadow-soft transition-all cursor-pointer transform hover:-translate-y-0.5 ${
+                className={`w-1/2 py-2.5 px-4 rounded-lg font-bold text-xs text-white shadow-soft transition-all cursor-pointer transform hover:-translate-y-0.5 ${
                   settings.waFeatureEnabled
                     ? 'bg-rose-600 hover:bg-rose-700'
                     : 'bg-emerald-600 hover:bg-emerald-700'
@@ -212,16 +212,16 @@ export default function WhatsAppConfigModule({ callerUser = null, onSaved = null
         </div>
       )}
 
-      <form onSubmit={handleSave} className="bg-white rounded-3xl border border-cream-200/90 shadow-soft-md p-6 sm:p-8 space-y-6">
+      <form onSubmit={handleSave} className="bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-5">
         
         {/* Header Banner */}
-        <div className="flex items-center justify-between pb-5 border-b border-cream-200/80">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex items-center justify-center shadow-soft shrink-0">
-              <MessageSquare className="w-5 h-5 fill-current" />
+        <div className="flex items-center justify-between pb-4 border-b border-cream-200/80">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
+              <MessageSquare className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-temple-900 tracking-tight">
+              <h2 className="text-sm font-bold text-temple-900">
                 WhatsApp Community Joining
               </h2>
               <p className="text-xs text-temple-500">
@@ -241,7 +241,7 @@ export default function WhatsAppConfigModule({ callerUser = null, onSaved = null
         </div>
 
         {/* 1. MASTER ENABLE / DISABLE TOGGLE CARD (Saves immediately on confirmation) */}
-        <div className="bg-gradient-to-r from-cream-100/70 to-cream-50 rounded-2xl p-4 sm:p-5 border border-cream-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+        <div className="bg-gradient-to-r from-cream-100/70 to-cream-50 rounded-xl p-3.5 border border-cream-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Power className={`w-4.5 h-4.5 ${settings.waFeatureEnabled ? 'text-emerald-600' : 'text-slate-400'}`} />

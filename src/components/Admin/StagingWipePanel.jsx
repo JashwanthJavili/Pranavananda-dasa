@@ -14,7 +14,7 @@ export default function StagingWipePanel({ manager, onDone }) {
   if (!isStagingBuild()) return null;
 
   return (
-    <div className="rounded-3xl p-5 sm:p-6 border-2 border-red-200 bg-red-50/60 shadow-soft space-y-3">
+    <div className="rounded-2xl p-4 sm:p-5 border border-red-200 bg-red-50/60 shadow-2xs space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-red-700">
           <AlertTriangle className="w-4 h-4" />
@@ -85,7 +85,7 @@ function WipeDialog({ onClose, onDone }) {
     <div className="fixed inset-0 z-[60] bg-temple-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 font-poppins" onMouseDown={(e) => e.target === e.currentTarget && !running && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby="wipe-title" className="w-full sm:max-w-lg max-h-[92vh] flex flex-col bg-cream-50 rounded-t-3xl sm:rounded-3xl border border-red-200 shadow-soft-lg animate-fadeIn">
         <div className="px-5 sm:px-6 py-4 border-b border-cream-200 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
             <Trash2 className="w-5 h-5" />
           </div>
           <div>

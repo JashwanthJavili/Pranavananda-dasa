@@ -50,13 +50,13 @@ export default function SocialLinksSettings({ callerUser }) {
   };
 
   return (
-    <div className="w-full bg-cream-50 rounded-3xl border border-cream-200 shadow-soft p-5 sm:p-6 space-y-5 text-left">
+    <div className="w-full bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-5 text-left">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-700 shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-700 shrink-0">
           <Share2 className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-temple-900">Social media links</h3>
+          <h3 className="text-sm font-bold text-temple-900">Social media links</h3>
           <p className="text-xs text-temple-500 leading-relaxed">
             Shown to students on their quiz results, asking them to follow and subscribe. The name is shown on the button (for example @gitaforyouth). Leave a link empty to hide that button.
           </p>

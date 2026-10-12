@@ -21,13 +21,13 @@ export default function DataProtectionSettings({ callerUser, enabled, onChange }
   };
 
   return (
-    <div className="w-full bg-cream-50 rounded-3xl border border-cream-200 shadow-soft p-5 sm:p-6 space-y-3 text-left">
+    <div className="w-full bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-3 text-left">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
           <ShieldCheck className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-bold text-temple-900">Data protection</h3>
+          <h3 className="text-sm font-bold text-temple-900">Data protection</h3>
           <p className="text-xs text-temple-500 leading-relaxed">Keep this off unless a registration really must be deleted.</p>
         </div>
       </div>

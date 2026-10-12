@@ -52,13 +52,13 @@ export default function DeletionLogs({ manager, refreshKey = 0 }) {
   }, [state.logs, search]);
 
   return (
-    <div className="w-full bg-cream-50 rounded-3xl border border-cream-200 shadow-soft p-5 sm:p-6 space-y-4 text-left">
+    <div className="w-full bg-white rounded-2xl border border-cream-200 shadow-2xs p-4 sm:p-5 space-y-4 text-left">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
           <Trash2 className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-temple-900">Deletion log</h3>
+          <h3 className="text-sm font-bold text-temple-900">Deletion log</h3>
           <p className="flex items-start gap-1.5 text-xs text-temple-500 leading-relaxed">
             <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-px text-emerald-600" />
             Every participant deleted, by whom and when. Deleted participants are only hidden, so their details are kept and their
