@@ -21,7 +21,7 @@ export default function DataProtectionSettings({ callerUser, enabled, onChange }
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-cream-50 rounded-3xl border border-cream-200 shadow-soft p-5 sm:p-6 space-y-3 text-left">
+    <div className="w-full bg-cream-50 rounded-3xl border border-cream-200 shadow-soft p-5 sm:p-6 space-y-3 text-left">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
           <ShieldCheck className="w-5 h-5" />

@@ -134,7 +134,7 @@ export default function WhatsAppConfigModule({ callerUser = null, onSaved = null
 
   if (loading) {
     return (
-      <div className="bg-white/80 backdrop-blur-md rounded-3xl p-10 text-center border border-cream-200/90 shadow-soft max-w-2xl mx-auto space-y-3">
+      <div className="bg-white/80 backdrop-blur-md rounded-3xl p-10 text-center border border-cream-200/90 shadow-soft w-full space-y-3">
         <div className="w-9 h-9 border-3 border-saffron-500 border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-xs text-temple-600 font-semibold tracking-wide">Loading WhatsApp Configurations...</p>
       </div>
@@ -142,7 +142,7 @@ export default function WhatsAppConfigModule({ callerUser = null, onSaved = null
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5 font-poppins text-left animate-fadeIn">
+    <div className="w-full space-y-5 font-poppins text-left animate-fadeIn">
       
       {/* Toast Alert */}
       {statusMsg && (
