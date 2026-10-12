@@ -138,3 +138,16 @@
   .lp-twinkle { opacity: 0; }
 }
 
+
+/* Phones: "full screen height" means the visible screen, not the screen behind the address bar,
+   so short pages no longer scroll a little. */
+.min-h-screen { min-height: 100vh; min-height: 100dvh; }
+
+/* Phones zoom into any text box under 16px when it is tapped, and stay zoomed in. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

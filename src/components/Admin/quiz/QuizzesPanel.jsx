@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Plus, BookOpen, Pencil, Eye, Send, EyeOff, Trash2, Loader2, CalendarClock, ListChecks, Table2, RotateCcw, PenLine, History, FileSpreadsheet, Star,
+  Plus, BookOpen, Pencil, Eye, Send, EyeOff, Trash2, Loader2, CalendarClock, ListChecks, Table2, RotateCcw, PenLine, History, FileSpreadsheet, Star, Copy,
 } from 'lucide-react';
 import { fetchAllQuizRatings, fetchQuizRatings, fetchQuizFeedback, summarizeRatings } from '../../../quiz/quizRatings';
 import { managerFirestore } from '../../../quiz/quizAdmin';
@@ -124,6 +124,26 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
       setPreview({ quiz: { ...quiz, questions: draft.questions }, draft });
     } catch (err) {
       notify('Could not load the preview.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // A new draft with the same questions, answers and settings; the dates are left for the admin to set
+  const duplicateQuiz = async (quiz) => {
+    setBusyId(quiz.id);
+    try {
+      const draft = toDraft(quiz, await getQuizKey(quiz.id));
+      const nextWeek = Math.max(0, ...(quizzes || []).map((q) => Number(q.weekNumber) || 0)) + 1;
+      await saveQuiz({
+        existingQuiz: null,
+        draft: { ...draft, title: `Copy of ${draft.title}`.trim(), weekNumber: String(nextWeek), opensAt: null, closesAt: null },
+        publish: false,
+      });
+      notify(`Copy saved as a draft for Week ${nextWeek}. Edit it to change the title and set the dates.`);
+      reload();
+    } catch (err) {
+      notify('Could not duplicate the quiz. Please try again.');
     } finally {
       setBusyId(null);
     }
@@ -327,6 +347,7 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
                   <div className="flex flex-wrap items-center gap-1.5 px-4 sm:px-5 py-2.5 bg-cream-100/70 border-t border-cream-200">
                     <ActionBtn onClick={() => openEditor(q)} disabled={busy} icon={loadingEdit === q.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pencil className="w-3.5 h-3.5" />}>Edit</ActionBtn>
                     <ActionBtn onClick={() => openPreview(q)} disabled={busy} icon={<Eye className="w-3.5 h-3.5" />}>Preview</ActionBtn>
+                    <ActionBtn onClick={() => duplicateQuiz(q)} disabled={busy} icon={<Copy className="w-3.5 h-3.5" />}>Duplicate</ActionBtn>
                     {q.publishedAt && <ActionBtn onClick={() => onTrack(q.id)} icon={<Table2 className="w-3.5 h-3.5" />}>Results</ActionBtn>}
                     {q.publishedAt && <ActionBtn onClick={() => exportQuiz(q)} disabled={busy} icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}>Excel</ActionBtn>}
                     {!q.publishedAt && (

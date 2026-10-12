@@ -397,7 +397,7 @@ export default function StudentPortal({ onBackToHome }) {
 
   return (
     <PortalFrame onBackToHome={onBackToHome}>
-      <div className="flex-1 flex flex-col justify-start sm:justify-center py-6 sm:py-10 px-4">{content}</div>
+      <div className="flex-1 flex flex-col justify-start sm:justify-center py-4 sm:py-10 px-4">{content}</div>
     </PortalFrame>
   );
 }
@@ -460,7 +460,7 @@ function PortalFrame({ children, onBackToHome, right, helpPrefill, bottomNav = f
       <OpenHelpContext.Provider value={openHelp}>{children}</OpenHelpContext.Provider>
       {/* Devotional footer (on phones, kept clear of the bottom tab bar) */}
       {!bare && footer && (
-      <footer className={`mt-auto border-t border-cream-200 bg-cream-50/50 pt-5 text-center text-xs space-y-0.5 ${bottomNav ? 'pb-24 sm:pb-5' : 'pb-5'}`}>
+      <footer className={`mt-auto border-t border-cream-200 bg-cream-50/50 pt-3 sm:pt-5 text-center text-xs space-y-0.5 ${bottomNav ? 'pb-24 sm:pb-5' : 'pb-3 sm:pb-5'}`}>
         <p className="font-medium text-temple-700">&copy; 2026 Pranavananda Das</p>
         <p className="text-temple-500">Built with devotion for spreading Krishna consciousness</p>
       </footer>

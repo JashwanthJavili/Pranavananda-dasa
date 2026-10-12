@@ -41,7 +41,7 @@ export default function PortalAuth({ initialMessage }) {
 
   return (
     <div className="max-w-md mx-auto w-full animate-fadeIn">
-      <PortalCard className="space-y-6">
+      <PortalCard className="space-y-5 sm:space-y-6">
         {mode !== 'sent' && mode !== 'forgot' && mode !== 'exists' && (
           <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-cream-200/70 border border-cream-300/70">
             {[
