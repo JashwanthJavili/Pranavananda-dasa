@@ -16,19 +16,19 @@ const EDIT_CATEGORIES = ['Edit my profile details', 'My registration details are
 // Stored values stay 'Open' | 'In Progress' | 'Resolved'; these are how they look
 const STATUS = {
   Open: {
-    label: 'Open', hint: 'Not started yet', Icon: Inbox,
+    label: 'Open', Icon: Inbox,
     dot: 'bg-red-500', pill: 'bg-red-50 text-red-700 border-red-200', text: 'text-red-700',
-    on: 'bg-red-50 border-red-300 text-red-800 ring-2 ring-red-200',
+    on: 'bg-red-500 border-red-500 text-white',
   },
   'In Progress': {
-    label: 'In progress', hint: 'Working on it', Icon: Clock,
+    label: 'In progress', Icon: Clock,
     dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-800 border-amber-200', text: 'text-amber-700',
-    on: 'bg-amber-50 border-amber-300 text-amber-900 ring-2 ring-amber-200',
+    on: 'bg-amber-500 border-amber-500 text-white',
   },
   Resolved: {
-    label: 'Resolved', hint: 'Done, student helped', Icon: CheckCircle2,
+    label: 'Resolved', Icon: CheckCircle2,
     dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', text: 'text-emerald-700',
-    on: 'bg-emerald-50 border-emerald-300 text-emerald-800 ring-2 ring-emerald-200',
+    on: 'bg-emerald-600 border-emerald-600 text-white',
   },
 };
 
@@ -63,7 +63,7 @@ function StatusPill({ status }) {
 }
 
 /**
- * Help requests sent from the student portal. Visible to Admins and Super Admins.
+ * Contact Us messages from devotees. Visible to Admins and Super Admins.
  * Super Admins can also change a participant's details from a request, and see the edit log.
  */
 export default function HelpRequestsPanel({ requests, loadError, adminUser, notify, isSuperAdmin = false, manager, registrations = [], onRegistrationUpdated }) {
@@ -90,7 +90,6 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
   }, [requests, filter, search]);
 
   const pending = (counts.Open || 0) + (counts['In Progress'] || 0);
-  const pct = (n) => (counts.All ? Math.round(((n || 0) / counts.All) * 100) : 0);
 
   // Always show the live version of the open request.
   const selected = requests.find((r) => r.id === selectedId) || null;
@@ -104,7 +103,7 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
             <LifeBuoy className="w-5 h-5 text-saffron-600" />
             Contact Us
           </h2>
-          <p className="text-xs text-temple-500">Questions and requests sent by students through Contact Us.</p>
+          <p className="text-xs text-temple-500">Messages from devotees.</p>
         </div>
         {view === 'requests' && (
         <div className="relative w-full sm:w-72">
@@ -147,50 +146,8 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
       ) : (
       <>
 
-      {/* Overview: how many requests, how many still open, how many closed */}
-      <div className="bg-cream-50 rounded-2xl border border-cream-200 shadow-soft overflow-hidden">
-        <table className="w-full text-center">
-          <thead>
-            <tr className="bg-cream-200/60 text-[10px] sm:text-[11px] uppercase tracking-wider text-temple-600">
-              <th className="py-2 px-1 font-bold">Total</th>
-              {HELP_STATUSES.map((s) => (
-                <th key={s} className={`py-2 px-1 font-bold ${STATUS[s].text}`}>{STATUS[s].label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="text-xl sm:text-2xl font-bold text-temple-900 tabular-nums">
-              <td className="py-2.5">{counts.All}</td>
-              {HELP_STATUSES.map((s) => <td key={s} className="py-2.5">{counts[s] || 0}</td>)}
-            </tr>
-          </tbody>
-        </table>
-        <div className="px-4 pb-3">
-          <div className="flex items-center justify-between text-[11px] text-temple-500 mb-1">
-            <span>Closed (resolved)</span>
-            <span className="font-semibold text-temple-800">{pct(counts.Resolved)}%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-cream-200 overflow-hidden flex">
-            <div className="h-full bg-emerald-500" style={{ width: `${pct(counts.Resolved)}%` }} />
-            <div className="h-full bg-amber-400" style={{ width: `${pct(counts['In Progress'])}%` }} />
-          </div>
-        </div>
-      </div>
-
-      {/* Reminder for the admins */}
-      {pending > 0 && (
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <BellRing className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
-          <p className="text-xs sm:text-sm text-amber-900 leading-relaxed">
-            <strong>{pending} request{pending === 1 ? ' needs' : 's need'} attention.</strong>{' '}
-            Hare Krishna 🙏 When you start helping a student, set the request to <strong>In progress</strong>.
-            Once it is completed, please change it to <strong>Resolved</strong>, so everyone can see it is done.
-          </p>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-cream-200/70 border border-cream-300/70" role="tablist" aria-label="Filter by status">
+      {/* Counts (tap one to filter) */}
+      <div className="grid grid-cols-4 rounded-2xl border border-cream-200 bg-cream-50 shadow-soft overflow-hidden divide-x divide-cream-200" role="tablist" aria-label="Filter by status">
         {['All', ...HELP_STATUSES].map((s) => (
           <button
             key={s}
@@ -198,25 +155,23 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
             role="tab"
             aria-selected={filter === s}
             onClick={() => setFilter(s)}
-            className={`py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition cursor-pointer ${
-              filter === s ? 'bg-white shadow-soft text-temple-900' : 'text-temple-500 hover:text-temple-800'
-            }`}
+            className={`py-2 text-center transition cursor-pointer ${filter === s ? 'bg-white' : 'hover:bg-white/60'}`}
           >
-            {s === 'All' ? 'All' : STATUS[s].label} <span className="text-temple-400 font-medium">{counts[s] || 0}</span>
+            <span className="block text-lg font-bold text-temple-900 tabular-nums leading-tight">{counts[s] || 0}</span>
+            <span className={`block text-[10px] font-semibold uppercase tracking-wide ${s === 'All' ? 'text-temple-500' : STATUS[s].text}`}>
+              {s === 'All' ? 'Total' : STATUS[s].label}
+            </span>
+            <span className={`block mx-auto mt-1 h-0.5 w-6 rounded-full ${filter === s ? 'bg-saffron-500' : 'bg-transparent'}`} />
           </button>
         ))}
       </div>
 
-      <div className="flex items-center justify-between text-xs text-temple-500">
-        <span>
-          Showing <strong className="text-temple-800">{visible.length}</strong> {filter === 'All' ? 'requests' : `${STATUS[filter].label.toLowerCase()} requests`}
-        </span>
-        {filter !== 'All' && (
-          <button type="button" onClick={() => setFilter('All')} className="font-semibold text-saffron-700 hover:underline cursor-pointer">
-            Show all ({counts.All})
-          </button>
-        )}
-      </div>
+      {pending > 0 && (
+        <p className="flex items-center gap-1.5 text-[11px] text-amber-800">
+          <BellRing className="w-3.5 h-3.5 shrink-0" />
+          Please mark each request Resolved once it is completed.
+        </p>
+      )}
 
       {/* List */}
       <div className="bg-cream-50 rounded-2xl border border-cream-200 shadow-soft overflow-hidden">
@@ -226,13 +181,13 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
           <div className="px-4 py-12 text-center text-temple-500">
             <Inbox className="w-8 h-8 mx-auto text-temple-300 mb-2" />
             <p className="font-semibold text-sm">{requests.length === 0 ? 'No messages yet' : 'Nothing here'}</p>
-            <p className="text-xs text-temple-400">{requests.length === 0 ? 'Requests from students will appear here.' : 'Try another filter or search.'}</p>
+            <p className="text-xs text-temple-400">{requests.length === 0 ? 'New messages will appear here.' : 'Try another filter or search.'}</p>
           </div>
         ) : (
           <>
             <div className="hidden md:grid grid-cols-[110px_1.1fr_1.6fr_120px_20px] gap-4 px-4 py-2.5 bg-cream-200/60 border-b border-cream-200 text-[10px] uppercase font-bold tracking-wider text-temple-600">
               <span>Request</span>
-              <span>Student</span>
+              <span>Devotee</span>
               <span>Issue</span>
               <span>Status</span>
               <span />
@@ -249,7 +204,7 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
                       <span className="block text-xs font-bold text-temple-800">{r.reference}</span>
                       <span className="block text-[11px] text-temple-500">{formatDate(r.createdAt)}</span>
                       {(r.status || 'Open') !== 'Resolved' && ageOf(r.createdAt) && (
-                        <span className="block text-[10px] font-semibold text-red-600">waiting {ageOf(r.createdAt)}</span>
+                        <span className="block text-[10px] font-semibold text-red-600">{ageOf(r.createdAt)}</span>
                       )}
                     </span>
                     <span className="min-w-0">
@@ -262,7 +217,7 @@ export default function HelpRequestsPanel({ requests, loadError, adminUser, noti
                       <span className="block text-xs text-temple-500 truncate">{r.message}</span>
                       <span className="md:hidden block text-[11px] text-temple-400 mt-0.5">
                         {r.reference} · {formatDate(r.createdAt)}
-                        {(r.status || 'Open') !== 'Resolved' && ageOf(r.createdAt) && <span className="text-red-600 font-semibold"> · waiting {ageOf(r.createdAt)}</span>}
+                        {(r.status || 'Open') !== 'Resolved' && ageOf(r.createdAt) && <span className="text-red-600 font-semibold"> · {ageOf(r.createdAt)}</span>}
                       </span>
                     </span>
                     <span className="hidden md:block"><StatusPill status={r.status || 'Open'} /></span>
@@ -433,20 +388,20 @@ function RequestDetail({ request: r, adminUser, notify, onClose, isSuperAdmin, m
       console.warn('Status not saved:', e?.code || e);
       setPendingStatus(null);
       setStatusError(e?.code === 'permission-denied'
-        ? 'The status could not be saved: changes are not allowed here right now.'
-        : 'The status could not be saved. Please check your connection and try again.');
+        ? 'Not saved: changes are not allowed here right now.'
+        : 'Not saved. Please check your connection and try again.');
     } finally {
       setSaving('');
     }
   };
-  const history = Array.isArray(r.statusHistory) ? [...r.statusHistory].reverse().slice(0, 5) : [];
+  const history = Array.isArray(r.statusHistory) ? [...r.statusHistory].reverse().slice(0, 3) : [];
 
   const detailRows = [
     ['Name', r.name],
     ['Registration ID', r.registrationId || 'Not linked'],
     ['Email', r.email],
     ['Mobile', r.mobile ? `${r.countryCode || '+91'} ${r.mobile}` : 'Not given'],
-    ['Sent from', r.env === 'staging' ? `${r.source || 'Student portal'} (staging)` : r.source || 'Student portal'],
+    ['Sent from', `${String(r.source || 'Portal').replace(/student/i, 'Devotee')}${r.env === 'staging' ? ' (staging)' : ''}`],
   ];
 
   // Rendered into <body>: an animated (transformed) ancestor would otherwise become the
@@ -482,7 +437,7 @@ function RequestDetail({ request: r, adminUser, notify, onClose, isSuperAdmin, m
           {/* Status */}
           <section className="space-y-2">
             <h4 className="text-[11px] uppercase tracking-wider font-bold text-temple-500">Status</h4>
-            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Status">
+            <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Status">
               {HELP_STATUSES.map((s) => {
                 const st = STATUS[s];
                 const on = status === s;
@@ -494,29 +449,22 @@ function RequestDetail({ request: r, adminUser, notify, onClose, isSuperAdmin, m
                     aria-checked={on}
                     disabled={Boolean(saving)}
                     onClick={() => setStatus(s)}
-                    className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-center transition cursor-pointer disabled:cursor-wait ${
-                      on ? st.on : 'bg-white border-cream-300 text-temple-600 hover:border-gold-300 hover:text-temple-900'
+                    className={`inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold transition cursor-pointer disabled:cursor-wait ${
+                      on ? st.on : 'bg-white border-cream-300 text-temple-600 hover:text-temple-900'
                     }`}
                   >
-                    {saving === s ? <Loader2 className="w-5 h-5 animate-spin" /> : <st.Icon className="w-5 h-5" />}
-                    <span className="text-xs font-bold leading-tight">{st.label}</span>
-                    <span className="text-[10px] leading-tight opacity-80">{st.hint}</span>
+                    {saving === s ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <st.Icon className="w-3.5 h-3.5" />}
+                    {st.label}
                   </button>
                 );
               })}
             </div>
             {statusError && <p className="text-xs text-red-600" role="alert">{statusError}</p>}
-            {status !== 'Resolved' && (
-              <p className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
-                <BellRing className="w-3.5 h-3.5 shrink-0 mt-px" />
-                Once this request is completed, please mark it <strong>Resolved</strong>.
-              </p>
-            )}
             {history.length > 0 ? (
               <ul className="space-y-0.5 text-[11px] text-temple-500">
                 {history.map((h, i) => (
                   <li key={`${h.at}-${i}`}>
-                    <strong className={STATUS[h.status]?.text || ''}>{STATUS[h.status]?.label || h.status}</strong> by {h.by} · {formatDateTime({ toDate: () => new Date(h.at) })}
+                    {STATUS[h.status]?.label || h.status} · {h.by} · {formatDateTime({ toDate: () => new Date(h.at) })}
                   </li>
                 ))}
               </ul>
@@ -529,9 +477,9 @@ function RequestDetail({ request: r, adminUser, notify, onClose, isSuperAdmin, m
             <p className="text-sm text-temple-800 leading-relaxed whitespace-pre-wrap break-words bg-white border border-cream-200 rounded-xl px-4 py-3">{r.message}</p>
           </section>
 
-          {/* Student */}
+          {/* Devotee */}
           <section className="space-y-2">
-            <h4 className="text-[11px] uppercase tracking-wider font-bold text-temple-500">Student</h4>
+            <h4 className="text-[11px] uppercase tracking-wider font-bold text-temple-500">Devotee</h4>
             <dl className="bg-white border border-cream-200 rounded-xl divide-y divide-cream-200">
               {detailRows.map(([label, value]) => (
                 <div key={label} className="flex items-start justify-between gap-4 px-4 py-2.5">
@@ -578,17 +526,6 @@ function RequestDetail({ request: r, adminUser, notify, onClose, isSuperAdmin, m
 
         {/* Reply actions */}
         <div className="px-5 py-4 border-t border-cream-200 bg-white grid grid-cols-3 gap-2">
-          {status !== 'Resolved' && (
-            <button
-              type="button"
-              onClick={() => setStatus('Resolved')}
-              disabled={Boolean(saving)}
-              className="col-span-3 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold disabled:opacity-70 cursor-pointer"
-            >
-              {saving === 'Resolved' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              Completed? Mark as Resolved
-            </button>
-          )}
           <a
             href={`mailto:${r.email}?subject=${encodeURIComponent(`Re: your help request ${r.reference}`)}&body=${encodeURIComponent('Hare Krishna,\n\n')}`}
             className="col-span-3 sm:col-span-1 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold"
