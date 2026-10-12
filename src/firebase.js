@@ -24,7 +24,9 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
-  updatePassword
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth';
 import { firebaseConfig, APP_ENV } from './config/firebaseConfig';
 import { withEmulatorConfig, connectToEmulators } from './config/emulators';
@@ -789,17 +791,24 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
 
   const docId = targetEmail.replace(/[^a-z0-9]/g, '_');
 
+  if (newPassword === currentPassword) {
+    return { success: false, error: 'The new password is the same as the current one. Please choose a different password.' };
+  }
+
   // 1. Verify Current Password against Firestore
   let verified = false;
+  let record = null;
 
   try {
     const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
     const snap = await getDoc(adminRef);
     if (snap.exists()) {
-      const data = snap.data();
-      verified = await verifyPasswordMatch(currentPassword, data.passwordHash, data.password);
+      record = snap.data();
+      verified = await verifyPasswordMatch(currentPassword, record.passwordHash, record.password);
     }
-  } catch (e) {}
+  } catch (e) {
+    return { success: false, error: 'Could not check your current password. Please check your connection and try again.' };
+  }
 
   // Check Local storage cached admin password fallback
   if (!verified) {
@@ -816,10 +825,31 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
     return { success: false, error: 'Current password is incorrect. Please verify and try again.' };
   }
 
-  // 2. Update Password Hash in Firestore and remove plaintext password
+  // 2. Super Admins: quiz access moves to the new password first. It also signs the save
+  //    below, so both change together or neither does.
+  const isSuper = isSuperAdminUser(record) || isSuperAdminUser(callerUser);
+  let undoQuiz = null;
+  if (isSuper) {
+    try {
+      const { moveQuizAccessToNewPassword } = await import('./quiz/quizAdmin');
+      undoQuiz = await moveQuizAccessToNewPassword(targetEmail, currentPassword, newPassword);
+    } catch (err) {
+      console.warn('Quiz access password not moved:', err?.code || err);
+      return {
+        success: false,
+        error: err?.code === 'quiz/mismatch'
+          ? 'Your password could not be changed here because quiz access still uses an older password. Please ask another Super Admin to reset your password (Settings, Reset Password next to your name).'
+          : err?.code === 'auth/weak-password'
+            ? 'Please choose a stronger password (at least 6 characters).'
+            : 'Could not change the password right now. Please check your connection and try again.',
+      };
+    }
+  }
+
+  // 3. Update Password Hash in Firestore and remove plaintext password
   const newHash = await hashPassword(newPassword);
   try {
-    const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
+    const adminRef = doc(isSuper ? await adminStore() : db, 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
       passwordHash: newHash,
       password: deleteField(),
@@ -827,7 +857,8 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore password update error:', err);
-    return { success: false, error: adminWriteError(err) };
+    if (undoQuiz) await undoQuiz();
+    return { success: false, error: err?.code === 'permission-denied' ? SUPER_ADMIN_SESSION_ERROR : 'Could not save the new password. Please check your connection and try again.' };
   }
 
   // 3. Update Local Cache
@@ -842,23 +873,15 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
   } catch (e) {}
 
   // 4. Update in Firebase Authentication if this same admin is signed in
-  // (never another account, e.g. a student portal login in the same browser)
+  // (never another account, e.g. a student portal login in the same browser).
+  // Re-confirm with the current password first, so an older login does not block it.
   try {
     if (auth.currentUser && (auth.currentUser.email || '').toLowerCase() === targetEmail) {
+      await reauthenticateWithCredential(auth.currentUser, EmailAuthProvider.credential(targetEmail, currentPassword)).catch(() => {});
       await updatePassword(auth.currentUser, newPassword);
     }
   } catch (authErr) {
     console.warn('Firebase Auth updatePassword note:', authErr);
-  }
-
-  // 5. Keep the Super Admin's quiz-manager password the same as the admin password
-  if (isSuperAdminUser(callerUser)) {
-    try {
-      const { syncQuizManagerPassword } = await import('./quiz/quizAdmin');
-      await syncQuizManagerPassword(targetEmail, currentPassword, newPassword);
-    } catch (err) {
-      console.warn('Quiz access password not updated:', err?.code || err);
-    }
   }
 
   return { success: true, message: 'Password updated successfully!' };

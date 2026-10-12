@@ -188,12 +188,37 @@ async function linkSession(email, password) {
   }
 }
 
-/** Keep the quiz-manager password in step when a Super Admin changes their admin password. */
-export async function syncQuizManagerPassword(email, currentPassword, newPassword) {
+const NOT_THIS_PASSWORD = ['auth/invalid-credential', 'auth/user-not-found', 'auth/wrong-password'];
+const mismatchError = () => Object.assign(new Error('Quiz access uses an older password.'), { code: 'quiz/mismatch' });
+
+/**
+ * A Super Admin changes their own password: quiz access moves to the new password first, and
+ * this browser stays signed in to it (saving the new password needs that session).
+ * Returns undo(), which puts quiz access back on the current password if the save then fails.
+ * Throws { code: 'quiz/mismatch' } when quiz access was set up with an older password.
+ */
+export async function moveQuizAccessToNewPassword(email, currentPassword, newPassword) {
   const e = await quizAccountFor(email);
-  await signInWithEmailAndPassword(adminAuth, e, currentPassword);
-  await updatePassword(adminAuth.currentUser, newPassword);
+  try {
+    // A fresh sign-in, so Firebase accepts the password change however old the login is
+    await signInWithEmailAndPassword(adminAuth, e, currentPassword);
+    await updatePassword(adminAuth.currentUser, newPassword);
+  } catch (err) {
+    if (!NOT_THIS_PASSWORD.includes(err?.code)) throw err;
+    if (e !== quizAccountEmail(email)) throw mismatchError();
+    // Quiz access was never set up: set it up now, with the new password
+    try {
+      await createUserWithEmailAndPassword(adminAuth, e, newPassword);
+    } catch (createErr) {
+      throw createErr?.code === 'auth/email-already-in-use' ? mismatchError() : createErr;
+    }
+  }
   setQuizLinkIssue('');
+  return async () => {
+    try { await updatePassword(adminAuth.currentUser, currentPassword); } catch (undoErr) {
+      console.warn('Quiz access password not put back:', undoErr?.code || undoErr);
+    }
+  };
 }
 
 export const quizManagerSignOut = () => {
