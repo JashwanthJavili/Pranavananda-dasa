@@ -60,14 +60,14 @@ export default function SocialFollowCard({ links, className = '' }) {
   if (!items.length) return null;
 
   return (
-    <section className={`rounded-3xl border border-gold-200/80 bg-white/70 shadow-soft px-4 py-4 sm:px-5 text-center space-y-3 ${className}`}>
+    <section className={`rounded-3xl border border-gold-200/80 bg-white/70 shadow-soft px-4 py-3 sm:py-4 sm:px-5 text-center space-y-2 sm:space-y-3 ${className}`}>
       <div className="space-y-0.5">
         <div className="flex items-center justify-center gap-2 text-[10px] font-semibold tracking-[0.18em] uppercase text-saffron-700" aria-hidden="true">
           <span className="h-px w-6 bg-gradient-to-r from-transparent to-gold-400" />
           Stay connected
           <span className="h-px w-6 bg-gradient-to-l from-transparent to-gold-400" />
         </div>
-        <h3 className="font-display text-xl font-bold text-temple-900 leading-tight">Don’t forget to follow us</h3>
+        <h3 className="font-display text-lg sm:text-xl font-bold text-temple-900 leading-tight">Don’t forget to follow us</h3>
       </div>
       <div className={`grid gap-2.5 mx-auto ${items.length > 1 ? 'grid-cols-2 max-w-sm' : 'max-w-[12rem]'}`}>
         {items.map((p) => {
@@ -79,12 +79,12 @@ export default function SocialFollowCard({ links, className = '' }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`${p.action} on ${p.label}: ${p.name}`}
-              className={`group min-w-0 flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md ${SOCIAL_TINT[p.key]}`}
+              className={`group min-w-0 flex flex-row sm:flex-col items-center justify-center gap-2 sm:gap-1.5 rounded-2xl border px-2 py-2 sm:py-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md ${SOCIAL_TINT[p.key]}`}
             >
-              <span className={`w-10 h-10 shrink-0 rounded-full ${SOCIAL_BRAND[p.key]} text-white flex items-center justify-center shadow-soft [&_svg]:w-5 [&_svg]:h-5 transition-transform duration-200 group-hover:scale-105`}>
+              <span className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full ${SOCIAL_BRAND[p.key]} text-white flex items-center justify-center shadow-soft [&_svg]:w-4 [&_svg]:h-4 sm:[&_svg]:w-5 sm:[&_svg]:h-5 transition-transform duration-200 group-hover:scale-105`}>
                 <Icon />
               </span>
-              <span className="w-full min-w-0 leading-tight">
+              <span className="min-w-0 sm:w-full leading-tight text-left sm:text-center">
                 <span className="block text-xs sm:text-sm font-semibold text-temple-900 break-words">{p.name}</span>
               </span>
             </a>

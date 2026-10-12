@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Check, X, Minus, PenLine, ChevronDown, Timer } from 'lucide-react';
 import ProgressRing from './ProgressRing';
 import { SCREEN_HEIGHT } from './QuizPlayer';
@@ -15,6 +15,19 @@ function seenCelebration(quizId, attemptNumber) {
     sessionStorage.setItem(storageKey, '1');
   } catch (e) { /* ignore */ }
   return false;
+}
+
+// Phones get a smaller score ring, so the score, follow and rating cards fit on one screen
+function usePhone() {
+  const query = '(max-width: 639px)';
+  const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setPhone(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return phone;
 }
 
 const MARK_STYLE = {
@@ -34,6 +47,7 @@ const MARK_STYLE = {
 export default function QuizResults({ quiz, attempts, counted, answerKey, onBack, backLabel = 'Back to quizzes', preview = false, extra = null }) {
   const key = answerKey?.answers || {};
   const socialLinks = useSocialLinks();
+  const phone = usePhone();
   const [shownNumber, setShownNumber] = useState(counted?.attemptNumber);
   const shown = attempts.find((a) => a.attemptNumber === shownNumber) || counted || attempts[attempts.length - 1];
   if (!shown) return null;
@@ -52,16 +66,16 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
   return (
     <div className="w-full max-w-2xl mx-auto space-y-5 animate-fadeIn">
       {/* First screen: the score card in the middle, answers below */}
-      <div className={`flex flex-col gap-5 ${SCREEN_HEIGHT[preview ? 'preview' : 'portal']}`}>
+      <div className={`flex flex-col gap-3 sm:gap-5 ${SCREEN_HEIGHT[preview ? 'preview' : 'portal']}`}>
       {onBack && (
         <button type="button" onClick={onBack} className="self-start inline-flex items-center gap-1.5 text-sm font-medium text-temple-600 hover:text-temple-900 cursor-pointer">
           <ArrowLeft className="w-4 h-4" /> {backLabel}
         </button>
       )}
-      <div className="flex-1 flex flex-col justify-center gap-5">
+      <div className="flex-1 flex flex-col justify-center gap-3 sm:gap-5">
 
       {/* Score */}
-      <section className="relative overflow-hidden rounded-3xl border border-gold-200/80 bg-gradient-to-b from-saffron-50 to-cream-50 shadow-soft-md px-5 py-5 sm:px-7 text-center space-y-3">
+      <section className="relative overflow-hidden rounded-3xl border border-gold-200/80 bg-gradient-to-b from-saffron-50 to-cream-50 shadow-soft-md px-4 py-4 sm:px-7 sm:py-5 text-center space-y-2 sm:space-y-3">
         <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-saffron-700">
           {preview ? 'Preview result' : quiz.weekNumber ? `Week ${quiz.weekNumber} · Result` : 'Result'}
         </p>
@@ -70,19 +84,19 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
           {(strong || (perfect && !fullCelebration)) && <Celebration key={shown.attemptNumber} simple />}
           {graded ? (
             <span key={shown.attemptNumber} className={`relative ${perfect ? 'gfy-pop' : ''}`}>
-              <ProgressRing percent={main.percent} size={96} stroke={5} tone={main.percent >= 50 ? 'emerald' : 'saffron'}>
-                <span className="text-xl font-bold text-temple-900">{main.percent}%</span>
+              <ProgressRing percent={main.percent} size={phone ? 76 : 96} stroke={5} tone={main.percent >= 50 ? 'emerald' : 'saffron'}>
+                <span className="text-lg sm:text-xl font-bold text-temple-900">{main.percent}%</span>
                 <span className="text-[11px] text-temple-500 mt-0.5">{main.correct} of {main.total}</span>
               </ProgressRing>
             </span>
           ) : (
-            <div className="w-24 h-24 rounded-full bg-white border-4 border-emerald-300 flex items-center justify-center text-emerald-600">
-              <Check className="w-10 h-10" />
+            <div className="w-[76px] h-[76px] sm:w-24 sm:h-24 rounded-full bg-white border-4 border-emerald-300 flex items-center justify-center text-emerald-600">
+              <Check className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
           )}
         </div>
-        <div className="space-y-1">
-          <h2 className="font-display text-[1.8rem] sm:text-[2.15rem] font-bold text-temple-900 leading-tight">{msg.title}</h2>
+        <div className="space-y-0.5 sm:space-y-1">
+          <h2 className="font-display text-2xl sm:text-[2.15rem] font-bold text-temple-900 leading-tight">{msg.title}</h2>
           <p className="text-sm text-temple-600 max-w-md mx-auto">{msg.text}</p>
         </div>
         {Number.isFinite(shown.timeTakenSec) && (
@@ -90,7 +104,7 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
             <Timer className="w-3.5 h-3.5 text-saffron-600" /> Time taken: {formatDuration(shown.timeTakenSec)}
           </p>
         )}
-        <p className="text-xs text-temple-500">
+        <p className="hidden sm:block text-xs text-temple-500">
           {quiz.title}
           {shown.submittedAt && !preview ? ` · ${formatWhen(shown.submittedAt)}` : ''}
         </p>
@@ -106,7 +120,7 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
         <button
           type="button"
           onClick={() => document.getElementById('quiz-answers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-white border border-saffron-300 text-sm sm:text-base font-semibold text-saffron-700 shadow-soft hover:bg-saffron-50 hover:border-saffron-400 hover:shadow-soft-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-2 sm:py-2.5 rounded-full bg-white border border-saffron-300 text-sm sm:text-base font-semibold text-saffron-700 shadow-soft hover:bg-saffron-50 hover:border-saffron-400 hover:shadow-soft-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
         >
           Check your answers <ChevronDown className="w-4 h-4" />
         </button>
@@ -193,8 +207,8 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
 
 function Stat({ value, label, cls }) {
   return (
-    <div className="rounded-2xl bg-white/80 border border-cream-200 py-2">
-      <span className={`block text-lg font-bold leading-none ${cls}`}>{value}</span>
+    <div className="rounded-2xl bg-white/80 border border-cream-200 py-1.5 sm:py-2">
+      <span className={`block text-base sm:text-lg font-bold leading-none ${cls}`}>{value}</span>
       <span className="block text-[10px] font-semibold uppercase tracking-wider text-temple-400 mt-1">{label}</span>
     </div>
   );

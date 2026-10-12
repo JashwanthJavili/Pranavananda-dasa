@@ -83,7 +83,7 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
   const thanked = rating > 0 && (!askImprove || (feedback && !changed));
 
   return (
-    <section ref={sectionRef} className={`scroll-mb-6 rounded-2xl border border-cream-200 bg-white/80 px-4 py-4 text-center space-y-2 ${className}`} aria-labelledby={`rate-${quiz.id}`}>
+    <section ref={sectionRef} className={`scroll-mb-6 rounded-2xl border border-cream-200 bg-white/80 px-4 py-3 sm:py-4 text-center space-y-1.5 sm:space-y-2 ${className}`} aria-labelledby={`rate-${quiz.id}`}>
       <h3 id={`rate-${quiz.id}`} className="text-sm font-semibold text-temple-900">How was your experience?</h3>
       <div className="flex justify-center gap-1" role="radiogroup" aria-label="Rate your experience" onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((v) => (
