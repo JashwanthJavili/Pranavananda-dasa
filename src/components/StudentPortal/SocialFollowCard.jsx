@@ -79,12 +79,12 @@ export default function SocialFollowCard({ links, className = '' }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`${p.action} on ${p.label}: ${p.name}`}
-              className={`group min-w-0 flex flex-row sm:flex-col items-center justify-center gap-2 sm:gap-1.5 rounded-2xl border px-2 py-2 sm:py-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md ${SOCIAL_TINT[p.key]}`}
+              className={`group min-w-0 flex flex-col items-center justify-center gap-1 sm:gap-1.5 rounded-2xl border px-2 py-2 sm:py-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md ${SOCIAL_TINT[p.key]}`}
             >
               <span className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full ${SOCIAL_BRAND[p.key]} text-white flex items-center justify-center shadow-soft [&_svg]:w-4 [&_svg]:h-4 sm:[&_svg]:w-5 sm:[&_svg]:h-5 transition-transform duration-200 group-hover:scale-105`}>
                 <Icon />
               </span>
-              <span className="min-w-0 sm:w-full leading-tight text-left sm:text-center">
+              <span className="w-full min-w-0 leading-tight">
                 <span className="block text-xs sm:text-sm font-semibold text-temple-900 break-words">{p.name}</span>
               </span>
             </a>

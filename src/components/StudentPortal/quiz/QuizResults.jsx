@@ -120,9 +120,9 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
         <button
           type="button"
           onClick={() => document.getElementById('quiz-answers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-2 sm:py-2.5 rounded-full bg-white border border-saffron-300 text-sm sm:text-base font-semibold text-saffron-700 shadow-soft hover:bg-saffron-50 hover:border-saffron-400 hover:shadow-soft-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+          className="inline-flex items-center justify-center gap-1.5 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full bg-white border border-saffron-300 text-xs sm:text-sm font-semibold text-saffron-700 shadow-soft hover:bg-saffron-50 hover:border-saffron-400 hover:shadow-soft-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
         >
-          Check your answers <ChevronDown className="w-4 h-4" />
+          Check your answers <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
       </section>
 
