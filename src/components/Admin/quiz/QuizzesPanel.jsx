@@ -344,22 +344,23 @@ export default function QuizzesPanel({ adminUser, manager, quizData, participant
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-1.5 px-4 sm:px-5 py-2.5 bg-cream-100/70 border-t border-cream-200">
-                    <ActionBtn onClick={() => openEditor(q)} disabled={busy} icon={loadingEdit === q.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pencil className="w-3.5 h-3.5" />}>Edit</ActionBtn>
-                    <ActionBtn onClick={() => openPreview(q)} disabled={busy} icon={<Eye className="w-3.5 h-3.5" />}>Preview</ActionBtn>
-                    <ActionBtn onClick={() => duplicateQuiz(q)} disabled={busy} icon={<Copy className="w-3.5 h-3.5" />}>Duplicate</ActionBtn>
-                    {q.publishedAt && <ActionBtn onClick={() => onTrack(q.id)} icon={<Table2 className="w-3.5 h-3.5" />}>Results</ActionBtn>}
-                    {q.publishedAt && <ActionBtn onClick={() => exportQuiz(q)} disabled={busy} icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}>Excel</ActionBtn>}
-                    {!q.publishedAt && (
-                      <ActionBtn danger onClick={() => setConfirm({ kind: 'delete', quiz: q })} disabled={busy} icon={<Trash2 className="w-3.5 h-3.5" />}>Delete</ActionBtn>
-                    )}
-                    <span className="flex-1" />
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 sm:px-5 py-3 bg-cream-100/70 border-t border-cream-200">
+                    <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-1.5 sm:flex-1">
+                      <ActionBtn onClick={() => openEditor(q)} disabled={busy} icon={loadingEdit === q.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pencil className="w-3.5 h-3.5" />}>Edit</ActionBtn>
+                      <ActionBtn onClick={() => openPreview(q)} disabled={busy} icon={<Eye className="w-3.5 h-3.5" />}>Preview</ActionBtn>
+                      <ActionBtn onClick={() => duplicateQuiz(q)} disabled={busy} icon={<Copy className="w-3.5 h-3.5" />}>Duplicate</ActionBtn>
+                      {q.publishedAt && <ActionBtn onClick={() => onTrack(q.id)} icon={<Table2 className="w-3.5 h-3.5" />}>Results</ActionBtn>}
+                      {q.publishedAt && <ActionBtn onClick={() => exportQuiz(q)} disabled={busy} icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}>Excel</ActionBtn>}
+                      {!q.publishedAt && (
+                        <ActionBtn danger onClick={() => setConfirm({ kind: 'delete', quiz: q })} disabled={busy} icon={<Trash2 className="w-3.5 h-3.5" />}>Delete</ActionBtn>
+                      )}
+                    </div>
                     {q.published ? (
-                      <button type="button" onClick={() => setConfirm({ kind: 'unpublish', quiz: q })} disabled={busy} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50 cursor-pointer">
+                      <button type="button" onClick={() => setConfirm({ kind: 'unpublish', quiz: q })} disabled={busy} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-800 disabled:opacity-50 cursor-pointer">
                         <EyeOff className="w-3.5 h-3.5" /> Unpublish
                       </button>
                     ) : (
-                      <button type="button" onClick={() => publish(q)} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-soft disabled:opacity-50 cursor-pointer">
+                      <button type="button" onClick={() => publish(q)} disabled={busy} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-soft disabled:opacity-50 cursor-pointer">
                         {busyId === q.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Publish
                       </button>
                     )}
@@ -471,8 +472,8 @@ function ActionBtn({ onClick, disabled, danger, icon, children }) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium disabled:opacity-50 cursor-pointer transition-colors ${
-        danger ? 'text-temple-500 hover:text-red-700 hover:bg-red-50' : 'text-temple-700 hover:text-saffron-800 hover:bg-white'
+      className={`inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2 rounded-xl border bg-white text-xs font-medium whitespace-nowrap disabled:opacity-50 cursor-pointer transition-colors ${
+        danger ? 'border-cream-300 text-temple-500 hover:text-red-700 hover:border-red-200 hover:bg-red-50' : 'border-cream-300 text-temple-700 hover:text-saffron-800 hover:border-saffron-200 hover:bg-saffron-50'
       }`}
     >
       {icon} {children}
