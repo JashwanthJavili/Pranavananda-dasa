@@ -83,6 +83,20 @@ function setQuizLinkIssue(issue) {
   } catch (e) {}
 }
 
+// True while the automatic link after login is still running, so the Quizzes tab waits for it
+// instead of asking to log in again on a slow connection.
+let linking = false;
+const linkListeners = new Set();
+export const isQuizLinking = () => linking;
+export function onQuizLinkingChanged(callback) {
+  linkListeners.add(callback);
+  return () => linkListeners.delete(callback);
+}
+function setLinking(value) {
+  linking = value;
+  linkListeners.forEach((cb) => cb(value));
+}
+
 /**
  * Called after a Super Admin logs in to the dashboard: signs the quiz-manager session in
  * with the same email + password, so there is no second password or verification step.
@@ -90,6 +104,15 @@ function setQuizLinkIssue(issue) {
  */
 export async function linkQuizManagerSession(email, password) {
   if (!cleanEmail(email) || !password) return;
+  setLinking(true);
+  try {
+    await linkSession(email, password);
+  } finally {
+    setLinking(false);
+  }
+}
+
+async function linkSession(email, password) {
   const e = quizAccountEmail(email);
   const current = adminAuth.currentUser;
   if (current && cleanEmail(current.email) === e) {

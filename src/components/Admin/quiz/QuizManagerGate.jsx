@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ShieldAlert, Loader2, RefreshCw, LogOut, KeyRound } from 'lucide-react';
-import { quizManagerAuthError, getQuizLinkIssue, quizAccountEmail } from '../../../quiz/quizAdmin';
+import {
+  quizManagerAuthError, getQuizLinkIssue, quizAccountEmail, isQuizLinking, onQuizLinkingChanged,
+} from '../../../quiz/quizAdmin';
 
 function Shell({ icon: Icon, tone = 'saffron', title, children }) {
   const toneCls = tone === 'red' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-saffron-50 border-saffron-200 text-saffron-700';
@@ -34,6 +36,9 @@ export default function QuizManagerGate({ manager, adminEmail, onLogout }) {
     const t = setTimeout(() => setSettling(false), 5000);
     return () => clearTimeout(t);
   }, []);
+  // ...and for as long as the link is still running
+  const [linking, setLinkingState] = useState(isQuizLinking());
+  useEffect(() => onQuizLinkingChanged(setLinkingState), []);
 
   const run = async (fn) => {
     setBusy(true);
@@ -48,7 +53,7 @@ export default function QuizManagerGate({ manager, adminEmail, onLogout }) {
     }
   };
 
-  if (manager.status === 'loading' || (manager.status === 'signed-out' && settling && !getQuizLinkIssue())) {
+  if (manager.status === 'loading' || (manager.status === 'signed-out' && (linking || (settling && !getQuizLinkIssue())))) {
     return (
       <div className="flex items-center justify-center gap-2 py-16 text-sm text-temple-500">
         <Loader2 className="w-4 h-4 animate-spin" /> Setting up quiz access…
