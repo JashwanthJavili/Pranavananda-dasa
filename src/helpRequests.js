@@ -12,6 +12,7 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db, sanitizeText, isSuperAdminUser } from './firebase';
 import { mobileProblem } from './utils/mobile';
@@ -178,11 +179,15 @@ export function subscribeToHelpRequests(callback, onError) {
   );
 }
 
+/** Change a request's status; who changed it and when is kept (statusHistory) for tracking. */
 export async function updateHelpRequestStatus(id, status, adminUser) {
   if (!HELP_STATUSES.includes(status)) throw new Error('Unknown status');
+  const by = adminUser?.email || adminUser?.name || 'Admin';
   await updateDoc(doc(db, 'BhagavadGita', 'data', 'helpRequests', id), {
     status,
     updatedAt: serverTimestamp(),
-    updatedBy: adminUser?.email || adminUser?.name || 'Admin',
+    updatedBy: by,
+    ...(status === 'Resolved' ? { resolvedAt: serverTimestamp(), resolvedBy: by } : {}),
+    statusHistory: arrayUnion({ status, by, at: new Date().toISOString() }),
   });
 }
