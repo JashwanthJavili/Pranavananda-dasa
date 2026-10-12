@@ -89,7 +89,9 @@ export async function ensureLatestBeforeSubmit() {
 }
 
 // Not while answering a quiz (answers are not saved yet) or while a dialog is open
-const busy = () => /\/play(\/|$)/.test(window.location.hash || '') || Boolean(document.querySelector('[role="dialog"]'));
+const busy = () => /\/play(\/|$)/.test(window.location.hash || '')
+  || Boolean(document.querySelector('[role="dialog"]'))
+  || [...document.querySelectorAll('textarea')].some((t) => t.value.trim());
 
 let started = false;
 export function watchForUpdates() {

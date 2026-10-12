@@ -26,7 +26,7 @@ const quizName = (s, quizzes) => {
  *  registrations: for participant names · quizzes: current quiz titles (Super Admins, optional)
  *  canSeeFeedback: Super Admins with their secure session also see written suggestions
  */
-export default function QuizRatingsPanel({ registrations = [], quizzes = null, canSeeFeedback = false }) {
+export default function QuizRatingsPanel({ registrations = [], quizzes = null, canSeeFeedback = false, isSuperAdmin = false }) {
   const [state, setState] = useState({ loading: true, ratings: [], feedback: {} });
   const [openId, setOpenId] = useState(null);
 
@@ -57,6 +57,12 @@ export default function QuizRatingsPanel({ registrations = [], quizzes = null, c
     return list.sort((a, b) => week(b) - week(a) || (b.ratings[0]?.ratedAt?.toMillis?.() || 0) - (a.ratings[0]?.ratedAt?.toMillis?.() || 0));
   }, [state.ratings, quizzes]);
 
+  // Every written message, newest first, with its stars and quiz
+  const messages = useMemo(() => state.ratings
+    .filter((r) => state.feedback[r.id])
+    .map((r) => ({ ...r, comment: state.feedback[r.id] }))
+    .sort((a, b) => (b.ratedAt?.toMillis?.() || 0) - (a.ratedAt?.toMillis?.() || 0)), [state.ratings, state.feedback]);
+
   const total = summaries.reduce((n, s) => n + s.count, 0);
   const overall = total ? Math.round((summaries.reduce((n, s) => n + s.total, 0) / total) * 10) / 10 : 0;
 
@@ -69,8 +75,10 @@ export default function QuizRatingsPanel({ registrations = [], quizzes = null, c
             Quiz Ratings
           </h2>
           <p className="text-xs text-temple-500">
-            Ratings students give after submitting a quiz.{' '}
-            {canSeeFeedback ? 'Suggestions are shown under each rating.' : 'Written suggestions are visible to Super Admins only.'}
+            Ratings devotees give after a quiz.{' '}
+            {canSeeFeedback ? ''
+              : isSuperAdmin ? 'Their written messages appear here once quiz access is ready (open the Quizzes tab once).'
+                : 'Written messages are visible to Super Admins only.'}
           </p>
         </div>
         <button
@@ -95,7 +103,7 @@ export default function QuizRatingsPanel({ registrations = [], quizzes = null, c
         <div className="bg-cream-50 rounded-2xl border border-cream-200 px-4 py-12 text-center text-temple-500">
           <MessageSquareHeart className="w-8 h-8 mx-auto text-temple-300 mb-2" />
           <p className="font-semibold text-sm">No ratings yet</p>
-          <p className="text-xs text-temple-400">Ratings appear here once students rate a quiz after submitting it.</p>
+          <p className="text-xs text-temple-400">Ratings appear here once devotees rate a quiz.</p>
         </div>
       ) : (
         <>
@@ -104,6 +112,33 @@ export default function QuizRatingsPanel({ registrations = [], quizzes = null, c
             <Tile label="Average" value={<span className="inline-flex items-center gap-1">{overall.toFixed(1)}<Star className="w-4 h-4 fill-gold-400 text-gold-500" /></span>} />
             <Tile label="Quizzes rated" value={summaries.length} />
           </div>
+
+          {canSeeFeedback && (
+            <section className="bg-cream-50 rounded-2xl border border-cream-200 shadow-soft overflow-hidden">
+              <h3 className="px-4 py-2.5 border-b border-cream-200 text-xs font-bold text-temple-800 flex items-center gap-1.5">
+                <MessageSquareText className="w-4 h-4 text-saffron-600" /> Messages ({messages.length})
+              </h3>
+              {messages.length === 0 ? (
+                <p className="px-4 py-4 text-xs text-temple-500">No written messages yet.</p>
+              ) : (
+                <ul className="divide-y divide-cream-200/80 max-h-80 overflow-y-auto">
+                  {messages.map((m) => (
+                    <li key={m.id} className="px-4 py-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-temple-500">
+                        <span className="min-w-0 truncate">
+                          <strong className="text-temple-900">{names[m.registrationId] || 'Devotee'}</strong> · {m.registrationId}
+                          {m.ratedAt ? ` · ${formatWhen(m.ratedAt)}` : ''}
+                        </span>
+                        <Stars value={m.rating} />
+                      </div>
+                      <p className="text-sm text-temple-800 whitespace-pre-wrap break-words">{m.comment}</p>
+                      <p className="text-[10px] text-temple-400 truncate">{quizName({ quizId: m.quizId, title: m.quizTitle, weekNumber: m.weekNumber }, quizzes)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <ul className="space-y-3">
             {summaries.map((s) => (
@@ -203,7 +238,7 @@ function QuizRatingCard({ summary: s, name, names, feedback = {}, open, onToggle
               <li key={r.id} className="px-4 py-2.5 space-y-1.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium text-temple-900 truncate">{names[r.registrationId] || 'Participant'}</span>
+                    <span className="block text-sm font-medium text-temple-900 truncate">{names[r.registrationId] || 'Devotee'}</span>
                     <span className="block text-[11px] text-temple-500">{r.registrationId}{r.ratedAt ? ` · ${formatWhen(r.ratedAt)}` : ''}</span>
                   </span>
                   <span className="text-right shrink-0">

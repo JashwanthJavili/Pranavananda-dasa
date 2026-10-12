@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Star, Send } from 'lucide-react';
 import { Spinner } from '../ui';
 import {
@@ -7,7 +7,8 @@ import {
 
 /**
  * 5-star rating for a quiz the student has submitted, saved as soon as a star is tapped.
- * For 4 stars or fewer it also asks how we can improve (sent with its own button).
+ * For 4 stars or fewer it also asks how we can improve. What is typed saves itself (a moment
+ * after typing stops, and when the page is left), so a suggestion is never lost; Send confirms.
  */
 export default function RateQuiz({ quiz, registrationId, className = '' }) {
   const [rating, setRating] = useState(null); // null while loading, 0 = not rated
@@ -20,6 +21,38 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
   const [justSent, setJustSent] = useState(false);
   const sectionRef = useRef(null);
   const revealAfterRate = useRef(false);
+  const hadFeedback = useRef(false); // a suggestion was already saved before this visit
+  const draftRef = useRef('');
+  const savedRef = useRef('');
+  draftRef.current = draft;
+  savedRef.current = feedback;
+  const asking = rating > 0 && rating <= ASK_FEEDBACK_AT;
+
+  // Save what is typed without waiting for Send
+  const saveDraft = useCallback(async () => {
+    const text = draftRef.current.trim();
+    if (!text || text === savedRef.current) return;
+    try {
+      const saved = await saveQuizFeedback({ quiz, registrationId, comment: text });
+      savedRef.current = saved;
+      setFeedback(saved);
+    } catch (e) {
+      // Send still works and shows any error
+    }
+  }, [quiz, registrationId]);
+  useEffect(() => {
+    if (!asking || sending || !draft.trim() || draft.trim() === feedback) return undefined;
+    const t = setTimeout(saveDraft, 1500);
+    return () => clearTimeout(t);
+  }, [asking, draft, feedback, sending, saveDraft]);
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') saveDraft(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      saveDraft(); // leaving the page
+    };
+  }, [saveDraft]);
 
   // After a star is tapped, bring the comment box (or the thank-you) into view
   useEffect(() => {
@@ -32,6 +65,7 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
     let alive = true;
     Promise.all([fetchMyRating(quiz.id, registrationId), fetchMyFeedback(quiz.id, registrationId)]).then(([r, f]) => {
       if (!alive) return;
+      hadFeedback.current = Boolean(f);
       setFeedback(f);
       setDraft(f);
       setRating(r);
@@ -80,7 +114,7 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
   const askImprove = rating > 0 && rating <= ASK_FEEDBACK_AT;
   const changed = draft.trim() !== feedback;
   // Thank them once there is nothing more to ask: 5 stars, or a suggestion sent
-  const thanked = rating > 0 && (!askImprove || (feedback && !changed));
+  const thanked = rating > 0 && (!askImprove || (feedback && !changed && (justSent || hadFeedback.current)));
 
   return (
     <section ref={sectionRef} className={`scroll-mb-6 rounded-2xl border border-cream-200 bg-white/80 px-4 py-3 sm:py-4 text-center space-y-1.5 sm:space-y-2 ${className}`} aria-labelledby={`rate-${quiz.id}`}>
@@ -132,10 +166,12 @@ export default function RateQuiz({ quiz, registrationId, className = '' }) {
             className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-cream-300 text-sm text-temple-900 placeholder:text-temple-400 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 resize-none"
           />
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[11px] text-temple-400 tabular-nums">{draft.length}/{FEEDBACK_MAX}</span>
+            <span className="text-[11px] text-temple-400 tabular-nums">
+              {feedback && !changed ? <span className="text-emerald-700 font-semibold">Saved ✓</span> : `${draft.length}/${FEEDBACK_MAX}`}
+            </span>
             <button
               type="submit"
-              disabled={!draft.trim() || !changed || sending}
+              disabled={!draft.trim() || sending || (!changed && (justSent || hadFeedback.current))}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold disabled:opacity-50 cursor-pointer"
             >
               {sending ? <Spinner className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}

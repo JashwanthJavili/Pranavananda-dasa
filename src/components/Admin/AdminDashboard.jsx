@@ -1190,6 +1190,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             registrations={registrations}
             quizzes={isSuperAdmin && quizManager.isManager ? quizData.quizzes : null}
             canSeeFeedback={isSuperAdmin && quizManager.isManager}
+            isSuperAdmin={isSuperAdmin}
           />
         )}
 
