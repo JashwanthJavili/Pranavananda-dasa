@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:staging": "vite build --mode staging",
     "build:production": "vite build --mode production",
+    "deploy:staging": "vite build --mode staging && firebase deploy --only hosting:gitaforyouth-stg --project staging",
     "preview": "vite preview",
     "test:rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-gfy --only firestore,auth \"node tests/rules/quiz-and-admin.rules.test.cjs\"",
     "wipe:staging-auth": "node scripts/wipe-staging-auth.mjs"
