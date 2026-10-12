@@ -22,5 +22,12 @@ const staging = {
 // Both configs, for Node scripts (e.g. scripts/backfill-email-hints.mjs).
 export const firebaseConfigs = { staging, production };
 
-export const APP_ENV = import.meta.env?.MODE === 'staging' ? 'staging' : 'production';
+// Safety net: a staging build only talks to the staging database on the staging site (or this
+// computer). If it is ever deployed to the live site by mistake, it uses the live database, so
+// students' registrations can never land in staging again.
+const STAGING_HOSTS = ['gitaforyouth-stg.web.app', 'gitaforyouth-stg.firebaseapp.com', 'localhost', '127.0.0.1'];
+const host = typeof window !== 'undefined' ? window.location.hostname : '';
+const onStagingHost = !host || STAGING_HOSTS.includes(host);
+
+export const APP_ENV = import.meta.env?.MODE === 'staging' && onStagingHost ? 'staging' : 'production';
 export const firebaseConfig = APP_ENV === 'staging' ? staging : production;
