@@ -146,7 +146,7 @@ export default function QuizResults({ quiz, attempts, counted, answerKey, onBack
 
       {/* Review */}
       <div id="quiz-answers" className="scroll-mt-24 flex items-baseline justify-between gap-3 px-1 pt-1">
-        <h3 className="font-display text-xl sm:text-2xl font-bold text-temple-900">Your answers</h3>
+        <h3 className="font-display text-lg sm:text-2xl font-bold text-temple-900">Your answers</h3>
         {multiple && <span className="text-xs text-temple-500">Attempt {shown.attemptNumber}</span>}
       </div>
 

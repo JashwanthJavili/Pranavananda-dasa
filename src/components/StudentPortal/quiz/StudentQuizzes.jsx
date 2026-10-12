@@ -151,7 +151,7 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
   return (
     <div className="space-y-5 animate-fadeIn">
       <div className="space-y-1">
-        <h3 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">Weekly Gita Quizzes</h3>
+        <h3 className="font-display text-xl sm:text-3xl font-bold text-temple-900">Weekly Gita Quizzes</h3>
         <p className="text-xs sm:text-sm text-temple-500">A short quiz each week to reflect on what you have learnt. Take your time; there is no time limit.</p>
       </div>
 
@@ -160,7 +160,7 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
           <div className="w-16 h-16 mx-auto rounded-full bg-gold-100 border border-gold-200 flex items-center justify-center text-gold-600">
             <Sparkles className="w-7 h-7" />
           </div>
-          <h4 className="font-display text-2xl font-bold text-temple-900">No quizzes yet</h4>
+          <h4 className="font-display text-xl sm:text-2xl font-bold text-temple-900">No quizzes yet</h4>
           <p className="text-sm text-temple-600 max-w-sm mx-auto leading-relaxed">
             Hare Krishna 🙏 This week’s quiz will appear here soon. Meanwhile, please keep reading and reflecting on the Gita.
           </p>
@@ -243,7 +243,7 @@ function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
         </span>
       </div>
       <div className="space-y-1.5 flex-1">
-        <h4 className="font-display text-xl sm:text-2xl font-bold text-temple-900 leading-snug">{quiz.title}</h4>
+        <h4 className="font-display text-lg sm:text-2xl font-bold text-temple-900 leading-snug">{quiz.title}</h4>
         {quiz.description && <p className="text-sm text-temple-600 leading-relaxed line-clamp-3">{quiz.description}</p>}
       </div>
       <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-temple-500">
@@ -304,7 +304,7 @@ function ConfirmDetails({ quiz, profile, onBack, onConfirm }) {
     <div className="max-w-md w-full mx-auto flex flex-col justify-center animate-fadeIn min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-14.5rem)]">
       <section className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft-md p-6 sm:p-7 space-y-5">
         <div className="text-center space-y-1">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">Confirm your details</h2>
+          <h2 className="font-display text-xl sm:text-3xl font-bold text-temple-900">Confirm your details</h2>
           <p className="text-xs sm:text-sm text-temple-500">{quiz.weekNumber ? `Week ${quiz.weekNumber} · ` : ''}{quiz.title}</p>
         </div>
 
@@ -367,7 +367,7 @@ function QuizIntro({ quiz, progress, registrationId, onBack, onBegin }) {
     <div className="max-w-md w-full mx-auto flex flex-col justify-center animate-fadeIn min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-14.5rem)]">
       <section className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft-md p-6 sm:p-7 space-y-5">
         <div className="text-center space-y-1">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">Before you begin</h2>
+          <h2 className="font-display text-xl sm:text-3xl font-bold text-temple-900">Before you begin</h2>
           <p className="text-xs sm:text-sm text-temple-500">{quiz.weekNumber ? `Week ${quiz.weekNumber} · ` : ''}{quiz.title}</p>
         </div>
 
@@ -470,7 +470,7 @@ function SubmittedScreen({ quiz, progress, registrationId, onBack, onRetake, onF
           <CheckCircle2 className="w-8 h-8" />
         </div>
         <div className="space-y-1.5">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-temple-900">Thank you! Attempt {progress?.attempts} submitted 🙏</h2>
+          <h2 className="font-display text-xl sm:text-3xl font-bold text-temple-900">Thank you! Attempt {progress?.attempts} submitted 🙏</h2>
           <p className="text-sm text-temple-600 leading-relaxed">
             You have {left} attempt{left === 1 ? '' : 's'} left. Your score and the correct answers will be shown after your final attempt
             {quiz.closesAt ? `, or when the quiz closes on ${formatWhen(quiz.closesAt)}` : ''}.

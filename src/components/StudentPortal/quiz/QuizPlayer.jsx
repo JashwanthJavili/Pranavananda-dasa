@@ -151,33 +151,33 @@ export default function QuizPlayer({
 
   if (!q) return <Notice type="error">This quiz has no questions yet.</Notice>;
 
-  const btnGhost = 'inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-cream-300 bg-white text-base font-medium text-temple-700 hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer';
-  const btnDark = 'inline-flex items-center justify-center gap-1.5 px-5 py-3 rounded-xl bg-temple-900 hover:bg-temple-800 text-cream-50 text-base font-semibold shadow-soft cursor-pointer';
-  const btnSaffron = 'inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-base font-semibold shadow-soft cursor-pointer';
+  const btnGhost = 'inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-cream-300 bg-white text-sm sm:text-base font-medium text-temple-700 hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer';
+  const btnDark = 'inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-temple-900 hover:bg-temple-800 text-cream-50 text-sm sm:text-base font-semibold shadow-soft cursor-pointer';
+  const btnSaffron = 'inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-sm sm:text-base font-semibold shadow-soft cursor-pointer';
 
   return (
     // Fills the screen: summary at the top, question (or review) in the middle, buttons at the bottom
-    <div className={`w-full max-w-2xl mx-auto flex flex-col gap-4 sm:gap-5 animate-fadeIn ${screenClass}`}>
+    <div className={`w-full max-w-2xl mx-auto flex flex-col gap-3 sm:gap-4 animate-fadeIn ${screenClass}`}>
       {/* Top: quiz name, timer and progress */}
-      <header className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft px-4 sm:px-5 py-3.5 sm:py-4">
+      <header className="rounded-3xl bg-cream-50 border border-gold-200/80 shadow-soft px-3.5 sm:px-5 py-3 sm:py-3.5">
         <div className="flex items-center gap-3">
-          <ProgressRing percent={percent} size={46} stroke={4} label={`${answered} of ${total} questions answered`}>
-            <span className="text-xs font-medium text-temple-700 tabular-nums">{answered}/{total}</span>
+          <ProgressRing percent={percent} size={40} stroke={4} label={`${answered} of ${total} questions answered`}>
+            <span className="text-[11px] font-medium text-temple-700 tabular-nums">{answered}/{total}</span>
           </ProgressRing>
           <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-[13px] font-semibold tracking-[0.16em] uppercase text-saffron-700">
+            <p className="text-[10px] sm:text-xs font-semibold tracking-[0.16em] uppercase text-saffron-700">
               {preview ? 'Preview' : attemptLabel || (quiz.weekNumber ? `Week ${quiz.weekNumber}` : 'Quiz')}
             </p>
-            <h2 className="font-display text-xl sm:text-2xl font-bold text-temple-900 leading-tight truncate">{quiz.title}</h2>
+            <h2 className="font-display text-base sm:text-xl font-bold text-temple-900 leading-tight truncate">{quiz.title}</h2>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white border border-cream-200 text-sm font-semibold text-temple-700 tabular-nums" role="timer" aria-label={`Time taken ${formatClock(seconds)}`}>
-            <Timer className="w-4 h-4 text-saffron-600" /> {formatClock(seconds)}
+          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1.5 rounded-xl bg-white border border-cream-200 text-xs sm:text-sm font-semibold text-temple-700 tabular-nums" role="timer" aria-label={`Time taken ${formatClock(seconds)}`}>
+            <Timer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-saffron-600" /> {formatClock(seconds)}
           </span>
           <button
             type="button"
             onClick={() => (preview ? onExit() : setConfirmExit(true))}
             title={preview ? 'Close preview' : 'Exit the quiz'}
-            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-cream-300 bg-white text-sm font-medium text-temple-700 hover:bg-cream-100 cursor-pointer"
+            className="shrink-0 inline-flex items-center gap-0.5 px-2 py-1.5 rounded-xl border border-cream-300 bg-white text-xs sm:text-sm font-medium text-temple-700 hover:bg-cream-100 cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" /> {preview ? 'Close' : 'Exit'}
           </button>
@@ -187,10 +187,10 @@ export default function QuizPlayer({
       {/* Middle: one question, or the review page */}
       <div className="flex-1 flex flex-col justify-center gap-4 sm:gap-5">
         {reviewing ? (
-          <section className="rounded-3xl bg-white/80 border border-cream-200 shadow-soft-md p-5 sm:p-7 space-y-5" aria-labelledby="quiz-review">
+          <section className="rounded-3xl bg-white/80 border border-cream-200 shadow-soft-md p-4 sm:p-6 space-y-5" aria-labelledby="quiz-review">
             <div className="space-y-1.5">
               <p className="text-sm font-semibold text-gold-600 tracking-wide inline-flex items-center gap-1.5"><ListChecks className="w-4 h-4" /> Review</p>
-              <h3 id="quiz-review" ref={headingRef} tabIndex={-1} className="font-display text-xl sm:text-2xl font-bold text-temple-900 leading-snug outline-none">
+              <h3 id="quiz-review" ref={headingRef} tabIndex={-1} className="font-display text-lg sm:text-xl font-bold text-temple-900 leading-snug outline-none">
                 {unanswered.length ? 'Almost there' : 'All Questions Answered'}
               </h3>
               <p className="text-sm text-temple-600">Please review your answers before submitting. Tap any number to open that question.</p>
@@ -240,20 +240,20 @@ export default function QuizPlayer({
             )}
           </section>
         ) : (
-          <section className="rounded-3xl bg-white/80 border border-cream-200 shadow-soft-md p-5 sm:p-7 space-y-7" aria-labelledby="quiz-question">
-            <div className="space-y-4 text-center">
-              <p className="font-display text-2xl sm:text-3xl font-bold text-gold-700 tracking-wide">Question {index + 1}</p>
-              <h3 id="quiz-question" ref={headingRef} tabIndex={-1} className="text-xl sm:text-2xl font-normal text-temple-900 leading-snug outline-none whitespace-pre-line">
+          <section className="rounded-3xl bg-white/80 border border-cream-200 shadow-soft-md p-4 sm:p-6 space-y-5 sm:space-y-6" aria-labelledby="quiz-question">
+            <div className="space-y-3 text-center">
+              <p className="font-display text-xl sm:text-2xl font-bold text-gold-700 tracking-wide">Question {index + 1}</p>
+              <h3 id="quiz-question" ref={headingRef} tabIndex={-1} className="text-lg sm:text-xl font-normal text-temple-900 leading-snug outline-none whitespace-pre-line">
                 {q.text}
                 {q.required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
               </h3>
-              {q.description && <p className="text-base text-temple-600 leading-relaxed whitespace-pre-line">{q.description}</p>}
+              {q.description && <p className="text-sm sm:text-base text-temple-600 leading-relaxed whitespace-pre-line">{q.description}</p>}
               {q.type === 'checkbox' && <p className="text-sm font-medium text-saffron-700">You can select multiple answers</p>}
             </div>
             {q.type === 'short' || q.type === 'paragraph' ? (
               <TextAnswer key={q.id} q={q} value={typeof answers[q.id] === 'string' ? answers[q.id] : ''} onChange={setAnswer} />
             ) : (
-              <div role={q.type === 'checkbox' ? 'group' : 'radiogroup'} aria-labelledby="quiz-question" className="grid gap-4 max-w-md mx-auto w-full">
+              <div role={q.type === 'checkbox' ? 'group' : 'radiogroup'} aria-labelledby="quiz-question" className="grid gap-3 max-w-md mx-auto w-full">
                 {q.options.map((o, i) => {
                   const multi = q.type === 'checkbox';
                   const selected = multi ? (Array.isArray(answers[q.id]) && answers[q.id].includes(o.id)) : answers[q.id] === o.id;
@@ -266,13 +266,13 @@ export default function QuizPlayer({
                       tabIndex={multi || selected || (!answers[q.id] && i === 0) ? 0 : -1}
                       onClick={() => choose(o.id)}
                       onKeyDown={(e) => onOptionKey(e, i)}
-                      className={`w-full flex items-center justify-center gap-3 text-center rounded-2xl border px-4 py-3.5 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400/60 ${
+                      className={`w-full flex items-center justify-center gap-3 text-center rounded-2xl border px-4 py-3 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400/60 ${
                         selected
                           ? 'border-emerald-300 bg-emerald-50 shadow-soft'
                           : 'border-cream-300 bg-cream-50 hover:border-gold-300 hover:bg-white'
                       }`}
                     >
-                      <span className={`text-base sm:text-lg font-medium leading-relaxed ${selected ? 'text-temple-900' : 'text-temple-800'}`}>{o.text}</span>
+                      <span className={`text-[15px] sm:text-base font-medium leading-snug ${selected ? 'text-temple-900' : 'text-temple-800'}`}>{o.text}</span>
                     </button>
                   );
                 })}
@@ -285,7 +285,7 @@ export default function QuizPlayer({
       </div>
 
       {/* Bottom: navigation */}
-      <div className="rounded-3xl bg-cream-50 border border-cream-200 shadow-soft p-3 flex items-center gap-2.5">
+      <div className="rounded-3xl bg-cream-50 border border-cream-200 shadow-soft p-2.5 flex items-center gap-2.5">
         {reviewing ? (
           <>
             <button type="button" onClick={() => { setReviewing(false); go(total - 1); }} className={btnGhost}>
