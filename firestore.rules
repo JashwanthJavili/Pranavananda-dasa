@@ -49,8 +49,9 @@ service cloud.firestore {
         // and public update allows coordinators to update status or details
         allow create: if true;
         // Deleting a participant only hides the record (isDeleted), so its number is never given
-        // to anyone else; only a signed-in Super Admin may hide one (with a deletion log entry)
-        allow update: if !newlyHidden() || isSuperAdminCaller();
+        // to anyone else; only a signed-in Super Admin may hide one (with a deletion log entry),
+        // and only while "Allow deleting registrations" is on (Settings, Data protection)
+        allow update: if !newlyHidden() || (isSuperAdminCaller() && registrationDeleteOn());
         // A registration is never erased, except by the staging test-data wipe
         allow delete: if canWipeStaging();
       }
@@ -315,6 +316,12 @@ service cloud.firestore {
 
     function isSuperAdminCaller() {
       return isSignedIn() && request.auth.token.email != null && isActiveSuperAdmin();
+    }
+
+    // Super Admin switch (adminSettings/controls): deleting registrations is off unless turned on
+    function registrationDeleteOn() {
+      let p = /databases/$(database)/documents/adminSettings/controls;
+      return exists(p) && get(p).data.get('registrationDelete', false) == true;
     }
 
     // STAGING ONLY: a Super Admin may wipe test data. The sign-in token names the Firebase
@@ -586,6 +593,17 @@ service cloud.firestore {
         && exists(registrationPath(d.registrationId))
         && getAfter(registrationPath(d.registrationId)).data.get('isDeleted', false) == true
         && getAfter(registrationPath(d.registrationId)).data.get('deletedAt', null) == request.time;
+    }
+
+    // Super Admin switches that protect data (read by every admin page; changed by Super Admins only)
+    match /adminSettings/{id} {
+      allow get: if true;
+      allow list, delete: if false;
+      allow create, update: if id == 'controls' && isSuperAdminCaller()
+        && request.resource.data.keys().hasOnly(['registrationDelete', 'updatedBy', 'updatedAt'])
+        && request.resource.data.registrationDelete is bool
+        && request.resource.data.updatedBy is string
+        && request.resource.data.updatedAt == request.time;
     }
 
     match /deletionLogs/{logId} {

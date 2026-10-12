@@ -474,6 +474,22 @@ function submit(c, uid, quizId, regId, nAttempt, answers = { q1: 'a', q2: 'b' },
   await expect('the registration is still visible after the refused attempts', async () => {
     if ((await getDoc(REG(anon))).data().isDeleted) throw new Error('hidden');
   }, true);
+  // "Allow deleting registrations" (Settings, Data protection) is off by default
+  const CONTROLS = (c) => doc(c.db, 'adminSettings', 'controls');
+  const sw = (on, over = {}) => ({ registrationDelete: on, updatedBy: SA, updatedAt: serverTimestamp(), ...over });
+  await expect('with the switch never set, even a Super Admin cannot hide a registration', () => hide(qa), false);
+  await expect('anyone can read the switch', () => getDoc(CONTROLS(anon)), true);
+  await expect('a visitor cannot turn deleting on', () => setDoc(CONTROLS(anon), sw(true)), false);
+  await expect('a student cannot turn deleting on', () => setDoc(CONTROLS(sa), sw(true)), false);
+  await expect('a regular Admin cannot turn deleting on', () => setDoc(CONTROLS(qc), sw(true)), false);
+  await expect('the switch refuses extra fields', () => setDoc(CONTROLS(qa), sw(true, { other: 1 })), false);
+  await expect('the switch refuses a client-chosen time', () => setDoc(CONTROLS(qa), sw(true, { updatedAt: ts(-H) })), false);
+  await expect('only the "controls" record can be written', () => setDoc(doc(qa.db, 'adminSettings', 'other'), sw(true)), false);
+  await expect('Super Admin saves the switch as off', () => setDoc(CONTROLS(qa), sw(false)), true);
+  await expect('with the switch off, a Super Admin cannot hide a registration', () => hide(qa), false);
+  await expect('Super Admin turns deleting on', () => setDoc(CONTROLS(qa), sw(true)), true);
+  await expect('a regular Admin cannot turn it back off either', () => setDoc(CONTROLS(qc), sw(false)), false);
+  await expect('even a Super Admin cannot remove the switch', () => deleteDoc(CONTROLS(qa)), false);
   await expect('Super Admin hides a registration together with a log entry', () => hide(qa), true);
   await expect('the hidden registration is kept, so its number stays taken', async () => {
     const s = await getDoc(REG(anon));

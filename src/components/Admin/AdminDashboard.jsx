@@ -62,6 +62,8 @@ import { isStagingBuild } from '../../stagingWipe';
 import { fetchRegistration } from '../../profileEdits';
 import HelpEmailsSettings from './HelpEmailsSettings';
 import SocialLinksSettings from './SocialLinksSettings';
+import DataProtectionSettings from './DataProtectionSettings';
+import { fetchAdminControls } from '../../adminControls';
 import QuizzesPanel from './quiz/QuizzesPanel';
 import StudentAnswersModal from './quiz/StudentAnswersModal';
 import FancySelect from '../common/FancySelect';
@@ -246,6 +248,13 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   const [detailParticipant, setDetailParticipant] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
+  // Deleting registrations is off unless a Super Admin turns it on in Settings
+  const [canDeleteRegs, setCanDeleteRegs] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetchAdminControls().then((c) => alive && setCanDeleteRegs(c.registrationDelete));
+    return () => { alive = false; };
+  }, []);
   const [deletionLogKey, setDeletionLogKey] = useState(0);
   const [isDeletingParticipant, setIsDeletingParticipant] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -1089,6 +1098,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       setDeleteConfirmId(null);
       return;
     }
+    if (!canDeleteRegs) {
+      showNotification('Deleting registrations is turned off (Settings, Data protection).');
+      setDeleteConfirmId(null);
+      return;
+    }
     setIsDeletingParticipant(true);
     try {
       await deleteParticipant(deleteConfirmId, adminUser, deleteReason);
@@ -1609,7 +1623,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                                   >
                                     <Eye className="w-3.5 h-3.5" />
                                   </button>
-                                  {isSuperAdmin && (
+                                  {isSuperAdmin && canDeleteRegs && (
                                     <button
                                       onClick={() => setDeleteConfirmId(item.registrationId || item.id)}
                                       className="p-1.5 rounded-lg hover:bg-red-100 text-temple-400 hover:text-red-700 transition-colors cursor-pointer"
@@ -2552,6 +2566,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             {/* SECTION 7: HELP REQUEST EMAIL RECIPIENTS */}
             <div className="pt-2">
               <HelpEmailsSettings callerUser={adminUser} />
+            </div>
+
+            {/* DATA PROTECTION (deleting registrations is off by default) */}
+            <div className="pt-2">
+              <DataProtectionSettings callerUser={adminUser} enabled={canDeleteRegs} onChange={setCanDeleteRegs} />
             </div>
 
             {/* DELETION LOG (permanent: who deleted which participant, and when) */}
