@@ -31,7 +31,7 @@ export default function Hero({ onOpenRegister }) {
   const openPortal = () => { window.location.hash = 'student-portal'; };
 
   return (
-    <section className="relative overflow-hidden w-full flex items-start lg:items-center pt-6 pb-10 sm:py-12 lg:py-16">
+    <section className="relative overflow-hidden w-full flex items-center py-4 sm:py-12 lg:py-16">
       {/* Soft drifting light */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="lp-drift absolute -top-32 -left-24 w-[420px] h-[420px] rounded-full bg-saffron-200/40 blur-3xl" />
@@ -44,11 +44,11 @@ export default function Hero({ onOpenRegister }) {
       </div>
 
       <div className="relative w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-16 items-center">
 
           {/* Image */}
           <div className="order-1 lg:order-2 flex justify-center lp-rise" style={{ animationDelay: '0.1s' }}>
-            <div className="relative w-full max-w-[22rem] sm:max-w-md">
+            <div className="lp-hero-img relative w-full max-w-[22rem] sm:max-w-md">
               <div aria-hidden="true" className="absolute -inset-5 sm:-inset-12 flex items-center justify-center pointer-events-none">
                 <Mandala className="lp-spin w-full h-full text-gold-300/80" />
               </div>
@@ -73,9 +73,9 @@ export default function Hero({ onOpenRegister }) {
           </div>
 
           {/* Text */}
-          <div className="order-2 lg:order-1 text-center lg:text-left space-y-6">
+          <div className="order-2 lg:order-1 text-center lg:text-left space-y-3 sm:space-y-6">
             <div className="lp-rise" style={{ animationDelay: '0.25s' }}>
-              <h1 className="lp-shimmer font-display font-bold tracking-tight leading-[1.05] text-5xl sm:text-6xl lg:text-7xl bg-gradient-to-r from-saffron-700 via-gold-500 to-saffron-700 bg-clip-text text-transparent pb-1">
+              <h1 className="lp-shimmer font-display font-bold tracking-tight leading-[1.05] text-4xl sm:text-6xl lg:text-7xl bg-gradient-to-r from-saffron-700 via-gold-500 to-saffron-700 bg-clip-text text-transparent pb-1">
                 Gita for Youth
               </h1>
             </div>
@@ -86,24 +86,24 @@ export default function Hero({ onOpenRegister }) {
               <span className="h-px w-12 bg-gradient-to-l from-transparent to-gold-400" />
             </div>
 
-            <p className="lp-rise text-base sm:text-lg text-temple-700 leading-relaxed max-w-lg mx-auto lg:mx-0" style={{ animationDelay: '0.55s' }}>
+            <p className="lp-rise text-[15px] sm:text-lg text-temple-700 leading-normal sm:leading-relaxed max-w-lg mx-auto lg:mx-0" style={{ animationDelay: '0.55s' }}>
               Discover the purpose of life through the timeless wisdom of the Bhagavad Gita and the teachings of Lord Krishna.
             </p>
 
-            <div className="lp-rise pt-2 flex flex-col items-center lg:items-start w-full sm:w-72 mx-auto lg:mx-0" style={{ animationDelay: '0.7s' }}>
+            <div className="lp-rise pt-1 sm:pt-2 flex flex-col items-center lg:items-start w-full sm:w-72 mx-auto lg:mx-0" style={{ animationDelay: '0.7s' }}>
               <button
                 type="button"
                 onClick={onOpenRegister}
-                className="w-full inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-semibold text-white bg-gradient-to-r from-saffron-500 to-saffron-600 hover:from-saffron-600 hover:to-saffron-700 rounded-2xl shadow-soft-md hover:shadow-soft-lg hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2.5 px-8 py-3 sm:py-3.5 text-base font-semibold text-white bg-gradient-to-r from-saffron-500 to-saffron-600 hover:from-saffron-600 hover:to-saffron-700 rounded-2xl shadow-soft-md hover:shadow-soft-lg hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 cursor-pointer"
               >
                 <span>Register Now</span>
                 <ArrowRight className="w-4 h-4 animate-cute-arrow" />
               </button>
-              <p className="w-full text-center text-sm text-temple-600 mt-5 mb-2">Already registered?</p>
+              <p className="w-full text-center text-sm text-temple-600 mt-3 mb-1.5 sm:mt-5 sm:mb-2">Already registered?</p>
               <button
                 type="button"
                 onClick={openPortal}
-                className="w-full inline-flex items-center justify-center gap-2 px-7 py-3.5 text-base font-semibold text-temple-800 bg-white/70 backdrop-blur-sm border border-gold-300 hover:border-saffron-300 hover:bg-white rounded-2xl shadow-soft hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 px-7 py-3 sm:py-3.5 text-base font-semibold text-temple-800 bg-white/70 backdrop-blur-sm border border-gold-300 hover:border-saffron-300 hover:bg-white rounded-2xl shadow-soft hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 cursor-pointer"
               >
                 <LogIn className="w-4 h-4 text-saffron-600" />
                 <span>Sign in / Sign up</span>

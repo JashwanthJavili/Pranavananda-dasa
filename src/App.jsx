@@ -426,13 +426,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 flex flex-col font-poppins selection:bg-saffron-100 selection:text-saffron-900 animate-fadeIn">
+    <div className="lp-screen bg-cream-100 flex flex-col font-poppins selection:bg-saffron-100 selection:text-saffron-900 animate-fadeIn">
       
       {/* Top Navigation */}
       <Navbar />
 
       {/* Main Content Sections */}
-      <main className="flex-1 flex">
+      <main className="flex-1 min-h-0 flex">
         {/* 1. Hero Section */}
         <Hero onOpenRegister={goToRegister} />
       </main>

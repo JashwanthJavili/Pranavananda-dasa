@@ -119,6 +119,17 @@
   animation: lpShimmer 8s linear infinite;
 }
 
+/* Landing page on phones: the whole page fits one screen. The text, buttons, header and footer
+   take about 32rem, so the picture gets whatever height is left (never wider than the screen). */
+.lp-screen { min-height: 100vh; min-height: 100dvh; }
+@media (max-width: 639px) {
+  .lp-screen { height: 100vh; height: 100dvh; overflow: hidden; }
+  .lp-hero-img {
+    width: min(100%, 22rem, max(8rem, calc((100vh - 32rem) * 4 / 3)));
+    width: min(100%, 22rem, max(8rem, calc((100dvh - 32rem) * 4 / 3)));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lp-rise, .lp-spin, .lp-spin-rev, .lp-drift, .lp-glow, .lp-twinkle, .lp-shimmer {
     animation: none !important;
