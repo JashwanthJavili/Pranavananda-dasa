@@ -22,12 +22,19 @@ const staging = {
 // Both configs, for Node scripts (e.g. scripts/backfill-email-hints.mjs).
 export const firebaseConfigs = { staging, production };
 
-// Safety net: a staging build only talks to the staging database on the staging site (or this
-// computer). If it is ever deployed to the live site by mistake, it uses the live database, so
-// students' registrations can never land in staging again.
-const STAGING_HOSTS = ['gitaforyouth-stg.web.app', 'gitaforyouth-stg.firebaseapp.com', 'localhost', '127.0.0.1'];
+// Safety net: the website address decides the database, whatever version is loaded.
+//  - the staging site always uses the staging database
+//  - every other site (the live site and its addresses) always uses the live database
+//  - only on this computer (or the local network, for phone testing) does the build mode decide
+// So a version deployed to the wrong site can never send students to the wrong database.
+const STAGING_SITES = ['gitaforyouth-stg.web.app', 'gitaforyouth-stg.firebaseapp.com'];
 const host = typeof window !== 'undefined' ? window.location.hostname : '';
-const onStagingHost = !host || STAGING_HOSTS.includes(host);
+const isLocal = !host || host === 'localhost' || host === '127.0.0.1'
+  || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
+const modeEnv = import.meta.env?.MODE === 'staging' ? 'staging' : 'production';
 
-export const APP_ENV = import.meta.env?.MODE === 'staging' && onStagingHost ? 'staging' : 'production';
+/** The database this address must use. */
+export const expectedEnvForThisAddress = () => (STAGING_SITES.includes(host) ? 'staging' : isLocal ? modeEnv : 'production');
+
+export const APP_ENV = expectedEnvForThisAddress();
 export const firebaseConfig = APP_ENV === 'staging' ? staging : production;

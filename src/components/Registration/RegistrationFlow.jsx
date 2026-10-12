@@ -17,6 +17,7 @@ import {
   fetchProgramSettings, 
   subscribeToProgramSettings 
 } from '../../firebase';
+import { ensureLatestBeforeSubmit, takeUpdateNotice } from '../../appVersion';
 
 const STEPS = [
   { id: 1, title: 'Participant Details', shortTitle: 'Profile' },
@@ -138,7 +139,10 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
   // 'form' (normal flow) | 'lookup' (enter mobile number) | 'found' (existing registration)
   const [lookupView, setLookupView] = useState('form');
   const [foundReg, setFoundReg] = useState(null);
-  const [submitError, setSubmitError] = useState('');
+  // After a refresh that cancelled a submission, say sorry and ask to submit again
+  const [submitError, setSubmitError] = useState(() => (takeUpdateNotice() === 'submit'
+    ? 'Sorry for the inconvenience. Your registration was not sent because the site was being updated. Your details are filled in below. Please check them and submit again.'
+    : ''));
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -326,6 +330,19 @@ export default function RegistrationFlow({ onBackToHome, onGoToDashboard, initia
     submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError('');
+
+    // Last check before sending: an out-of-date page sends nothing and refreshes (details kept)
+    const check = await ensureLatestBeforeSubmit();
+    if (check === 'refreshing') {
+      setSubmitError('Sorry for the inconvenience. The site was just updated, so your registration was not sent. Your details are saved; the page is refreshing, then please submit again.');
+      return; // stays "submitting" until the page refreshes
+    }
+    if (check === 'blocked') {
+      setSubmitError('Sorry for the inconvenience. Your registration was not sent. Please close this page, open the site again and submit once more. Your details are saved on this device.');
+      submittingRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       // Re-check right before saving (covers double submits / another tab)

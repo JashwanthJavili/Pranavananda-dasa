@@ -4,6 +4,7 @@ import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import EmailAction, { emailActionFromUrl } from './components/StudentPortal/EmailAction.jsx';
 import './index.css';
+import { watchForUpdates } from './appVersion';
 
 // After a new version is published, a page left open may ask for files that no longer exist.
 // Reload once to pick up the new version instead of breaking (logins are kept, they are stored).
@@ -16,6 +17,9 @@ window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
   window.location.reload();
 });
+
+// Pages left open move to the newest version by themselves (with a message)
+watchForUpdates();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
