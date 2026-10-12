@@ -416,6 +416,106 @@ function submit(c, uid, quizId, regId, nAttempt, answers = { q1: 'a', q2: 'b' },
   await expect('a Super Admin removes the leftover account pointer with the registration', () => deleteDoc(doc(qa.db, 'portalAccounts', ub.uid)), true);
   await expect('student A\'s live records are still protected', () => deleteDoc(doc(anon.db, 'portalLinks', RA)), false);
 
+  console.log('Registrations are never erased; a delete only hides the record and is logged');
+  const RD = `BG26-7${String(stamp).slice(-4)}`;
+  const ND = `nakula${stamp}@example.com`;
+  await ownerSet(`BhagavadGita/data/registrations/${RD}`, { registrationId: RD, fullName: 'Nakula', email: ND, mobileNumberClean: '9000000003', countryCode: '+91', status: 'Confirmed' });
+  const REG = (c, id = RD) => doc(c.db, 'BhagavadGita', 'data', 'registrations', id);
+  const delLog = (over = {}) => ({
+    registrationId: RD, participantName: 'Nakula', participantEmail: ND, participantMobile: '+91 9000000003', reason: 'Duplicate',
+    deletedByEmail: SA, deletedByName: 'Super', deletedByAccount: QA_ACCOUNT, deletedAt: serverTimestamp(), ...over,
+  });
+  const hide = (c, logOver = {}) => {
+    const b = writeBatch(c.db);
+    b.update(REG(c), { isDeleted: true, status: 'Deleted', deletedAt: serverTimestamp() });
+    b.set(doc(collection(c.db, 'deletionLogs')), delLog(logOver));
+    return b.commit();
+  };
+  const logOnly = (c, over = {}) => setDoc(doc(collection(c.db, 'deletionLogs')), delLog(over));
+  await expect('a visitor can still register', () => setDoc(REG(anon, `BG26-6${String(stamp).slice(-4)}`), { fullName: 'New', createdAt: serverTimestamp() }), true);
+  await expect('details can still be updated (admin edits)', () => updateDoc(REG(anon), { city: 'Mathura' }), true);
+  await expect('a visitor cannot erase a registration', () => deleteDoc(REG(anon)), false);
+  await expect('a student cannot erase a registration', () => deleteDoc(REG(sa)), false);
+  await expect('a regular Admin cannot erase a registration', () => deleteDoc(REG(qc)), false);
+  await expect('a visitor cannot hide (delete) a registration', () => updateDoc(REG(anon), { isDeleted: true }), false);
+  await expect('a regular Admin cannot hide a registration', () => hide(qc, { deletedByEmail: AD, deletedByAccount: `${adminId(AD)}@gfy-quiz.invalid` }), false);
+  await expect('a student cannot hide a registration or write the log', () => hide(sa, { deletedByEmail: A, deletedByAccount: A }), false);
+  await expect('a log without hiding the registration is refused', () => logOnly(qa), false);
+  await expect('a log naming another admin is refused', () => hide(qa, { deletedByEmail: AD }), false);
+  await expect('a log with someone else\'s account is refused', () => hide(qa, { deletedByAccount: `${adminId(AD)}@gfy-quiz.invalid` }), false);
+  await expect('a log with a client-chosen time is refused', () => hide(qa, { deletedAt: ts(-H) }), false);
+  await expect('a log with an extra field is refused', () => hide(qa, { approved: true }), false);
+  await expect('the registration is still visible after the refused attempts', async () => {
+    if ((await getDoc(REG(anon))).data().isDeleted) throw new Error('hidden');
+  }, true);
+  await expect('Super Admin hides a registration together with a log entry', () => hide(qa), true);
+  await expect('the hidden registration is kept, so its number stays taken', async () => {
+    const s = await getDoc(REG(anon));
+    if (!s.exists() || s.data().isDeleted !== true || s.data().fullName !== 'Nakula') throw new Error('not kept');
+  }, true);
+  await expect('a second log for an already hidden registration is refused', () => logOnly(qa), false);
+  {
+    const logs = await getDocs(collection(qa.db, 'deletionLogs'));
+    await expect('Super Admin reads the deletion log (one entry)', async () => { if (logs.size !== 1) throw new Error(`${logs.size} entries`); }, true);
+    const first = logs.docs[0];
+    await expect('even a Super Admin cannot change a log entry', () => updateDoc(doc(qa.db, 'deletionLogs', first.id), { reason: 'changed' }), false);
+    await expect('even a Super Admin cannot delete a log entry', () => deleteDoc(doc(qa.db, 'deletionLogs', first.id)), false);
+    await expect('a visitor cannot delete a log entry', () => deleteDoc(doc(anon.db, 'deletionLogs', first.id)), false);
+  }
+  await expect('a regular Admin cannot read the deletion log', () => getDocs(collection(qc.db, 'deletionLogs')), false);
+  await expect('a student cannot read the deletion log', () => getDocs(collection(sa.db, 'deletionLogs')), false);
+  await expect('a visitor cannot read the deletion log', () => getDocs(collection(anon.db, 'deletionLogs')), false);
+
+  console.log('Registration numbers are never reused (the app\'s own numbering code)');
+  {
+    const { initializeApp: initApp } = await import('firebase/app');
+    const fsm = await import('firebase/firestore');
+    const { pathToFileURL } = require('url');
+    const nums = await import(pathToFileURL(require('path').join(__dirname, '..', '..', 'src', 'registrationNumbers.js')).href);
+    const store = (name) => {
+      const d = fsm.getFirestore(initApp({ apiKey: 'demo-key', projectId: PROJECT }, name));
+      fsm.connectFirestoreEmulator(d, '127.0.0.1', 8180);
+      return d;
+    };
+    const ndb = store(`nums${stamp}`);
+    const make = (name, d = ndb) => nums.createRegistrationWithNewNumber(d, { fullName: name, createdAt: fsm.serverTimestamp() });
+    const n = nums.registrationNumber;
+    const owner = (path, method, body, mask) => fetch(`${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${path}${mask ? `?updateMask.fieldPaths=${mask}` : ''}`, {
+      method, headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' }, body: body && JSON.stringify(body),
+    }).then((r) => { if (!r.ok) throw new Error(`owner ${method} ${path}: ${r.status}`); });
+    const same = (a, b) => async () => { if (a !== b) throw new Error(`got ${a}, expected ${b}`); };
+
+    const first = await make('First');
+    const second = await make('Second');
+    await expect('the next registration gets the next number', same(n(second), n(first) + 1), true);
+    await owner(`BhagavadGita/data/registrations/${second}`, 'PATCH', { fields: { isDeleted: { booleanValue: true } } }, 'isDeleted');
+    const third = await make('Third');
+    await expect('a hidden registration\'s number is not given again', same(n(third), n(second) + 1), true);
+    await owner(`BhagavadGita/data/registrations/${third}`, 'DELETE');
+    const fourth = await make('Fourth');
+    await expect('even an erased latest number is not given again', same(n(fourth), n(third) + 1), true);
+    await owner('BhagavadGita/data/meta/registrationCounter', 'PATCH', { fields: { last: { integerValue: '0' } } });
+    const fifth = await make('Fifth');
+    await expect('a counter set back to 0 does not cause reuse', same(n(fifth), n(fourth) + 1), true);
+    await ownerSet(`BhagavadGita/data/registrations/BG26-${n(fifth) + 1}`, { fullName: 'Already there' });
+    const sixth = await make('Sixth');
+    await expect('a number that is already taken is skipped', same(n(sixth), n(fifth) + 2), true);
+    {
+      const ids = await Promise.all(Array.from({ length: 8 }, (_, i) => make(`Same moment ${i}`, store(`par${stamp}_${i}`))));
+      const got = ids.map(n).sort((a, b) => a - b);
+      const want = Array.from({ length: 8 }, (_, i) => n(sixth) + 1 + i);
+      await expect('8 people registering at the same moment get 8 different numbers, in order', same(got.join(','), want.join(',')), true);
+    }
+    {
+      const dead = store(`dead${stamp}`);
+      await fsm.terminate(dead);
+      await expect('when the latest number cannot be read, nothing is guessed or saved', async () => {
+        try { await make('Offline', dead); } catch (e) { if (e.name === 'RegistrationNumberError') return; throw e; }
+        throw new Error('a number was given out');
+      }, true);
+    }
+  }
+
   console.log('Staging test-data wipe (Super Admins, staging project only)');
   // Runs last: it deletes what the tests above created
   await expect('a student cannot delete their attempt', () => deleteDoc(doc(sa.db, 'quizAttempts', `${Q1}_${RA}_1`)), false);

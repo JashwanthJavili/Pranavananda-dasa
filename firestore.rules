@@ -18,6 +18,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // This update marks a registration as deleted (it was not before)
+    function newlyHidden() {
+      return request.resource.data.get('isDeleted', false) == true && resource.data.get('isDeleted', false) != true;
+    }
+
     // Helper: Checks if the user is an authenticated administrator
     function isRootSuperAdmin() {
       return isSignedIn();
@@ -40,9 +45,14 @@ service cloud.firestore {
         // and enables the Admin Dashboard to list registered seekers
         allow read: if true;
 
-        // Public write allows new seekers to submit their registration without needing pre-login,
-        // and allows coordinators to update status or details
-        allow write: if true;
+        // Public create allows new seekers to submit their registration without needing pre-login,
+        // and public update allows coordinators to update status or details
+        allow create: if true;
+        // Deleting a participant only hides the record (isDeleted), so its number is never given
+        // to anyone else; only a signed-in Super Admin may hide one (with a deletion log entry)
+        allow update: if !newlyHidden() || isSuperAdminCaller();
+        // A registration is never erased, except by the staging test-data wipe
+        allow delete: if canWipeStaging();
       }
 
       // --- 3. Announcements Subcollection (/BhagavadGita/data/announcements/{annId}) ---
@@ -73,11 +83,11 @@ service cloud.firestore {
         allow read, write: if true;
       }
 
-      // Allow any other subcollections under /BhagavadGita/data (admins has its own rules above;
-      // rules are combined with OR, so this must not also match admins)
+      // Allow any other subcollections under /BhagavadGita/data (admins and registrations have
+      // their own rules above; rules are combined with OR, so this must not also match them)
       match /{coll}/{rest=**} {
         allow read: if true;
-        allow write: if coll != 'admins';
+        allow write: if !(coll in ['admins', 'registrations']);
       }
     }
 
@@ -533,6 +543,36 @@ service cloud.firestore {
       allow update: if false;
       // Append-only on production; only the staging test-data wipe may clear it
       allow delete: if canWipeStaging();
+    }
+
+    // Participants deleted (hidden) by Super Admins. Written together with the hide itself, and
+    // can never be changed or deleted by anyone, on any project.
+    function validDeletionLog(d) {
+      let account = request.auth.token.email.lower();
+      let by = d.deletedByEmail.lower();
+      return d.keys().hasOnly(['registrationId', 'participantName', 'participantEmail', 'participantMobile', 'reason',
+          'deletedByEmail', 'deletedByName', 'deletedByAccount', 'deletedAt'])
+        && d.registrationId is string && d.registrationId.size() > 0 && d.registrationId.size() <= 40
+        && d.get('participantName', '') is string && d.get('participantName', '').size() <= 120
+        && d.get('participantEmail', '') is string && d.get('participantEmail', '').size() <= 120
+        && d.get('participantMobile', '') is string && d.get('participantMobile', '').size() <= 30
+        && d.get('reason', '') is string && d.get('reason', '').size() <= 500
+        && d.get('deletedByName', '') is string && d.get('deletedByName', '').size() <= 100
+        // Attributed to the Super Admin who is signed in, not to anyone they name
+        && d.deletedByAccount == account
+        && d.deletedByEmail is string
+        && (by == account || by.replace('[^a-z0-9]', '_') + '@gfy-quiz.invalid' == account)
+        && d.deletedAt == request.time
+        // Written together with hiding that same registration
+        && exists(registrationPath(d.registrationId))
+        && getAfter(registrationPath(d.registrationId)).data.get('isDeleted', false) == true
+        && getAfter(registrationPath(d.registrationId)).data.get('deletedAt', null) == request.time;
+    }
+
+    match /deletionLogs/{logId} {
+      allow get, list: if isSuperAdminCaller();
+      allow create: if isSuperAdminCaller() && validDeletionLog(request.resource.data);
+      allow update, delete: if false;
     }
 
     // Direct root level trash backup fallback

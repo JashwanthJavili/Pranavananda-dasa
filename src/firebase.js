@@ -15,7 +15,7 @@ import {
   orderBy,
   serverTimestamp,
   onSnapshot,
-  runTransaction
+  writeBatch
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -28,6 +28,7 @@ import {
 } from 'firebase/auth';
 import { firebaseConfig, APP_ENV } from './config/firebaseConfig';
 import { withEmulatorConfig, connectToEmulators } from './config/emulators';
+import { createRegistrationWithNewNumber, registrationCounterRef } from './registrationNumbers';
 
 // Staging and production must not share cached admins in the same browser origin.
 export const ADMIN_CACHE_KEY = APP_ENV === 'staging' ? 'gita_amrita_cached_admins_stg' : 'gita_amrita_cached_admins';
@@ -81,88 +82,6 @@ export async function saveEmailHint(registrationId, { countryCode, mobileNumberC
     maskedEmail: masked,
     updatedAt: serverTimestamp(),
   });
-}
-
-/**
- * Generate sequential registration ID following pattern BG26-100, BG26-101, etc.
- * If database is wiped or empty, starts cleanly at BG26-100.
- * Concurrency-safe against race conditions.
- */
-export async function getNextRegistrationId() {
-  try {
-    let resetTime = 0;
-    try {
-      const parentSnap = await getDoc(doc(db, 'BhagavadGita', 'data'));
-      if (parentSnap.exists()) {
-        resetTime = parentSnap.data().resetTimestamp || 0;
-      }
-    } catch (e) {}
-
-    const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
-    let snapshot;
-    try {
-      snapshot = await getDocs(query(regRef, orderBy('createdAt', 'desc'), limit(50)));
-    } catch (indexErr) {
-      snapshot = await getDocs(query(regRef, limit(50)));
-    }
-
-    let maxNum = 99;
-    let foundActive = false;
-
-    if (snapshot && !snapshot.empty) {
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.isDeleted || data.status === 'Deleted' || data.status === 'Archived_To_Trash') return;
-        if (resetTime && data.createdAt?.toMillis && data.createdAt.toMillis() < resetTime) return;
-        const regId = data.registrationId || docSnap.id || '';
-        const match = regId.match(/BG26-(\d+)/i);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (!isNaN(num) && num >= 100) {
-            foundActive = true;
-            if (num > maxNum) {
-              maxNum = num;
-            }
-          }
-        }
-      });
-    }
-
-    // If no active records found in remote query, check local cache fallback
-    if (!foundActive) {
-      try {
-        const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
-        localRecords.forEach(r => {
-          if (r.isDeleted || r.status === 'Deleted' || r.status === 'Archived_To_Trash') return;
-          const id = r.registrationId || r.id || '';
-          const m = id.match(/BG26-(\d+)/i);
-          if (m) {
-            const n = parseInt(m[1], 10);
-            if (!isNaN(n) && n >= 100) {
-              foundActive = true;
-              if (n > maxNum) maxNum = n;
-            }
-          }
-        });
-      } catch (e) {}
-    }
-
-    if (!foundActive || maxNum < 100) {
-      return 'BG26-100';
-    }
-
-    return `BG26-${maxNum + 1}`;
-  } catch (err) {
-    console.warn('Error calculating sequential registration ID (defaulting to BG26-100):', err);
-    return 'BG26-100';
-  }
-}
-
-/**
- * Synchronous fallback helper
- */
-export function generateRegistrationId() {
-  return 'BG26-100';
 }
 
 /**
@@ -331,46 +250,9 @@ export async function saveRegistration(registrationData) {
     center: 'Gita for Youth Study Circle',
   };
 
-  const regCol = collection(db, 'BhagavadGita', 'data', 'registrations');
-
-  // Allocate the ID and create the document in ONE transaction. If the ID is already
-  // taken (another registrant, or a deleted/archived record), move on to the next
-  // number. An existing registration is therefore never overwritten and an
-  // allocated ID never changes or gets reused.
-  const parseNum = (id) => {
-    const m = String(id).match(/BG26-(\d+)/i);
-    return m ? parseInt(m[1], 10) : 100;
-  };
-  let num = parseNum(await getNextRegistrationId());
-  const MAX_ATTEMPTS = 40;
-  let registrationId = null;
-
-  for (let attempt = 0; attempt < MAX_ATTEMPTS && !registrationId; attempt++) {
-    const candidate = `BG26-${num}`;
-    const registrationRef = doc(regCol, candidate);
-    try {
-      await runTransaction(db, async (tx) => {
-        const existing = await tx.get(registrationRef);
-        if (existing.exists()) {
-          const collision = new Error('Registration ID already in use');
-          collision.code = 'id-collision';
-          throw collision;
-        }
-        tx.set(registrationRef, { ...payload, registrationId: candidate });
-      });
-      registrationId = candidate;
-    } catch (err) {
-      if (err && err.code === 'id-collision') {
-        num += 1;
-        continue;
-      }
-      throw err; // Real failure (network, permissions): let the caller tell the user
-    }
-  }
-
-  if (!registrationId) {
-    throw new Error('Could not allocate a registration ID. Please try again.');
-  }
+  // The number and the record are saved together; a number is never reused or guessed.
+  // Any failure here reaches the form, which asks the student to try again.
+  const registrationId = await createRegistrationWithNewNumber(db, payload);
 
   // Best-effort bookkeeping; the registration itself is already safely saved
   try {
@@ -1402,50 +1284,64 @@ export async function updateParticipant(registrationId, updates) {
   return { success: true };
 }
 
+const DELETE_SESSION_ERROR = 'Your secure Super Admin session is not active, so nothing was deleted. Please finish the quiz setup in the Quizzes tab, or log out and log in again, then try once more.';
+
 /**
- * Delete a participant registration permanently from Firestore & local storage (Super Admin only)
+ * "Delete" a participant (Super Admins only). The registration is only hidden (isDeleted), never
+ * erased, so the details can be restored and its number is never given to anyone else. The hide
+ * and a permanent deletion log entry are saved together: either both happen or neither does.
  */
-export async function deleteParticipant(registrationId, callerUser = null) {
-  if (!registrationId) return { success: false };
+export async function deleteParticipant(registrationId, callerUser = null, reason = '') {
+  if (!registrationId) throw new Error('No participant was selected.');
+  if (!isSuperAdminUser(callerUser)) throw new Error('Only Super Admins can delete participants.');
 
-  if (callerUser && !isSuperAdminUser(callerUser)) {
-    return { success: false, error: 'Access Denied: Only Super Administrators can delete participant records.' };
-  }
+  const { managerFirestore, managerAccountEmail } = await import('./quiz/quizAdmin');
+  const store = managerFirestore();
+  const account = managerAccountEmail();
+  if (!store || !account) throw new Error(DELETE_SESSION_ERROR);
 
-  // Remember the phone key so the masked-email hint can be removed afterwards.
-  let hintKey = null;
-  try {
-    const snap = await getDoc(doc(db, 'BhagavadGita', 'data', 'registrations', registrationId));
-    if (snap.exists() && snap.data().mobileNumberClean) {
-      hintKey = emailHintKey(snap.data().countryCode, snap.data().mobileNumberClean);
-    }
-  } catch (e) {}
+  const regRef = doc(store, 'BhagavadGita', 'data', 'registrations', registrationId);
+  const snap = await getDoc(regRef);
+  if (!snap.exists() || snap.data().isDeleted) throw new Error('This participant was not found, or has already been deleted.');
+  const reg = snap.data();
 
-  // The student's portal records (read with the Super Admin's session), removed once the
-  // registration is gone so the same person can register and set up again.
-  const store = await adminStore();
+  // The student's portal records, removed after the hide so the same person can register and
+  // set up again (the rules allow it once the registration is hidden)
   let portal = null;
   try {
     const link = await getDoc(doc(store, 'portalLinks', registrationId));
     if (link.exists()) portal = link.data();
   } catch (e) {}
+  const hintKey = reg.mobileNumberClean ? emailHintKey(reg.countryCode, reg.mobileNumberClean) : null;
 
-  // 1. Try physical deletion from Firestore
+  const adminEmail = String(callerUser?.email || '').trim().toLowerCase();
+  const batch = writeBatch(store);
+  batch.update(regRef, {
+    isDeleted: true,
+    statusBeforeDelete: reg.status || '',
+    status: 'Deleted',
+    deletedAt: serverTimestamp(),
+    deletedBy: adminEmail || account,
+  });
+  batch.set(doc(collection(store, 'deletionLogs')), {
+    registrationId,
+    participantName: sanitizeText(reg.fullName || '', 120),
+    participantEmail: sanitizeText(reg.email || reg.emailLower || '', 120),
+    participantMobile: sanitizeText(`${reg.countryCode || '+91'} ${reg.mobileNumberClean || reg.mobile || ''}`.trim(), 30),
+    reason: sanitizeText(String(reason || '').trim(), 500),
+    deletedByEmail: adminEmail || account,
+    deletedByName: sanitizeText(callerUser?.name || '', 100),
+    deletedByAccount: account,
+    deletedAt: serverTimestamp(),
+  });
   try {
-    const regRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
-    await deleteDoc(regRef);
+    await batch.commit();
   } catch (err) {
-    console.warn('Physical deleteDoc note (falling back to soft delete mark):', err);
-    try {
-      // 2. Fallback: mark isDeleted: true in Firestore
-      const regRef = doc(db, 'BhagavadGita', 'data', 'registrations', registrationId);
-      await setDoc(regRef, { isDeleted: true, status: 'Deleted', deletedAt: serverTimestamp() }, { merge: true });
-    } catch (setErr) {
-      console.warn('Firestore fallback delete error:', setErr);
-    }
+    console.warn('Participant not deleted:', err?.code || err);
+    throw new Error(err?.code === 'permission-denied' ? DELETE_SESSION_ERROR : 'The participant could not be deleted. Please check your connection and try again.');
   }
+
   if (portal) {
-    // The rules allow these only now that the registration no longer exists
     const leftovers = [
       doc(store, 'portalLogins', `${portal.countryCode || '+91'}${portal.mobileClean}`),
       doc(store, 'portalAccounts', portal.uid),
@@ -1464,7 +1360,7 @@ export async function deleteParticipant(registrationId, callerUser = null) {
     }
   }
 
-  // 3. Remove permanently from local storage caches
+  // Drop it from this browser's cached copies
   try {
     const localRecords = JSON.parse(localStorage.getItem('gita_amrita_registrations') || '[]');
     const filtered = localRecords.filter(r => r.id !== registrationId && r.registrationId !== registrationId);
@@ -2118,6 +2014,18 @@ export async function resetRegistrationSequenceAndArchive() {
     backupId: null
   };
 
+  // Testing tool: never on the live site
+  if (APP_ENV !== 'staging' || firebaseConfig.projectId !== 'gitaforyouth-stg') {
+    result.error = 'Reset Sequence is only available on the staging site.';
+    return result;
+  }
+  const { managerFirestore } = await import('./quiz/quizAdmin');
+  const store = managerFirestore();
+  if (!store) {
+    result.error = 'Your secure Super Admin session is not active. Please log out and log in again.';
+    return result;
+  }
+
   try {
     const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
     const snapshot = await getDocs(regRef);
@@ -2191,17 +2099,17 @@ export async function resetRegistrationSequenceAndArchive() {
       }));
     } catch (e) {}
 
-    // 2. Delete/Clear active registration documents from BhagavadGita/data/registrations
+    // 2. Delete the registrations (the rules allow this only to a staging Super Admin session),
+    // then restart numbering at BG26-100
+    let notDeleted = 0;
     for (const ref of docRefsToDelete) {
-      try {
-        await deleteDoc(ref);
-      } catch (delErr) {
-        // Fallback soft delete mark if deleteDoc has permissions limitation
-        try {
-          await setDoc(ref, { isDeleted: true, status: 'Archived_To_Trash', deletedAt: serverTimestamp() }, { merge: true });
-        } catch (setErr) {}
-      }
+      await deleteDoc(doc(store, ref.path)).catch(() => { notDeleted += 1; });
     }
+    if (notDeleted) {
+      result.error = `${notDeleted} registration(s) could not be removed, so numbering was not restarted. The backup ${archiveKey} was saved.`;
+      return result;
+    }
+    await setDoc(registrationCounterRef(store), { last: 0, updatedAt: serverTimestamp() });
 
     // 3. Update parent metadata to register the reset timestamp and reset counter
     try {

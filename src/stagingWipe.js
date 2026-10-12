@@ -27,11 +27,12 @@ export const WIPE_COLLECTIONS = [
   { label: 'Student portal links', path: ['portalLinks'] },
   { label: 'Email hints', path: ['emailHints'] },
   { label: 'Registrations', path: ['BhagavadGita', 'data', 'registrations'] },
+  { label: 'Registration number counter', path: ['BhagavadGita', 'data', 'meta'] },
   { label: 'Archived backups (trash)', path: ['BhagavadGita', 'data', 'trash'] },
   { label: 'Old backups (root trash)', path: ['trash'] },
 ];
 
-export const WIPE_KEEPS = ['Admin and Super Admin accounts (and their sign-ins)', 'Program settings and registration status', 'WhatsApp and help email settings'];
+export const WIPE_KEEPS = ['Admin and Super Admin accounts (and their sign-ins)', 'Program settings and registration status', 'WhatsApp and help email settings', 'Deletion log (it can never be deleted)'];
 
 /** What a wipe deletes: all participant data, plus quizzes and announcements when asked. */
 export const wipeTargets = (includeAdminContent) => WIPE_COLLECTIONS.filter((c) => includeAdminContent || !c.adminContent);

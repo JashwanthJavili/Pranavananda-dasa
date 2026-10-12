@@ -57,6 +57,8 @@ import WhatsAppConfigModule from './WhatsAppConfigModule';
 import HelpRequestsPanel from './HelpRequestsPanel';
 import QuizRatingsPanel from './QuizRatingsPanel';
 import StagingWipePanel from './StagingWipePanel';
+import DeletionLogs from './DeletionLogs';
+import { isStagingBuild } from '../../stagingWipe';
 import { fetchRegistration } from '../../profileEdits';
 import HelpEmailsSettings from './HelpEmailsSettings';
 import SocialLinksSettings from './SocialLinksSettings';
@@ -243,6 +245,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
   // Modals & Confirmation States
   const [detailParticipant, setDetailParticipant] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deletionLogKey, setDeletionLogKey] = useState(0);
   const [isDeletingParticipant, setIsDeletingParticipant] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
@@ -1087,12 +1091,14 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     }
     setIsDeletingParticipant(true);
     try {
-      await deleteParticipant(deleteConfirmId, adminUser);
+      await deleteParticipant(deleteConfirmId, adminUser, deleteReason);
       setRegistrations(prev => prev.filter(r => r.id !== deleteConfirmId && r.registrationId !== deleteConfirmId));
       setDeleteConfirmId(null);
-      showNotification('Participant deleted successfully.');
+      setDeleteReason('');
+      setDeletionLogKey((k) => k + 1);
+      showNotification('Participant deleted. It is recorded in the Deletion log in Settings.');
     } catch (err) {
-      showNotification('Failed to delete participant.');
+      showNotification(err?.message || 'Failed to delete participant.');
     } finally {
       setIsDeletingParticipant(false);
     }
@@ -2487,7 +2493,8 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                   </button>
                 </div>
 
-                {/* Developer Reset Sequence & Auto-Archive to Trash Card */}
+                {/* Developer Reset Sequence & Auto-Archive to Trash Card (staging only, never live) */}
+                {isStagingBuild() && (
                 <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 shadow-2xs space-y-3 flex flex-col justify-between">
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -2518,6 +2525,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                     <span>Reset Counter to BG26-100</span>
                   </button>
                 </div>
+                )}
 
               </div>
 
@@ -2543,6 +2551,11 @@ export default function AdminDashboard({ adminUser, onLogout }) {
             {/* SECTION 7: HELP REQUEST EMAIL RECIPIENTS */}
             <div className="pt-2">
               <HelpEmailsSettings callerUser={adminUser} />
+            </div>
+
+            {/* DELETION LOG (permanent: who deleted which participant, and when) */}
+            <div className="pt-2">
+              <DeletionLogs manager={quizManager} refreshKey={deletionLogKey} />
             </div>
 
             {/* SOCIAL MEDIA LINKS (shown on students' quiz results) */}
@@ -2727,14 +2740,25 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                 Delete Registration Record?
               </h3>
               <p className="text-xs text-temple-600">
-                Are you sure you want to permanently delete participant <strong className="text-temple-900">{deleteConfirmId}</strong>? This action cannot be undone.
+                Delete participant <strong className="text-temple-900">{deleteConfirmId}</strong>? They will be removed from every list.
+                Their details are kept safely, the registration number is never given to anyone else, and this is recorded in the Deletion log.
               </p>
             </div>
+
+            <textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value.slice(0, 500))}
+              rows={2}
+              disabled={isDeletingParticipant}
+              placeholder="Reason (optional), e.g. duplicate registration"
+              aria-label="Reason for deleting"
+              className="w-full px-3 py-2 rounded-xl bg-white border border-cream-300 text-xs text-temple-900 placeholder:text-temple-400 focus:outline-none focus:ring-2 focus:ring-saffron-400/50 resize-none"
+            />
 
             <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmId(null)}
+                onClick={() => { setDeleteConfirmId(null); setDeleteReason(''); }}
                 disabled={isDeletingParticipant}
                 className="w-1/2 py-2.5 px-3 rounded-xl border border-cream-300 bg-white hover:bg-cream-100 text-xs font-semibold text-temple-700 cursor-pointer transition-colors"
               >
