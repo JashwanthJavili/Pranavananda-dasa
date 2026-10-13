@@ -30,7 +30,6 @@ const STATE_CHIP = {
   completed: { text: 'Completed', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   upcoming: { text: 'Opening soon', cls: 'bg-saffron-50 text-saffron-700 border-saffron-200' },
   missed: { text: 'Not attempted', cls: 'bg-cream-200 text-temple-500 border-cream-300' }, // closed without an attempt
-  resume: { text: 'In progress', cls: 'bg-saffron-50 text-saffron-700 border-saffron-200' }, // started, not submitted
 };
 
 function windowText(quiz) {
@@ -235,7 +234,7 @@ function QuizCard({ quiz, progress, score, draft, onStart, onResume, onResults, 
       : null;
   // Answers saved on this device for an attempt not submitted yet: go straight back to them
   const resume = draft && availability(quiz, now) === 'open' && (state === 'not-attempted' || state === 'in-progress') ? draft : null;
-  const chip = STATE_CHIP[resume ? 'resume' : state];
+  const chip = STATE_CHIP[state];
   const max = quiz.maxAttempts || 1;
   const qCount = quiz.questionCount || quiz.questions?.length || 0;
   return (
@@ -244,9 +243,12 @@ function QuizCard({ quiz, progress, score, draft, onStart, onResume, onResults, 
         <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-temple-900 text-gold-200 text-[11px] font-semibold tracking-wide">
           {quiz.weekNumber ? `Week ${quiz.weekNumber}` : 'Quiz'}
         </span>
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[11px] font-semibold ${chip.cls}`}>
-          {state === 'completed' && score?.total ? `${score.correct}/${score.total} · ${score.percent}%` : chip.text}
-        </span>
+        {/* Started but not submitted: no "Not attempted yet" label next to Resume */}
+        {!(resume && state === 'not-attempted') && (
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[11px] font-semibold ${chip.cls}`}>
+            {state === 'completed' && score?.total ? `${score.correct}/${score.total} · ${score.percent}%` : chip.text}
+          </span>
+        )}
       </div>
       <div className="space-y-1.5 flex-1">
         <h4 className="font-display text-lg sm:text-2xl font-bold text-temple-900 leading-snug">{quiz.title}</h4>

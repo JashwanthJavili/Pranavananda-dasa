@@ -97,7 +97,7 @@ function QuizCard({ summary, registrationId, onOpen, onStartQuiz }) {
               </p>
               <p className="text-sm sm:text-base font-semibold text-temple-900 leading-snug truncate">{q.title}</p>
               {draft ? (
-                <p className="text-[11px] font-medium text-saffron-700">In progress: {draft.answered} of {draft.total} answered</p>
+                <p className="text-[11px] font-medium text-saffron-700">{draft.answered} of {draft.total} answered</p>
               ) : q.closesAt && (
                 <p className="flex items-center gap-1 text-[11px] text-temple-500">
                   <Clock className="w-3 h-3 shrink-0" /> Closes {when(q.closesAt)}
