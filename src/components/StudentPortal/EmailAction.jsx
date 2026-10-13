@@ -127,7 +127,7 @@ export default function EmailAction() {
               <div className="space-y-1.5">
                 <h1 className="font-display text-2xl font-bold text-temple-900">This link has expired</h1>
                 <p className="text-sm text-temple-600">
-                  It may be old or already used. Kindly open the student portal and log in; if your email still needs
+                  It may be old or already used. Kindly open the student portal and login; if your email still needs
                   verifying, you can send a new link from there.
                 </p>
               </div>

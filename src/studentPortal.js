@@ -577,7 +577,7 @@ export function authErrorMessage(err) {
     case 'auth/user-not-found':
       return 'Incorrect email or password.';
     case 'portal/mobile-not-set-up':
-      return 'No portal account uses this mobile number yet. Sign in with your email, or sign up first.';
+      return 'No account uses this mobile number yet. Login with your email, or create your account first.';
     case 'auth/quota-exceeded':
       return 'We are unable to send emails right now because today\'s limit has been reached. Please try again tomorrow, or contact the Gita for Youth team.';
     case 'auth/too-many-requests':
@@ -588,14 +588,14 @@ export function authErrorMessage(err) {
     case 'auth/weak-password':
       return 'Please choose a stronger password (at least 8 characters).';
     case 'auth/requires-recent-login':
-      return 'For your security, please sign in again before setting a password.';
+      return 'For your security, please login again before setting a password.';
     case 'auth/operation-not-allowed':
-      return 'Student sign-in is not enabled yet. Please contact the Gita for Youth team.';
+      return 'Student login is not enabled yet. Please contact the Gita for Youth team.';
     case 'auth/network-request-failed':
       return 'Network error. Please check your connection and try again.';
     case 'auth/unauthorized-continue-uri':
     case 'auth/unauthorized-domain':
-      return 'This website is not authorised for sign-in yet. Please contact the Gita for Youth team.';
+      return 'This website is not authorised for login yet. Please contact the Gita for Youth team.';
     default:
       return 'Something went wrong. Please try again.';
   }

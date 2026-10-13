@@ -40,7 +40,7 @@ function getSavedAdminAccounts() {
   }
 }
 
-export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
+export default function AdminLogin({ onLoginSuccess, onBackToHome, notice = '' }) {
   const [savedAccounts, setSavedAccounts] = useState(() => getSavedAdminAccounts());
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [manuallyDismissed, setManuallyDismissed] = useState(false);
@@ -54,7 +54,8 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // notice: why the last session ended (expired, password changed, access removed)
+  const [error, setError] = useState(notice);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -454,7 +455,7 @@ export default function AdminLogin({ onLoginSuccess, onBackToHome }) {
                 </>
               ) : (
                 <>
-                  <span>Sign In to Dashboard</span>
+                  <span>Login to Dashboard</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

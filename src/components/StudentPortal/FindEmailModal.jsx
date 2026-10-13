@@ -65,7 +65,7 @@ export default function FindEmailModal({ open, onClose }) {
     const digits = mobile.replace(/\D/g, '');
     onClose();
     openHelp({
-      category: 'Problem with sign up',
+      category: 'Problem creating my account',
       countryCode,
       mobile: digits,
       message: 'I do not remember which email address I used when I registered. Kindly help me find it.',
@@ -135,7 +135,7 @@ export default function FindEmailModal({ open, onClose }) {
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-center space-y-1">
               <p className="text-xs text-temple-600">Your registered email is</p>
               <p className="text-base sm:text-lg font-bold tracking-wide text-temple-900 break-all">{result.maskedEmail}</p>
-              <p className="text-[11px] text-temple-500">Type this email in full on the sign-up form to continue.</p>
+              <p className="text-[11px] text-temple-500">Type this email in full on the Create Account form to continue.</p>
             </div>
           )}
           {result?.status === 'not_found' && (
@@ -149,7 +149,7 @@ export default function FindEmailModal({ open, onClose }) {
           )}
 
           {result?.status === 'found' ? (
-            <PrimaryButton type="button" onClick={onClose}>Got it, back to sign up</PrimaryButton>
+            <PrimaryButton type="button" onClick={onClose}>Got it, back to Create Account</PrimaryButton>
           ) : result?.status === 'not_registered' ? null : (
             <PrimaryButton type="submit" loading={loading}>{loading ? 'Searching…' : 'Find my email'}</PrimaryButton>
           )}

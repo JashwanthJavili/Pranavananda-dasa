@@ -10,7 +10,7 @@ import { Notice, PrimaryButton, FullScreenLoader, Spinner } from '../ui';
 import { availability, formatWhen, toDate } from '../../../quiz/quizModel';
 import {
   resultsDue, fetchMyResults, submitQuizAttempt, finishQuizEarly, loadAnswerDraft, saveAnswerDraft,
-  clearAnswerDraft, quizErrorMessage, loadElapsed, saveElapsed, explainSubmitFailure,
+  clearAnswerDraft, quizErrorMessage, loadElapsed, saveElapsed, explainSubmitFailure, savedDraft,
 } from '../../../quiz/studentQuizzes';
 
 /** Where this student stands on a quiz. */
@@ -30,6 +30,7 @@ const STATE_CHIP = {
   completed: { text: 'Completed', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   upcoming: { text: 'Opening soon', cls: 'bg-saffron-50 text-saffron-700 border-saffron-200' },
   missed: { text: 'Not attempted', cls: 'bg-cream-200 text-temple-500 border-cream-300' }, // closed without an attempt
+  resume: { text: 'In progress', cls: 'bg-saffron-50 text-saffron-700 border-saffron-200' }, // started, not submitted
 };
 
 function windowText(quiz) {
@@ -136,6 +137,7 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
           registrationId={registrationId}
           onBack={back}
           onRetake={() => go(quiz.id, FIRST_QUIZ_STEP)}
+          onResume={() => go(quiz.id, 'play')}
           onFinished={() => settleTo('results')}
         />
       );
@@ -173,7 +175,9 @@ export default function StudentQuizzes({ user, profile, quizzes, progress, error
               quiz={q}
               progress={progress[q.id]}
               score={scores[q.id]}
+              draft={savedDraft(q, registrationId, progress[q.id])}
               onStart={() => go(q.id, FIRST_QUIZ_STEP)}
+              onResume={() => go(q.id, 'play')}
               onResults={() => go(q.id, 'results')}
               onSubmitted={() => go(q.id, 'submitted')}
             />
@@ -217,7 +221,7 @@ function timeLeft(ms) {
 
 const TIMER_TONE = { open: 'text-saffron-700', closing: 'text-amber-700', urgent: 'text-red-600' };
 
-function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
+function QuizCard({ quiz, progress, score, draft, onStart, onResume, onResults, onSubmitted }) {
   const opens = toDate(quiz.opensAt);
   const closes = toDate(quiz.closesAt);
   const ticking = Boolean((closes && closes > new Date()) || (opens && opens > new Date()));
@@ -229,7 +233,9 @@ function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
     : (state === 'not-attempted' || state === 'in-progress') && closes
       ? { label: 'Closes in', ms: closes - now, tone: closes - now < 3600e3 ? 'urgent' : 'closing', when: formatWhen(closes) }
       : null;
-  const chip = STATE_CHIP[state];
+  // Answers saved on this device for an attempt not submitted yet: go straight back to them
+  const resume = draft && availability(quiz, now) === 'open' && (state === 'not-attempted' || state === 'in-progress') ? draft : null;
+  const chip = STATE_CHIP[resume ? 'resume' : state];
   const max = quiz.maxAttempts || 1;
   const qCount = quiz.questionCount || quiz.questions?.length || 0;
   return (
@@ -259,10 +265,29 @@ function QuizCard({ quiz, progress, score, onStart, onResults, onSubmitted }) {
           <li className="inline-flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5 text-gold-500" />{windowText(quiz)}</li>
         )}
       </ul>
-            {state === 'not-attempted' && (
+      {resume && (
+        <div className="space-y-2">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-temple-600">
+              <span>{state === 'in-progress' ? `Attempt ${resume.attempt}: answered` : 'Answered'} <strong className="text-temple-900">{resume.answered} of {resume.total}</strong> questions</span>
+              <span className="font-semibold text-saffron-700 tabular-nums">{Math.round((resume.answered / (resume.total || 1)) * 100)}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-cream-200 overflow-hidden" aria-hidden>
+              <div className="h-full rounded-full bg-gradient-to-r from-saffron-400 to-saffron-600" style={{ width: `${(resume.answered / (resume.total || 1)) * 100}%` }} />
+            </div>
+          </div>
+          <PrimaryButton onClick={onResume}><PlayCircle className="w-4 h-4" /> Resume quiz</PrimaryButton>
+          {state === 'in-progress' && (
+            <button type="button" onClick={onSubmitted} className="w-full py-1.5 text-xs font-medium text-temple-500 hover:text-temple-800 cursor-pointer">
+              See earlier attempts and results
+            </button>
+          )}
+        </div>
+      )}
+      {!resume && state === 'not-attempted' && (
         <PrimaryButton onClick={onStart}><PlayCircle className="w-4 h-4" /> Start quiz</PrimaryButton>
       )}
-      {state === 'in-progress' && (
+      {!resume && state === 'in-progress' && (
         <div className="space-y-2">
           <p className="text-xs text-temple-600">You have submitted attempt {progress.attempts} of {max}.</p>
           <PrimaryButton onClick={onSubmitted}><RotateCcw className="w-4 h-4" /> Retake or see results</PrimaryButton>
@@ -443,13 +468,14 @@ function PlayQuiz({ quiz, user, registrationId, progress, onExit, onSubmitted })
   );
 }
 
-function SubmittedScreen({ quiz, progress, registrationId, onBack, onRetake, onFinished }) {
+function SubmittedScreen({ quiz, progress, registrationId, onBack, onRetake, onResume, onFinished }) {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const max = quiz.maxAttempts || 1;
   const left = max - (progress?.attempts || 0);
   const open = availability(quiz) === 'open';
+  const draft = savedDraft(quiz, registrationId, progress); // a retake started but not submitted
 
   const finish = async () => {
     setBusy(true);
@@ -479,7 +505,9 @@ function SubmittedScreen({ quiz, progress, registrationId, onBack, onRetake, onF
         <RateQuiz quiz={quiz} registrationId={registrationId} />
         {error && <Notice type="error">{error}</Notice>}
         <div className="space-y-2 pt-1">
-          {open && left > 0 && <PrimaryButton onClick={onRetake}><RotateCcw className="w-4 h-4" /> Retake now</PrimaryButton>}
+          {open && left > 0 && (draft
+            ? <PrimaryButton onClick={onResume}><PlayCircle className="w-4 h-4" /> Resume retake ({draft.answered} of {draft.total} answered)</PrimaryButton>
+            : <PrimaryButton onClick={onRetake}><RotateCcw className="w-4 h-4" /> Retake now</PrimaryButton>)}
           <button
             type="button"
             onClick={() => setConfirm(true)}
@@ -574,6 +602,7 @@ export function useQuizSummary(quizzes, progress) {
       actionable,
       next: actionable[0] || null,
       upcoming,
+      progress, // for "Resume" on the dashboard
     };
   }, [quizzes, progress]);
 }

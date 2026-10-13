@@ -86,7 +86,7 @@ export function validateProfile(values, original) {
 /** Changing these after the student has set up their portal login would break it. */
 export const LOGIN_FIELDS = ['email', 'mobile'];
 export const LOGIN_LOCKED_MESSAGE =
-  'This participant has already set up their portal login, so their email and mobile number cannot be changed here: '
+  'This participant has already created their account, so their email and mobile number cannot be changed here: '
   + 'their login, password reset and account recovery all depend on them.';
 
 const shown = (key, v) => {

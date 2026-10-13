@@ -12,10 +12,12 @@ import {
   setPendingOnboarding,
   authErrorMessage,
   checkRegistered,
+  PORTAL_HASH,
 } from '../../studentPortal';
 import NotRegistered from './NotRegistered';
 import { PortalCard, Heading, Notice, Field, TextInput, PasswordInput, PrimaryButton, LinkButton, MobileInput } from './ui';
 import { mobileProblem } from '../../utils/mobile';
+import { AUTH_HASH, authModeFromHash } from './portalRoute';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,7 +31,8 @@ const LOGIN_MISS = ['auth/invalid-credential', 'auth/user-not-found', 'auth/wron
 export default function PortalAuth({ initialMessage }) {
   const pending = getPendingOnboarding();
   // "Check your email" is for the older sign-in links only (new setups continue signed in)
-  const [mode, setMode] = useState(pending && !pending.method && Date.now() - pending.sentAt < 60 * 60 * 1000 ? 'sent' : 'login');
+  // The landing page's "Create Your Account" and "Login" buttons each open their own screen
+  const [mode, setMode] = useState(pending && !pending.method && Date.now() - pending.sentAt < 60 * 60 * 1000 ? 'sent' : authModeFromHash());
   const [notice, setNotice] = useState(initialMessage || null);
   const [prefill, setPrefill] = useState(null); // details carried from Forgot password to setup
   const [existing, setExisting] = useState(null); // email that already has an account (from setup)
@@ -37,6 +40,12 @@ export default function PortalAuth({ initialMessage }) {
   const switchTo = (next) => {
     setNotice(null);
     setMode(next);
+    // Keep the address in step, so a refresh stays on the same screen
+    if (AUTH_HASH[next]) {
+      try {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${PORTAL_HASH}/${AUTH_HASH[next]}`);
+      } catch (e) {}
+    }
   };
 
   return (
@@ -45,8 +54,8 @@ export default function PortalAuth({ initialMessage }) {
         {mode !== 'sent' && mode !== 'forgot' && mode !== 'exists' && (
           <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-cream-200/70 border border-cream-300/70">
             {[
-              { key: 'login', label: 'Sign in', Icon: KeyRound },
-              { key: 'setup', label: 'Sign up', Icon: UserPlus },
+              { key: 'setup', label: 'Create Account', Icon: UserPlus },
+              { key: 'login', label: 'Login', Icon: KeyRound },
             ].map(({ key, label, Icon }) => (
               <button
                 key={key}
@@ -149,8 +158,8 @@ function LoginForm({ onForgot, onSetup }) {
 
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
-      <Heading title="Welcome Back" subtitle="Gita for Youth Devotee Portal" />
-      <div className="flex gap-4 text-xs sm:text-sm" role="radiogroup" aria-label="Sign in with">
+      <Heading title="Login" subtitle="Already created your account? Login with your email or mobile number and password." />
+      <div className="flex gap-4 text-xs sm:text-sm" role="radiogroup" aria-label="Login with">
         {[['email', 'Email'], ['mobile', 'Mobile number']].map(([key, label]) => (
           <button
             key={key}
@@ -186,10 +195,10 @@ function LoginForm({ onForgot, onSetup }) {
       ) : (
         error && <Notice type="error">{error}</Notice>
       )}
-      {!notRegistered && <PrimaryButton type="submit" loading={loading}>Sign in</PrimaryButton>}
+      {!notRegistered && <PrimaryButton type="submit" loading={loading}>Login</PrimaryButton>}
       <div className="flex items-center justify-between gap-2">
         <LinkButton onClick={onForgot}>Forgot password?</LinkButton>
-        <LinkButton onClick={onSetup}>New here? Sign up</LinkButton>
+        <LinkButton onClick={onSetup}>New here? Create your account</LinkButton>
       </div>
     </form>
   );
@@ -284,7 +293,7 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
     <form onSubmit={check} className="space-y-4" noValidate>
       <Heading
         title="Create Your Account"
-        subtitle="Already registered? Enter your registered mobile number and email address."
+        subtitle="First time here? Enter the mobile number and email you registered with, then create your password."
       />
       <Field id="setup-mobile" label="Registered mobile number">
         <MobileInput
@@ -312,11 +321,11 @@ function SetupForm({ onLogin, onForgot, onAccountExists, initial }) {
       )}
       {!alreadySetUp && (
         <div className="text-center">
-          <LinkButton onClick={onLogin}>Already have an account? Log in</LinkButton>
+          <LinkButton onClick={onLogin}>Already created your account? Login</LinkButton>
         </div>
       )}
     </form>
-    {/* Outside the form: its own "Find my email" submit must not also submit sign up */}
+    {/* Outside the form: its own "Find my email" submit must not also submit this form */}
     <FindEmailModal open={findEmailOpen} onClose={() => setFindEmailOpen(false)} />
     </>
   );
@@ -332,10 +341,10 @@ function AccountExists({ email, onReset, onLogin }) {
       </h3>
       <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
         An account already exists for {email}, perhaps from an earlier setup. Kindly set a new password using the link we
-        email you, then sign in. Your registration will be linked automatically.
+        email you, then login. Your registration will be linked automatically.
       </p>
       <PrimaryButton type="button" onClick={onReset}>Email me a link to set my password</PrimaryButton>
-      <div className="text-center"><LinkButton onClick={onLogin}>I remember my password. Sign in</LinkButton></div>
+      <div className="text-center"><LinkButton onClick={onLogin}>I remember my password. Login</LinkButton></div>
     </div>
   );
 }
@@ -389,7 +398,7 @@ function CheckEmail({ onStartOver, onLogin }) {
         <LinkButton onClick={resend} disabled={sending || cooldown > 0}>
           {sending ? 'Sending…' : cooldown > 0 ? `Resend email in ${cooldown}s` : 'Resend verification email'}
         </LinkButton>
-        <LinkButton onClick={() => onLogin(null)}>Already verified on another device? Sign in</LinkButton>
+        <LinkButton onClick={() => onLogin(null)}>Already verified on another device? Login</LinkButton>
         <LinkButton onClick={onStartOver} className="text-temple-500 hover:text-temple-700">Use different details</LinkButton>
       </div>
     </div>
@@ -439,13 +448,13 @@ function ForgotPassword({ onBack, onSetup, initialEmail = '', accountExists = fa
         </>
       )}
       <div className="text-center">
-        <LinkButton onClick={onBack}>Back to sign in</LinkButton>
+        <LinkButton onClick={onBack}>Back to login</LinkButton>
       </div>
     </form>
   );
 }
 
-/** Shown on Forgot password when the student has never signed up. */
+/** Shown on Forgot password when the student has not created their account yet. */
 function SetupNeeded({ onSetup }) {
   return (
     <div className="rounded-2xl border border-gold-200 bg-gold-50 p-4 sm:p-5 space-y-4">
@@ -455,13 +464,13 @@ function SetupNeeded({ onSetup }) {
           <span className="block">Dear Devotee,</span>
         </h3>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          You are registered with us, but you have not signed up for the portal yet, so there is no password to reset. Kindly sign up first.
+          You are registered with us, but you have not created your account yet, so there is no password to reset. Kindly create your account first.
         </p>
         <p className="pt-2 text-xs sm:text-sm font-medium text-temple-800">Kindly follow these simple steps:</p>
       </div>
       <ol className="space-y-2 text-xs sm:text-sm text-temple-700">
         {[
-          'Click "Complete sign up" below.',
+          'Click "Create your account" below.',
           'Enter your registered mobile number and email address.',
           'Create your password. You will go straight to your dashboard.',
         ].map((step, i) => (
@@ -471,13 +480,13 @@ function SetupNeeded({ onSetup }) {
           </li>
         ))}
       </ol>
-      <p className="text-xs sm:text-sm text-temple-600">After this, you can sign in anytime with your email or mobile number. Thank you for your patience.</p>
-      <PrimaryButton type="button" onClick={onSetup}>Complete sign up</PrimaryButton>
+      <p className="text-xs sm:text-sm text-temple-600">After this, you can login anytime with your email or mobile number. Thank you for your patience.</p>
+      <PrimaryButton type="button" onClick={onSetup}>Create your account</PrimaryButton>
     </div>
   );
 }
 
-/** Shown on First-time setup when this mobile + email has already completed setup. */
+/** Shown on Create Your Account when this mobile + email already has an account. */
 function AlreadySetUp({ onLogin, onForgot }) {
   return (
     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5 space-y-4">
@@ -487,10 +496,10 @@ function AlreadySetUp({ onLogin, onForgot }) {
           <span className="block">Dear Devotee,</span>
         </h3>
         <p className="text-xs sm:text-sm text-temple-600 leading-relaxed">
-          Your account setup is already complete. Kindly sign in with your email or mobile number and the password you created.
+          Your account is already created. Kindly login with your email or mobile number and the password you created.
         </p>
       </div>
-      <PrimaryButton type="button" onClick={onLogin}>Go to sign in</PrimaryButton>
+      <PrimaryButton type="button" onClick={onLogin}>Go to login</PrimaryButton>
       <p className="text-xs sm:text-sm text-temple-600 text-center">
         Forgot your password?{' '}
         <LinkButton onClick={onForgot}>Reset it here</LinkButton>

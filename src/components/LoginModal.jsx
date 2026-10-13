@@ -269,7 +269,7 @@ export default function LoginModal({
         {/* Modal Header */}
         <div className="space-y-1 mb-5 text-center sm:text-left">
           <h3 className="text-2xl font-bold tracking-tight text-temple-900">
-            Sign In
+            Login
           </h3>
           <p className="text-xs sm:text-sm text-temple-600 font-normal">
             Access your Gita for Youth participant or coordinator account.
@@ -509,7 +509,7 @@ export default function LoginModal({
               ) : (
                 <>
                   <LogIn className="w-4 h-4" />
-                  <span>Sign In</span>
+                  <span>Login</span>
                 </>
               )}
             </button>

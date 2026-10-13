@@ -77,7 +77,8 @@ import {
 import { subscribeToHelpRequests } from '../../helpRequests';
 import * as XLSX from 'xlsx';
 import { 
-  fetchAllRegistrations, 
+  fetchAllRegistrations,
+  subscribeToRegistrations,
   updateParticipant, 
   deleteParticipant, 
   fetchProgramSettings,
@@ -188,16 +189,9 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     }
   }, [isSuperAdmin, activeTab]);
 
-  // Registrations state
-  const [registrations, setRegistrations] = useState(() => {
-    try {
-      const cached = localStorage.getItem('gita_amrita_cached_admin_regs');
-      if (cached) return JSON.parse(cached);
-      const local = localStorage.getItem('gita_amrita_registrations');
-      if (local) return JSON.parse(local);
-    } catch (e) {}
-    return [];
-  });
+  // Registrations state: always the latest list from the database, never an old browser copy
+  const [registrations, setRegistrations] = useState([]);
+  const [regsLoaded, setRegsLoaded] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -428,6 +422,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
       if (regs) {
         setRegistrations(regs);
+        setRegsLoaded(true);
         try {
           localStorage.setItem('gita_amrita_cached_admin_regs', JSON.stringify(regs));
         } catch (e) {}
@@ -461,6 +456,27 @@ export default function AdminDashboard({ adminUser, onLogout }) {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Keep participants up to date while the dashboard is open (new, edited and deleted
+  // registrations appear without a reload), and re-check settings when the tab is shown again.
+  useEffect(() => {
+    const unsub = subscribeToRegistrations((regs) => {
+      setRegistrations(regs);
+      setRegsLoaded(true);
+      try {
+        localStorage.setItem('gita_amrita_cached_admin_regs', JSON.stringify(regs));
+      } catch (e) {}
+    });
+    const onShow = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchAdminControls().then((c) => setCanDeleteRegs(c.registrationDelete)).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      unsub();
+      document.removeEventListener('visibilitychange', onShow);
+    };
   }, []);
 
   // Save Column settings to localStorage
@@ -1479,7 +1495,14 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-cream-200/80">
-                    {paginatedRegistrations.length === 0 ? (
+                    {!regsLoaded && paginatedRegistrations.length === 0 ? (
+                      <tr>
+                        <td colSpan={19 + trackedQuizzes.length} className="py-12 text-center text-temple-500">
+                          <RefreshCw className="w-6 h-6 mx-auto text-saffron-500 mb-2 animate-spin" />
+                          <p className="font-semibold text-sm">Loading the latest registrations…</p>
+                        </td>
+                      </tr>
+                    ) : paginatedRegistrations.length === 0 ? (
                       <tr>
                         <td colSpan={19 + trackedQuizzes.length} className="py-12 text-center text-temple-500">
                           <Users className="w-8 h-8 mx-auto text-temple-300 mb-2" />
@@ -2397,7 +2420,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
                             Change Coordinator Password
                           </h3>
                           <p className="text-xs text-temple-500">
-                            Update your account password for secure portal sign in.
+                            Update the password you use to login to this dashboard.
                           </p>
                         </div>
 

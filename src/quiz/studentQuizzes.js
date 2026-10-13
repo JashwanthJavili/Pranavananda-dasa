@@ -6,7 +6,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
-  progressId, attemptId, scoreAnswers, countedAttempt, availability, toDate, cleanAnswers,
+  progressId, attemptId, scoreAnswers, countedAttempt, availability, toDate, cleanAnswers, isAnswered,
 } from './quizModel';
 
 const sortQuizzes = (list) =>
@@ -113,6 +113,20 @@ export function loadAnswerDraft(quizId, registrationId, n) {
   } catch (e) {
     return {};
   }
+}
+
+/**
+ * An attempt started on this device but not submitted yet: { attempt, answered, total },
+ * or null. Used to offer "Resume" (straight back to the questions) instead of "Start".
+ */
+export function savedDraft(quiz, registrationId, progress) {
+  if (!quiz || !registrationId) return null;
+  const n = (progress?.attempts || 0) + 1;
+  const answers = loadAnswerDraft(quiz.id, registrationId, n);
+  const questions = quiz.questions || [];
+  const answered = questions.filter((q) => isAnswered(answers[q.id])).length;
+  if (!answered) return null;
+  return { attempt: n, answered, total: questions.length };
 }
 
 export function saveAnswerDraft(quizId, registrationId, n, answers) {

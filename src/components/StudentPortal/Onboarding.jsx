@@ -90,7 +90,7 @@ export function CreatePassword({ email, onSubmit, onCancel, error, loading }) {
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
             <ShieldCheck className="w-7 h-7" />
           </div>
-          <Heading title="Registration found" subtitle={`Create a password for ${email}. Next time, sign in with your email or mobile number and this password.`} />
+          <Heading title="Registration found" subtitle={`Create a password for ${email}. Next time, login with your email or mobile number and this password.`} />
           <Field id="new-password" label="Create password" hint="At least 8 characters, with letters and numbers.">
             <PasswordInput id="new-password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter a new password" />
           </Field>

@@ -48,7 +48,7 @@ export default function NotRegistered({ what = 'both', onNavigate, helpPrefill }
           className="!text-xs"
           onClick={() => {
             onNavigate?.();
-            openHelp({ category: 'Problem with sign up', ...helpPrefill });
+            openHelp({ category: 'Problem creating my account', ...helpPrefill });
           }}
         >
           Need Help

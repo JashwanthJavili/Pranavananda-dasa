@@ -252,7 +252,7 @@ export default function ProfileEditModal({ registration, helpRequest, registrati
               {contactChanged && portal === 'not_linked' && (
                 <p className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-xs text-emerald-800">
                   <Info className="w-4 h-4 shrink-0" />
-                  This participant has not set up their portal login yet, so they can do First-time setup with the new details.
+                  This participant has not created their account yet, so they can use Create Account with the new details.
                 </p>
               )}
               {duplicates.map((d) => (

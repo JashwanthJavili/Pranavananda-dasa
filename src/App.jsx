@@ -4,7 +4,7 @@ import Hero from './components/Hero';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
 import { Logo } from './components/BrandLogo';
-import { subscribeToProgramSettings } from './firebase';
+import { subscribeToProgramSettings, readAdminSession, saveAdminSession, clearAdminSession, watchAdminSession } from './firebase';
 
 import RegistrationFlow from './components/Registration/RegistrationFlow';
 const AdminDashboard = React.lazy(() => import('./components/Admin/AdminDashboard'));
@@ -61,14 +61,9 @@ export default function App() {
     }
     return false;
   });
-  const [adminUser, setAdminUser] = useState(() => {
-    try {
-      const session = localStorage.getItem('gita_amrita_admin_session');
-      return session ? JSON.parse(session) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  // Admin sessions last 5 hours from login (readAdminSession drops expired ones)
+  const [adminUser, setAdminUser] = useState(() => readAdminSession());
+  const [adminSessionNotice, setAdminSessionNotice] = useState('');
   const [studentUser, setStudentUser] = useState(() => {
     try {
       const session = localStorage.getItem('gita_amrita_current_user');
@@ -183,10 +178,8 @@ export default function App() {
   };
 
   const handleAdminLoginSuccess = (user) => {
-    setAdminUser(user);
-    try {
-      localStorage.setItem('gita_amrita_admin_session', JSON.stringify(user));
-    } catch (e) {}
+    setAdminUser(saveAdminSession(user));
+    setAdminSessionNotice('');
     setCurrentView('admin');
     const isSuper = user && (user.role === 'Super Admin' || user.role === 'Super Administrator');
     const hash = (window.location.hash || '').toLowerCase();
@@ -196,15 +189,50 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAdminLogout = () => {
+  const endAdminSession = () => {
     setAdminUser(null);
     // Quiz access ends with the admin session
     import('./quiz/quizAdmin').then((m) => m.quizManagerSignOut()).catch(() => {});
-    try {
-      localStorage.removeItem('gita_amrita_admin_session');
-    } catch (e) {}
+    clearAdminSession();
+  };
+
+  const handleAdminLogout = () => {
+    endAdminSession();
     goToHome();
   };
+
+  // End the admin session 5 hours after login, or as soon as the account is removed or its
+  // password is changed (on another device too), and send them back to the login page.
+  const adminEmail = adminUser?.email || '';
+  useEffect(() => {
+    if (!adminEmail) return undefined;
+    let ended = false;
+    const forceLogout = (reason) => {
+      if (ended) return;
+      ended = true;
+      endAdminSession();
+      setAdminSessionNotice(
+        reason === 'password' ? 'Your password was changed. Please log in again with the new password.'
+          : reason === 'removed' ? 'Your admin access was removed. Please contact a Super Admin.'
+            : 'Your session ended 5 hours after login. Please log in again.'
+      );
+      setCurrentView('admin-login');
+      try { window.history.replaceState(null, '', '#admin-login'); } catch (e) {}
+    };
+    // Checked every 30 seconds (not one long timer) so it still ends on time after the
+    // computer sleeps; also checked as soon as the tab is shown again.
+    const checkExpiry = () => { if (!readAdminSession()) forceLogout('expired'); };
+    checkExpiry();
+    const timer = setInterval(checkExpiry, 30 * 1000);
+    document.addEventListener('visibilitychange', checkExpiry);
+    const unwatch = watchAdminSession(adminEmail, forceLogout);
+    return () => {
+      ended = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', checkExpiry);
+      unwatch();
+    };
+  }, [adminEmail]);
 
   const handleStudentLoginSuccess = (user) => {
     setStudentUser(user);
@@ -335,6 +363,7 @@ export default function App() {
         </div>
       }>
         <AdminLogin 
+          notice={adminSessionNotice}
           onLoginSuccess={handleAdminLoginSuccess} 
           onBackToHome={goToHome} 
         />
@@ -381,7 +410,7 @@ export default function App() {
         <div className="min-h-screen bg-cream-100 flex flex-col items-center justify-center p-4 font-poppins text-temple-900">
           <div className="w-full max-w-sm bg-cream-50 rounded-3xl p-6 text-center space-y-4 border border-cream-300 shadow-soft animate-fadeIn">
             <h3 className="text-lg font-bold">Participant Portal</h3>
-            <p className="text-xs text-temple-600">Please sign in to access your registration pass.</p>
+            <p className="text-xs text-temple-600">Please login to access your registration pass.</p>
             <div className="flex gap-2 pt-2">
               <button
                 onClick={goToHome}
@@ -393,7 +422,7 @@ export default function App() {
                 onClick={openLogin}
                 className="w-1/2 py-2.5 px-3 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold shadow-soft cursor-pointer"
               >
-                Sign In
+                Login
               </button>
             </div>
           </div>

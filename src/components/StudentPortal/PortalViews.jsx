@@ -5,6 +5,7 @@ import {
   HelpCircle, Heart, Target, Compass,
 } from 'lucide-react';
 import { formatWhen } from '../../quiz/quizModel';
+import { savedDraft } from '../../quiz/studentQuizzes';
 import { useOpenHelp } from './helpContext';
 
 export const EDIT_DETAILS_CATEGORY = 'Edit my profile details';
@@ -58,7 +59,7 @@ function ProgressRing({ done, total }) {
 
 /** Dashboard quiz card: a short look at the open quizzes; the Quizzes section has everything else. */
 const SHOW_OPEN = 2;
-function QuizCard({ summary, onOpen, onStartQuiz }) {
+function QuizCard({ summary, registrationId, onOpen, onStartQuiz }) {
   if (!summary) return <div className="h-36 rounded-3xl bg-cream-200/70 animate-pulse" />;
   const { actionable, upcoming, completed, total } = summary;
   const when = (v) => formatWhen(v).replace(/,? \d{4}/, ''); // year is obvious here
@@ -81,7 +82,10 @@ function QuizCard({ summary, onOpen, onStartQuiz }) {
 
       {/* Open quizzes (short) */}
       <div className="p-3 sm:p-4 space-y-2">
-        {shown.length > 0 ? shown.map((q) => (
+        {shown.length > 0 ? shown.map((q) => {
+          // Started on this device but not submitted: Resume goes straight back to the questions
+          const draft = savedDraft(q, registrationId, summary.progress?.[q.id]);
+          return (
           <div
             key={q.id}
             className="relative flex items-center gap-3 rounded-2xl border border-cream-200 bg-cream-50/60 pl-4 pr-3 py-3 overflow-hidden"
@@ -92,7 +96,9 @@ function QuizCard({ summary, onOpen, onStartQuiz }) {
                 {q.weekNumber ? `Week ${q.weekNumber}` : 'Quiz'}
               </p>
               <p className="text-sm sm:text-base font-semibold text-temple-900 leading-snug truncate">{q.title}</p>
-              {q.closesAt && (
+              {draft ? (
+                <p className="text-[11px] font-medium text-saffron-700">In progress: {draft.answered} of {draft.total} answered</p>
+              ) : q.closesAt && (
                 <p className="flex items-center gap-1 text-[11px] text-temple-500">
                   <Clock className="w-3 h-3 shrink-0" /> Closes {when(q.closesAt)}
                 </p>
@@ -100,13 +106,14 @@ function QuizCard({ summary, onOpen, onStartQuiz }) {
             </div>
             <button
               type="button"
-              onClick={() => onStartQuiz(q.id)}
+              onClick={() => onStartQuiz(q.id, draft ? 'play' : undefined)}
               className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-saffron-500 hover:bg-saffron-600 text-white text-xs font-semibold shadow-soft transition cursor-pointer"
             >
-              Start <ArrowRight className="w-3.5 h-3.5" />
+              {draft ? 'Resume' : 'Start'} <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-        )) : (
+          );
+        }) : (
           <div className="flex items-center gap-3 rounded-2xl border border-cream-200 bg-cream-50/60 px-3.5 py-3">
             <CheckCircle2 className={`w-5 h-5 shrink-0 ${total ? 'text-emerald-600' : 'text-temple-300'}`} />
             <p className="text-xs sm:text-sm text-temple-700">
@@ -152,7 +159,7 @@ export function DashboardView({ profile, quizSummary, onOpen, onStartQuiz }) {
         </div>
       </section>
 
-      <QuizCard summary={quizSummary} onOpen={onOpen} onStartQuiz={onStartQuiz} />
+      <QuizCard summary={quizSummary} registrationId={profile?.registrationId} onOpen={onOpen} onStartQuiz={onStartQuiz} />
 
       <EditDetailsNote />
     </div>

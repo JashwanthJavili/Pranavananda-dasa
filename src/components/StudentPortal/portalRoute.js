@@ -25,6 +25,15 @@ export function parsePortalHash(hash = window.location.hash) {
   return { tab, quizId: parts[2], step };
 }
 
+// Signed-out links straight to one screen: #student-portal/login or #student-portal/create-account
+export const AUTH_HASH = { login: 'login', setup: 'create-account' };
+
+/** Which signed-out screen the address asks for: 'setup' (Create Your Account) or 'login'. */
+export function authModeFromHash(hash = window.location.hash) {
+  const part = String(hash || '').replace(/^#/, '').split('/')[1] || '';
+  return part.toLowerCase() === AUTH_HASH.setup ? 'setup' : 'login';
+}
+
 /** The hash for a route, e.g. portalHash('quizzes', 'abc', 'results'). */
 export function portalHash(tab = 'dashboard', quizId = null, step = null) {
   if (tab === 'dashboard' && !quizId) return `#${PORTAL_HASH}`;

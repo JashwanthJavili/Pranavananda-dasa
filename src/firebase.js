@@ -3,6 +3,7 @@ import {
   getFirestore, 
   doc, 
   getDoc,
+  getDocFromServer,
   setDoc, 
   updateDoc,
   deleteDoc, 
@@ -463,6 +464,88 @@ export async function studentLogin(identifier, password) {
  */
 export const DEFAULT_ADMIN_USERS = [];
 
+/**
+ * Admin login session: it ends 5 hours after login, or as soon as the account is removed
+ * or its password changes, so a browser can never keep an admin signed in on old details.
+ */
+export const ADMIN_SESSION_KEY = 'gita_amrita_admin_session';
+const ADMIN_SESSION_MS = 5 * 60 * 60 * 1000;
+// A short piece of the stored password hash: enough to notice that the password changed.
+const passwordStamp = (hash) => String(hash || '').slice(-16);
+
+export function saveAdminSession(admin) {
+  const now = Date.now();
+  const session = { ...admin, loginAt: now, expiresAt: now + ADMIN_SESSION_MS };
+  try {
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+  } catch (e) {}
+  return session;
+}
+
+// The saved session, or null when there is none or it has expired (sessions saved before
+// the 5-hour limit have no expiry and are treated as expired).
+export function readAdminSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || 'null');
+    if (session && Number(session.expiresAt) > Date.now()) return session;
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+  } catch (e) {}
+  return null;
+}
+
+export function clearAdminSession() {
+  try {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+  } catch (e) {}
+}
+
+// After an admin changes their own password, this browser's session follows the new password.
+function setSessionPasswordStamp(email, hash) {
+  const session = readAdminSession();
+  if (!session || session.passwordStamp == null || (session.email || '').toLowerCase() !== email) return;
+  session.passwordStamp = passwordStamp(hash);
+  try {
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+  } catch (e) {}
+}
+
+/**
+ * Watches the signed-in admin's record and calls onEnd(reason) when the session must end:
+ * 'removed' (account deleted or revoked) or 'password' (password changed since this login).
+ * Google sign-ins (passwordStamp null) are not tied to the password.
+ */
+export function watchAdminSession(email, onEnd) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) {
+    onEnd('removed');
+    return () => {};
+  }
+  const docId = cleanEmail.replace(/[^a-z0-9]/g, '_');
+  try {
+    return onSnapshot(doc(db, 'BhagavadGita', 'data', 'admins', docId), (snap) => {
+      // Only the server's copy decides; the browser's cached copy may be stale
+      if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+      const data = snap.exists() ? snap.data() : null;
+      if (!data || data.isDeleted || data.status === 'Revoked') {
+        onEnd('removed');
+        return;
+      }
+      const session = readAdminSession();
+      if (!session) {
+        onEnd('expired');
+        return;
+      }
+      if (session.passwordStamp != null && passwordStamp(data.passwordHash) !== session.passwordStamp) {
+        onEnd('password');
+      }
+    }, (err) => {
+      console.warn('Admin session watch note:', err);
+    });
+  } catch (err) {
+    return () => {};
+  }
+}
+
 // Changes to admin records go through the Super Admin's signed-in quiz-access session when
 // there is one: the Firestore rules only accept changes to Super Admin records from it.
 async function adminStore() {
@@ -512,11 +595,13 @@ export async function seedDefaultAdminsIfMissing() {
  */
 export async function fetchAllAdmins() {
   const adminsMap = new Map();
+  let loadedFromFirestore = false;
 
   // 1. Fetch from Firestore
   try {
     const adminCol = collection(db, 'BhagavadGita', 'data', 'admins');
     const snapshot = await getDocs(adminCol);
+    loadedFromFirestore = true;
     if (!snapshot.empty) {
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
@@ -553,9 +638,10 @@ export async function fetchAllAdmins() {
     console.warn('Firestore fetch admins notice:', err);
   }
 
-  // 2. Merge local cached admins
+  // 2. Fall back to the local cache only when Firestore could not be read. When it was read,
+  // it is the full list: merging the cache would bring back admins deleted from the database.
   const legacyPlaceholders = ['jashwanthjavili7@gmail.com', 'admin@gitaamrita.com'];
-  try {
+  if (!loadedFromFirestore) try {
     const local = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
     local.forEach(adm => {
       const emailKey = (adm.email || adm.id || '').toLowerCase();
@@ -848,6 +934,8 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
 
   // 3. Update Password Hash in Firestore and remove plaintext password
   const newHash = await hashPassword(newPassword);
+  // Other browsers signed in as this admin are logged out; this one moves to the new password.
+  setSessionPasswordStamp(targetEmail, newHash);
   try {
     const adminRef = doc(isSuper ? await adminStore() : db, 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
@@ -857,6 +945,7 @@ export async function changeAdminPassword({ adminEmail, currentPassword, newPass
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore password update error:', err);
+    setSessionPasswordStamp(targetEmail, record?.passwordHash);
     if (undoQuiz) await undoQuiz();
     return { success: false, error: err?.code === 'permission-denied' ? SUPER_ADMIN_SESSION_ERROR : 'Could not save the new password. Please check your connection and try again.' };
   }
@@ -912,8 +1001,10 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
   // A Super Admin's quiz access signs in with their password, and only they could change it.
   // So they get a fresh quiz-access account with the new password, named in their record.
   let quizAccount = null;
+  let oldHash = '';
   try {
     const snap = await getDoc(doc(db, 'BhagavadGita', 'data', 'admins', docId));
+    oldHash = snap.exists() ? snap.data().passwordHash : '';
     if (snap.exists() && isSuperAdminUser(snap.data())) {
       const { createRenewedQuizAccount } = await import('./quiz/quizAdmin');
       quizAccount = await createRenewedQuizAccount(targetEmail, cleanPass);
@@ -923,6 +1014,8 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
     return { success: false, error: 'Could not reset the password right now. Please check your connection and try again.' };
   }
 
+  // Resetting their own password keeps this browser signed in (the session is a no-op for others)
+  setSessionPasswordStamp(targetEmail, newHash);
   try {
     const adminRef = doc(await adminStore(), 'BhagavadGita', 'data', 'admins', docId);
     await setDoc(adminRef, {
@@ -934,6 +1027,7 @@ export async function resetAdminPasswordBySuperAdmin({ adminEmail, newPassword, 
     }, { merge: true });
   } catch (err) {
     console.warn('Firestore reset password error:', err);
+    setSessionPasswordStamp(targetEmail, oldHash);
     return { success: false, error: adminWriteError(err) };
   }
 
@@ -968,21 +1062,14 @@ export async function isEmailAuthorizedAdmin(email) {
   const cleanEmail = (email || '').trim().toLowerCase();
   if (!cleanEmail) return false;
 
-  // 1. Check Firestore
+  // Only the server's record counts: the browser's cached admin list can hold deleted admins.
   try {
     const docId = cleanEmail.replace(/[^a-z0-9]/g, '_');
     const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
-    const snap = await getDoc(adminRef);
+    const snap = await getDocFromServer(adminRef);
     if (snap.exists() && !snap.data().isDeleted && snap.data().status !== 'Revoked') {
       return snap.data();
     }
-  } catch (e) {}
-
-  // 2. Check local cache
-  try {
-    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
-    const match = cached.find(a => !a.isDeleted && a.status !== 'Revoked' && (a.email || '').toLowerCase() === cleanEmail);
-    if (match) return match;
   } catch (e) {}
 
   return false;
@@ -1009,7 +1096,8 @@ export async function signInWithGoogleUnified() {
         role,
         photoURL: googleUser.photoURL || null,
         token: googleUser.uid,
-        isGoogleAuth: true
+        isGoogleAuth: true,
+        passwordStamp: null // a Google sign-in does not use the admin password
       };
       return { success: true, isAdmin: true, admin: adminSession, user: googleUser };
     }
@@ -1070,88 +1158,65 @@ export async function adminLogin(usernameOrEmail, password) {
 
 async function adminLoginCheck(usernameOrEmail, password) {
   const cleanInput = (usernameOrEmail || '').trim().toLowerCase();
-  
-  // 1. Check Firestore database admin collection
+
+  // 1. The admin record in Firestore decides. The browser's cached admin list is never used
+  //    to log in: it can hold deleted admins or old passwords.
+  let docData = null;
   try {
     const docId = cleanInput.includes('@') ? cleanInput.replace(/[^a-z0-9]/g, '_') : cleanInput;
     const adminRef = doc(db, 'BhagavadGita', 'data', 'admins', docId);
-    const snap = await getDoc(adminRef);
-    if (snap.exists()) {
-      const docData = snap.data();
-      if (!docData.isDeleted && docData.status !== 'Revoked') {
-        const isMatch = await verifyPasswordMatch(password, docData.passwordHash, docData.password);
-        if (isMatch) {
-          // If doc had plaintext password, upgrade it to passwordHash and purge plaintext
-          if (docData.password && !docData.passwordHash) {
-            try {
-              const passHash = await hashPassword(password);
-              await setDoc(adminRef, { passwordHash: passHash, password: deleteField() }, { merge: true });
-            } catch (e) {}
-          }
-
-          const role = (docData.role === 'Super Admin' || docData.role === 'Super Administrator') ? 'Super Admin' : 'Admin';
-          return {
-            success: true,
-            admin: {
-              email: docData.email,
-              username: (docData.email || cleanInput).split('@')[0],
-              name: docData.name || (role === 'Super Admin' ? 'Super Administrator' : 'Admin Coordinator'),
-              role,
-              token: 'admin-auth-session-' + Date.now()
-            }
-          };
+    const snap = await getDocFromServer(adminRef);
+    docData = snap.exists() ? snap.data() : null;
+    if (docData && !docData.isDeleted && docData.status !== 'Revoked') {
+      const isMatch = await verifyPasswordMatch(password, docData.passwordHash, docData.password);
+      if (isMatch) {
+        let storedHash = docData.passwordHash || '';
+        // If doc had plaintext password, upgrade it to passwordHash and purge plaintext
+        if (docData.password && !docData.passwordHash) {
+          try {
+            const passHash = await hashPassword(password);
+            await setDoc(adminRef, { passwordHash: passHash, password: deleteField() }, { merge: true });
+            storedHash = passHash;
+          } catch (e) {}
         }
+
+        const role = (docData.role === 'Super Admin' || docData.role === 'Super Administrator') ? 'Super Admin' : 'Admin';
+        return {
+          success: true,
+          admin: {
+            email: docData.email,
+            username: (docData.email || cleanInput).split('@')[0],
+            name: docData.name || (role === 'Super Admin' ? 'Super Administrator' : 'Admin Coordinator'),
+            role,
+            token: 'admin-auth-session-' + Date.now(),
+            passwordStamp: passwordStamp(storedHash)
+          }
+        };
       }
     }
   } catch (err) {
     console.warn('Firestore admin check note:', err);
+    return { success: false, error: 'Could not reach the server to check your login. Please check your connection and try again.' };
   }
 
-  // 2. Check local cache
-  try {
-    const cached = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || '[]');
-    for (const match of cached) {
-      if (
-        !match.isDeleted && 
-        match.status !== 'Revoked' &&
-        ((match.email || '').toLowerCase() === cleanInput || (match.email || '').split('@')[0] === cleanInput)
-      ) {
-        const isMatch = await verifyPasswordMatch(password, match.passwordHash, match.password);
-        if (isMatch) {
-          const role = (match.role === 'Super Admin' || match.role === 'Super Administrator') ? 'Super Admin' : 'Admin';
-          return {
-            success: true,
-            admin: {
-              email: match.email,
-              username: match.email.split('@')[0],
-              name: match.name || 'Coordinator',
-              role,
-              token: 'admin-auth-session-' + Date.now()
-            }
-          };
-        }
-      }
-    }
-  } catch (e) {}
-
-  // 3. Check Firebase Auth if cleanInput is email
-  if (cleanInput.includes('@')) {
+  // 2. Firebase Auth, only for an active admin record that has no password of its own
+  //    (otherwise an old Firebase Auth password could still get in after a password change).
+  const hasOwnPassword = Boolean(docData?.passwordHash || docData?.password);
+  if (cleanInput.includes('@') && docData && !hasOwnPassword && !docData.isDeleted && docData.status !== 'Revoked') {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, cleanInput, password);
-      const adminRecord = await isEmailAuthorizedAdmin(cleanInput);
-      if (adminRecord) {
-        const role = (adminRecord.role === 'Super Admin' || adminRecord.role === 'Super Administrator') ? 'Super Admin' : 'Admin';
-        return { 
-          success: true, 
-          admin: {
-            email: userCredential.user.email,
-            username: userCredential.user.email.split('@')[0],
-            name: adminRecord?.name || ('Coordinator (' + userCredential.user.email + ')'),
-            role,
-            token: userCredential.user.uid
-          }
-        };
-      }
+      const role = (docData.role === 'Super Admin' || docData.role === 'Super Administrator') ? 'Super Admin' : 'Admin';
+      return {
+        success: true,
+        admin: {
+          email: userCredential.user.email,
+          username: userCredential.user.email.split('@')[0],
+          name: docData.name || ('Coordinator (' + userCredential.user.email + ')'),
+          role,
+          token: userCredential.user.uid,
+          passwordStamp: passwordStamp('')
+        }
+      };
     } catch (authErr) {
       // Silent catch
     }
@@ -1166,6 +1231,47 @@ async function adminLoginCheck(usernameOrEmail, password) {
 /**
  * Fetch all registrations from Firestore and local cache
  */
+// One registration as the admin dashboard shows it (null for a deleted one)
+function registrationFromDoc(docSnap) {
+  const data = docSnap.data();
+  if (data.isDeleted) return null;
+  const id = docSnap.id || data.registrationId;
+  return {
+    id,
+    ...data,
+    registrationId: data.registrationId || id,
+    currentResidence: data.currentResidence || data.city || '',
+    fullAddress: data.fullAddress || data.address || data.area || '',
+    pincode: data.pincode || '',
+    createdAtFormatted: data.createdAt?.toDate
+      ? data.createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : (data.date || 'Recent')
+  };
+}
+
+/**
+ * Live list of registrations for the admin dashboard: new, changed and deleted registrations
+ * show up without a reload. Only the server's copy is passed on, never the browser's cache.
+ */
+export function subscribeToRegistrations(callback) {
+  try {
+    const regRef = collection(db, 'BhagavadGita', 'data', 'registrations');
+    return onSnapshot(regRef, (snapshot) => {
+      if (snapshot.metadata.fromCache) return;
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        const reg = registrationFromDoc(docSnap);
+        if (reg) list.push(reg);
+      });
+      callback(list);
+    }, (err) => {
+      console.warn('Live registrations note:', err);
+    });
+  } catch (err) {
+    return () => {};
+  }
+}
+
 export async function fetchAllRegistrations() {
   const registrationsMap = new Map();
 
@@ -1176,20 +1282,8 @@ export async function fetchAllRegistrations() {
     const snapshot = await getDocs(regRef);
     fromDatabase = true;
     snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      if (data.isDeleted) return;
-      const id = docSnap.id || data.registrationId;
-      registrationsMap.set(id, {
-        id,
-        ...data,
-        registrationId: data.registrationId || id,
-        currentResidence: data.currentResidence || data.city || '',
-        fullAddress: data.fullAddress || data.address || data.area || '',
-        pincode: data.pincode || '',
-        createdAtFormatted: data.createdAt?.toDate 
-          ? data.createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-          : (data.date || 'Recent')
-      });
+      const reg = registrationFromDoc(docSnap);
+      if (reg) registrationsMap.set(reg.id, reg);
     });
   } catch (err) {
     console.warn('Firestore fetch registrations warning (using local):', err);

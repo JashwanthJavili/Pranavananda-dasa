@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, LogIn } from 'lucide-react';
+import { ArrowRight, LogIn, UserPlus } from 'lucide-react';
 
 const PETALS = Array.from({ length: 16 }, (_, i) => i * 22.5);
 const SPARKLES = [
@@ -28,7 +28,9 @@ function Mandala({ className }) {
 }
 
 export default function Hero({ onOpenRegister }) {
-  const openPortal = () => { window.location.hash = 'student-portal'; };
+  // Create Your Account: first time, set a password. Login: already has a password.
+  const openCreateAccount = () => { window.location.hash = 'student-portal/create-account'; };
+  const openLogin = () => { window.location.hash = 'student-portal/login'; };
 
   return (
     <section className="relative overflow-hidden w-full flex items-center py-4 sm:py-12 lg:py-16">
@@ -90,24 +92,37 @@ export default function Hero({ onOpenRegister }) {
               Discover the purpose of life through the timeless wisdom of the Bhagavad Gita and the teachings of Lord Krishna.
             </p>
 
-            <div className="lp-rise pt-1 sm:pt-2 flex flex-col items-center lg:items-start w-full sm:w-72 mx-auto lg:mx-0" style={{ animationDelay: '0.7s' }}>
+            <div className="lp-rise pt-1 sm:pt-2 flex flex-col items-center lg:items-start w-full sm:w-80 mx-auto lg:mx-0" style={{ animationDelay: '0.7s' }}>
               <button
                 type="button"
                 onClick={onOpenRegister}
                 className="w-full inline-flex items-center justify-center gap-2.5 px-8 py-3 sm:py-3.5 text-base font-semibold text-white bg-gradient-to-r from-saffron-500 to-saffron-600 hover:from-saffron-600 hover:to-saffron-700 rounded-2xl shadow-soft-md hover:shadow-soft-lg hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 cursor-pointer"
               >
-                <span>Register Now</span>
+                <span>New Registration</span>
                 <ArrowRight className="w-4 h-4 animate-cute-arrow" />
               </button>
-              <p className="w-full text-center text-sm text-temple-600 mt-3 mb-1.5 sm:mt-5 sm:mb-2">Already registered?</p>
-              <button
-                type="button"
-                onClick={openPortal}
-                className="w-full inline-flex items-center justify-center gap-2 px-7 py-3 sm:py-3.5 text-base font-semibold text-temple-800 bg-white/70 backdrop-blur-sm border border-gold-300 hover:border-saffron-300 hover:bg-white rounded-2xl shadow-soft hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 cursor-pointer"
-              >
-                <LogIn className="w-4 h-4 text-saffron-600" />
-                <span>Sign in / Sign up</span>
-              </button>
+              {/* Each card: the button, then what it is for */}
+              <div className="w-full grid grid-cols-2 gap-2.5 sm:gap-3 mt-3 sm:mt-5">
+                {[
+                  { text: 'Create an account and set your password to get started.', label: 'Create Account', Icon: UserPlus, onClick: openCreateAccount },
+                  { text: 'Log in with your password.', label: 'Login', Icon: LogIn, onClick: openLogin },
+                ].map(({ text, label, Icon, onClick }) => (
+                  <div
+                    key={label}
+                    className="flex flex-col items-center text-center gap-2 p-2.5 sm:p-3 rounded-2xl bg-white/50 backdrop-blur-sm border border-gold-200/80 shadow-soft"
+                  >
+                    <button
+                      type="button"
+                      onClick={onClick}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-2.5 sm:py-3 text-sm sm:text-[15px] font-semibold text-temple-800 bg-white border border-gold-300 hover:border-saffron-400 hover:text-saffron-700 rounded-xl shadow-soft hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 cursor-pointer"
+                    >
+                      <Icon className="w-4 h-4 text-saffron-600 shrink-0" />
+                      <span className="whitespace-nowrap">{label}</span>
+                    </button>
+                    <p className="text-[11px] sm:text-xs text-temple-600 leading-snug">{text}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
